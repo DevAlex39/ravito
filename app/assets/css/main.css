@@ -1,0 +1,189 @@
+/* ============================================================
+   Ravito · Plan de course
+   Thème clair « carnet de course » : papier, vert forêt, orange balise
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #f5f2ea;
+  --panel: #ffffff;
+  --panel-2: #faf8f3;
+  --border: #e4ded1;
+  --border-strong: #cfc6b3;
+
+  --text: #1d2721;
+  --text-soft: #56625a;
+  --text-dim: #8a938c;
+
+  --forest: #24503c;
+  --forest-soft: #e3ece6;
+  --accent: #e2672b;
+  --accent-hover: #c9561f;
+
+  /* Tronçons */
+  --up: #d9572b;
+  --down: #2b78bd;
+  --flat: #4f9a5c;
+
+  /* Marges barrières */
+  --ok: #2e9152;
+  --ok-bg: #e2f2e7;
+  --warn: #b97a06;
+  --warn-bg: #fcf0d4;
+  --bad: #c9302c;
+  --bad-bg: #fbe3e1;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(40, 35, 20, 0.05), 0 6px 20px rgba(40, 35, 20, 0.06);
+  --header-h: 60px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+  font-size: 15px;
+}
+
+h1, h2, h3 {
+  font-family: 'Barlow Condensed', 'Inter', sans-serif;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+
+h2 { font-size: 1.5rem; margin-bottom: 14px; }
+h3 { font-size: 1.15rem; }
+
+a { color: var(--forest); }
+
+.container { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.card-head h2 { margin-bottom: 0; }
+
+.hint { color: var(--text-soft); font-size: 0.85rem; }
+.muted { color: var(--text-dim); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- Boutons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--accent-hover); }
+.btn.ghost { background: transparent; color: var(--text); border-color: var(--border-strong); }
+.btn.ghost:hover { background: var(--panel-2); border-color: var(--text-dim); }
+.btn.small { padding: 4px 10px; font-size: 0.82rem; }
+.btn.icon { padding: 4px 8px; background: transparent; color: var(--text-dim); border: none; }
+.btn.icon:hover { color: var(--bad); background: var(--bad-bg); }
+
+/* ---------- Formulaires ---------- */
+
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field > span { font-size: 0.8rem; font-weight: 600; color: var(--text-soft); }
+
+input[type='text'], input[type='number'], input[type='time'], select {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text);
+  min-width: 0;
+}
+input:focus, select:focus { outline: 2px solid color-mix(in srgb, var(--forest) 35%, transparent); border-color: var(--forest); }
+input.invalid { border-color: var(--bad); background: var(--bad-bg); }
+input[type='range'] { accent-color: var(--forest); width: 100%; }
+
+/* ---------- Tableaux ---------- */
+
+.table-wrap { overflow-x: auto; margin: 0 -4px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+td.r, th.r { text-align: right; }
+
+/* ---------- Badges ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.badge.montee { background: color-mix(in srgb, var(--up) 14%, #fff); color: var(--up); }
+.badge.descente { background: color-mix(in srgb, var(--down) 14%, #fff); color: var(--down); }
+.badge.plat { background: color-mix(in srgb, var(--flat) 14%, #fff); color: var(--flat); }
+
+.margin { font-weight: 600; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.margin.ok { background: var(--ok-bg); color: var(--ok); }
+.margin.warn { background: var(--warn-bg); color: var(--warn); }
+.margin.bad { background: var(--bad-bg); color: var(--bad); }
+
+/* ---------- Impression ---------- */
+
+.print-only { display: none; }
+
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body { background: #fff; font-size: 10pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .screen-only { display: none !important; }
+  body[data-print='fiche'] .print-fiche { display: block; }
+  body[data-print='bracelet'] .print-bracelet { display: block; }
+}
+
+@media (max-width: 640px) {
+  .container { padding: 0 16px; }
+  .card { padding: 16px; }
+}
