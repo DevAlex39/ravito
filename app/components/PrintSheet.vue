@@ -7,6 +7,7 @@
           {{ formatKm(profile.distance) }} km · {{ Math.round(profile.gain) }} m D+ · {{ Math.round(profile.loss) }} m D−
           <template v-if="totalRun != null"> · départ {{ formatClock(startSec) }} · arrivée prévue {{ formatClock(finish!.arrival) }}</template>
         </p>
+        <p v-if="settings.objectiveOn" class="objective">Plan objectif : {{ formatDuration(finish!.arrival - startSec) }}</p>
       </div>
       <span class="brand">Ravito</span>
     </header>
@@ -46,7 +47,7 @@
         <h2>Tronçons</h2>
         <table class="small">
           <thead>
-            <tr><th>Km</th><th>Type</th><th class="r">D+/D−</th><th class="r">Temps</th><th class="r">Fin vers</th></tr>
+            <tr><th>Km</th><th>Type</th><th class="r">D+/D−</th><th class="r">Temps</th><th class="r">Allure</th><th class="r">Fin vers</th></tr>
           </thead>
           <tbody>
             <tr v-for="s in segmentRows" :key="s.start">
@@ -54,6 +55,7 @@
               <td><span class="dot" :class="s.type" />{{ SEG_LABELS[s.type] }}</td>
               <td class="r">+{{ Math.round(s.gain) }}/−{{ Math.round(s.loss) }}</td>
               <td class="r">{{ formatDuration(s.time) }}</td>
+              <td class="r">{{ formatPace(s.pace) }}</td>
               <td class="r">{{ formatClock(s.endClock) }}</td>
             </tr>
           </tbody>
@@ -93,6 +95,7 @@ const finish = computed(() => timeline.value[timeline.value.length - 1])
 header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #24503c; padding-bottom: 6px; margin-bottom: 10px; }
 h1 { font-size: 20pt; }
 h2 { font-size: 12pt; margin: 12px 0 4px; color: #24503c; }
+.objective { font-weight: 600; color: #e2672b; }
 .brand { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14pt; color: #e2672b; }
 table { width: 100%; border-collapse: collapse; font-size: 9pt; }
 th { font-size: 7.5pt; padding: 3px 5px; color: #555; border-bottom: 1px solid #999; }

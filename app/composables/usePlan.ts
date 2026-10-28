@@ -29,6 +29,9 @@ export interface Settings {
   gelCarbs: number
   flask: number
   finishBarrier: string
+  objectiveOn: boolean
+  /** Temps visé à l'arrivée, arrêts compris "h:mm[:ss]" */
+  objectiveTime: string
 }
 
 export interface TimelinePoint {
@@ -62,6 +65,8 @@ export interface SegmentRow extends Segment {
   time: number
   pace: number
   endClock: number
+  /** Allure imposée à la main (mode objectif) */
+  fixed: boolean
 }
 
 const STORAGE_KEY = 'ravito:v1'
@@ -82,6 +87,8 @@ function defaultSettings(): Settings {
     gelCarbs: 25,
     flask: 1000,
     finishBarrier: '',
+    objectiveOn: false,
+    objectiveTime: '',
   }
 }
 
@@ -97,6 +104,9 @@ const calibName = ref('')
 const calibTrack = shallowRef<Track | null>(null)
 const hoverD = ref<number | null>(null)
 const error = ref('')
+/** Allures imposées par tronçon (s/km), clé = bornes du tronçon */
+const paceOverrides = ref<Record<string, number>>({})
+const objectiveScale = ref(1)
 
 const profile = computed(() => (track.value ? buildProfile(track.value) : null))
 const calibProfile = computed(() => (calibTrack.value ? buildProfile(calibTrack.value) : null))
@@ -124,8 +134,8 @@ const reference = computed<Reference | null>(() => {
   return null
 })
 
-/** Temps de course total prévu (hors arrêts), en secondes */
-const totalRun = computed(() => {
+/** Temps de course prédit d'après le niveau (hors arrêts), en secondes */
+const predictedRun = computed(() => {
   const e = effort.value
   if (!reference.value || !e.length) return null
   return predictTime(e[e.length - 1]!, reference.value, settings.endurance)
@@ -134,11 +144,69 @@ const totalRun = computed(() => {
 /** Allure équivalente sur 10 km plat, pour se situer */
 const flatPace10k = computed(() => (reference.value ? predictTime(10000, reference.value, settings.endurance) / 10 : null))
 
+// --- Mode objectif ---
+// Le temps visé (arrêts compris) est réparti sur les tronçons au prorata de l'effort.
+// Une allure saisie sur un tronçon le « fixe » et fait bouger le total ;
+// `objectiveScale` étire les tronçons non fixés pour revenir à l'objectif.
+
+const segKey = (s: Segment) => `${Math.round(s.start)}-${Math.round(s.end)}`
+
+/** Effort (mètres équivalents plat) de chaque tronçon */
+const segEffort = computed(() => {
+  const p = profile.value
+  const e = effort.value
+  if (!p || !e.length) return []
+  return segments.value.map(s => effortAt(p, e, s.end) - effortAt(p, e, s.start))
+})
+
+const totalStops = computed(() => sortedRavitos.value.reduce((acc, r) => acc + r.stop * 60, 0))
+
+/** Temps de course visé (objectif moins les arrêts prévus) */
+const objectiveRun = computed(() => {
+  const t = parseTime(settings.objectiveTime)
+  if (!settings.objectiveOn || !t) return null
+  const run = t - totalStops.value
+  return run > 0 ? run : null
+})
+
+interface PlanSeg { time: number, fixed: boolean, base: number }
+
+/** Temps de chaque tronçon en mode objectif (null si le mode est inactif) */
+const planSegs = computed<PlanSeg[] | null>(() => {
+  const run = objectiveRun.value
+  const eq = segEffort.value
+  const total = eq.reduce((a, b) => a + b, 0)
+  if (run == null || total <= 0) return null
+  return segments.value.map((s, i) => {
+    const base = run * eq[i]! / total
+    const pace = paceOverrides.value[segKey(s)]
+    return pace != null
+      ? { time: pace * s.length / 1000, fixed: true, base }
+      : { time: base * objectiveScale.value, fixed: false, base }
+  })
+})
+
+/** Temps de course total du plan actif (objectif s'il est défini, sinon prédiction) */
+const totalRun = computed(() => (planSegs.value ? planSegs.value.reduce((a, s) => a + s.time, 0) : predictedRun.value))
+
 function runTimeAt(d: number): number {
   const p = profile.value
   const e = effort.value
   if (!p || totalRun.value == null || !e.length) return 0
-  return totalRun.value * effortAt(p, e, d) / e[e.length - 1]!
+  const plan = planSegs.value
+  if (!plan) return totalRun.value * effortAt(p, e, d) / e[e.length - 1]!
+  // Objectif : temps cumulé des tronçons précédents + part d'effort déjà faite dans le tronçon courant
+  let acc = 0
+  for (let i = 0; i < segments.value.length; i++) {
+    const s = segments.value[i]!
+    if (d <= s.end || i === segments.value.length - 1) {
+      const eq = segEffort.value[i]!
+      const done = effortAt(p, e, Math.min(d, s.end)) - effortAt(p, e, s.start)
+      return acc + (eq > 0 ? plan[i]!.time * done / eq : 0)
+    }
+    acc += plan[i]!.time
+  }
+  return acc
 }
 
 /** Ramène une heure "hh:mm" sur le bon jour par rapport à l'heure d'arrivée prévue */
@@ -220,13 +288,14 @@ function clockAt(d: number): number {
   return startSec.value + runTimeAt(d) + stops
 }
 
-const segmentRows = computed<SegmentRow[]>(() => segments.value.map((s) => {
+const segmentRows = computed<SegmentRow[]>(() => segments.value.map((s, i) => {
   const time = runTimeAt(s.end) - runTimeAt(s.start)
   return {
     ...s,
     time,
     pace: s.length > 0 ? time / (s.length / 1000) : 0,
     endClock: clockAt(s.end),
+    fixed: planSegs.value?.[i]?.fixed ?? false,
   }
 }))
 
@@ -257,6 +326,7 @@ function loadGpx(text: string, name: string, presetRavitos?: Omit<Ravito, 'id'>[
   boundaries.value = autoBoundaries(profile.value!)
   ravitos.value = (presetRavitos ?? []).map(r => ({ ...r, id: nextId++ }))
   hoverD.value = null
+  resetObjective()
   return true
 }
 
@@ -318,6 +388,69 @@ function clearTrack() {
   ravitos.value = []
   hoverD.value = null
   settings.finishBarrier = ''
+  resetObjective()
+}
+
+// --- Actions du mode objectif ---
+
+/** Écart entre le plan et l'objectif saisi (s), positif = plus lent que l'objectif */
+const objectiveGap = computed(() => (planSegs.value && objectiveRun.value != null ? totalRun.value! - objectiveRun.value : null))
+
+/** Les allures fixées laissent-elles assez de temps aux autres tronçons pour tenir l'objectif ? */
+const objectiveFeasible = computed(() => {
+  const plan = planSegs.value
+  if (!plan || objectiveRun.value == null) return true
+  const fixed = plan.filter(s => s.fixed).reduce((a, s) => a + s.time, 0)
+  return objectiveRun.value - fixed > 0.2 * plan.filter(s => !s.fixed).reduce((a, s) => a + s.base, 0)
+})
+
+/** Étire ou resserre les tronçons non fixés pour retomber sur l'objectif */
+function rebalance() {
+  const plan = planSegs.value
+  const run = objectiveRun.value
+  if (!plan || run == null) {
+    objectiveScale.value = 1
+    return
+  }
+  const fixed = plan.filter(s => s.fixed).reduce((a, s) => a + s.time, 0)
+  const base = plan.filter(s => !s.fixed).reduce((a, s) => a + s.base, 0)
+  objectiveScale.value = base > 0 ? Math.max(0.2, (run - fixed) / base) : 1
+}
+
+function enableObjective() {
+  if (!parseTime(settings.objectiveTime) && predictedRun.value != null) {
+    // Point de départ : la prédiction arrondie aux 5 minutes supérieures
+    const t = Math.ceil((predictedRun.value + totalStops.value) / 300) * 300
+    settings.objectiveTime = `${Math.floor(t / 3600)}:${pad(Math.floor(t % 3600 / 60))}`
+  }
+  settings.objectiveOn = true
+  rebalance()
+}
+
+function disableObjective() {
+  settings.objectiveOn = false
+}
+
+/** Impose une allure (s/km) sur un tronçon, ou la libère avec `null` */
+function setSegmentPace(index: number, pace: number | null) {
+  const s = segments.value[index]
+  if (!s) return
+  const next = { ...paceOverrides.value }
+  if (pace == null) delete next[segKey(s)]
+  else next[segKey(s)] = pace
+  paceOverrides.value = next
+}
+
+function clearPaceOverrides() {
+  paceOverrides.value = {}
+  rebalance()
+}
+
+function resetObjective() {
+  settings.objectiveOn = false
+  settings.objectiveTime = ''
+  paceOverrides.value = {}
+  objectiveScale.value = 1
 }
 
 // --- Sauvegarde locale (confort uniquement : le site marche sans) ---
@@ -338,13 +471,17 @@ function restore() {
         boundaries.value = Array.isArray(saved.boundaries) ? saved.boundaries : autoBoundaries(profile.value!)
         ravitos.value = Array.isArray(saved.ravitos) ? saved.ravitos : []
         nextId = Math.max(0, ...ravitos.value.map(r => r.id)) + 1
+        if (saved.paceOverrides && typeof saved.paceOverrides === 'object') paceOverrides.value = saved.paceOverrides
+        if (typeof saved.objectiveScale === 'number') objectiveScale.value = saved.objectiveScale
       }
     }
   }
   catch {
     // Sauvegarde illisible ou stockage bloqué : on repart de zéro
   }
-  watch([gpxText, boundaries, ravitos, () => ({ ...settings }), calibText], save, { deep: true })
+  // Saisir un nouvel objectif répartit à nouveau le temps (les allures fixées restent)
+  watch(() => settings.objectiveTime, rebalance)
+  watch([gpxText, boundaries, ravitos, () => ({ ...settings }), calibText, paceOverrides, objectiveScale], save, { deep: true })
 }
 
 function save() {
@@ -357,6 +494,8 @@ function save() {
       settings,
       calibText: calibText.value,
       calibName: calibName.value,
+      paceOverrides: paceOverrides.value,
+      objectiveScale: objectiveScale.value,
     }))
   }
   catch {
@@ -369,8 +508,10 @@ export function usePlan() {
     // état
     gpxText, fileName, track, boundaries, ravitos, settings, calibName, calibTrack, hoverD, error,
     // dérivés
-    profile, calibProfile, segments, segmentRows, reference, totalRun, flatPace10k, startSec, timeline, legs, markers,
+    profile, calibProfile, segments, segmentRows, reference, totalRun, predictedRun, flatPace10k, startSec, timeline, legs, markers,
+    objectiveRun, objectiveGap, objectiveFeasible, totalStops,
     // actions
     clockAt, restore, loadGpx, loadCalibration, clearCalibration, clearTrack, resetSegments, mergeWithNext, splitAt, addRavito, removeRavito,
+    enableObjective, disableObjective, setSegmentPace, clearPaceOverrides, rebalance,
   }
 }

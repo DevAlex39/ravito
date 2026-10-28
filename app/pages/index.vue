@@ -25,6 +25,7 @@
         </div>
         <div class="actions">
           <button class="btn ghost" type="button" @click="clearTrack">Changer de GPX</button>
+          <button v-if="!settings.objectiveOn" class="btn ghost target-btn" type="button" @click="enableObjective">◎ Définir un temps ciblé</button>
           <button class="btn" type="button" :disabled="totalRun == null" @click="print('fiche')">Imprimer la fiche</button>
           <button class="btn" type="button" :disabled="totalRun == null" @click="print('bracelet')">Imprimer le bracelet</button>
         </div>
@@ -35,11 +36,13 @@
         <div class="stat"><span>Dénivelé</span><strong>+{{ Math.round(profile.gain) }} / −{{ Math.round(profile.loss) }} m</strong></div>
         <div class="stat"><span>Altitude</span><strong>{{ Math.round(profile.minEle) }} → {{ Math.round(profile.maxEle) }} m</strong></div>
         <template v-if="totalRun != null && finish">
-          <div class="stat main"><span>Temps estimé</span><strong>{{ formatDuration(finish.arrival - startSec) }}</strong></div>
+          <div class="stat main"><span>{{ settings.objectiveOn ? 'Temps du plan objectif' : 'Temps estimé' }}</span><strong>{{ formatDuration(finish.arrival - startSec) }}</strong></div>
           <div class="stat main"><span>Arrivée prévue</span><strong>{{ formatClock(finish.arrival) }}</strong></div>
         </template>
         <div v-else class="stat warn"><span>Temps estimé</span><strong>Renseigne ton niveau</strong></div>
       </div>
+
+      <ObjectivePanel v-if="settings.objectiveOn" />
 
       <section class="card viz">
         <CourseMap v-model:hover="hoverD" class="map" :track="track" :segments="segments" :markers="markers" />
@@ -68,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-const { track, profile, fileName, segments, markers, hoverD, totalRun, timeline, startSec, settings, error, clockAt: clockSecAt, loadGpx, clearTrack } = usePlan()
+const { track, profile, fileName, segments, markers, hoverD, totalRun, timeline, startSec, settings, error, clockAt: clockSecAt, loadGpx, clearTrack, enableObjective } = usePlan()
 
 const finish = computed(() => timeline.value[timeline.value.length - 1])
 
@@ -117,6 +120,8 @@ function clearPrint() {
 .course-head h1 { font-size: 2.2rem; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .actions .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.actions .target-btn { color: var(--accent); border-color: var(--accent); }
+.actions .target-btn:hover { background: #fff6f0; }
 
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
 @media (max-width: 640px) { .stats { grid-template-columns: 1fr 1fr; } .stat strong { font-size: 1.3rem; } }
