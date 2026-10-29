@@ -14,6 +14,12 @@ const routes = {
     tokens: [[0,"/"]],
     types: placeholder as Registry['home']['types'],
   },
+  'tracer': {
+    methods: ["GET","HEAD"],
+    pattern: '/tracer',
+    tokens: [[0,"tracer"]],
+    types: placeholder as Registry['tracer']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

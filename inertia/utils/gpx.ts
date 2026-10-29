@@ -1,3 +1,5 @@
+import { APP_NAME } from '~/brand'
+
 export interface TrackPoint {
   lat: number
   lon: number
@@ -15,7 +17,7 @@ export interface Track {
 
 const EARTH_RADIUS = 6371000
 
-function haversine(a: { lat: number, lon: number }, b: { lat: number, lon: number }): number {
+export function haversine(a: { lat: number, lon: number }, b: { lat: number, lon: number }): number {
   const rad = Math.PI / 180
   const dLat = (b.lat - a.lat) * rad
   const dLon = (b.lon - a.lon) * rad
@@ -73,6 +75,23 @@ export function parseGpx(text: string): Track {
   const name = (container && childText(container, 'name')) || (metadata && childText(metadata, 'name')) || 'Mon parcours'
 
   return { name, points, distance: d }
+}
+
+const escapeXml = (s: string) => s.replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '\'': '&apos;', '"': '&quot;' }[c]!))
+
+/** Construit un fichier GPX 1.1 (une trace) à partir de points */
+export function toGpx(name: string, points: { lat: number, lon: number, ele: number }[]): string {
+  const pts = points
+    .map(p => `<trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"><ele>${p.ele.toFixed(1)}</ele></trkpt>`)
+    .join('\n')
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="${escapeXml(APP_NAME)}" xmlns="http://www.topografix.com/GPX/1/1">
+<metadata><name>${escapeXml(name)}</name></metadata>
+<trk><name>${escapeXml(name)}</name><trkseg>
+${pts}
+</trkseg></trk>
+</gpx>
+`
 }
 
 /** Position interpolée sur la trace à la distance `d` (mètres) */
