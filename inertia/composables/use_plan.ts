@@ -100,6 +100,8 @@ function defaultSettings(): Settings {
 
 // État partagé (application 100 % client, pas de SSR)
 const gpxText = ref<string | null>(null)
+/** Nom choisi par le coureur (sinon celui du GPX) */
+const customName = ref('')
 const fileName = ref('')
 const track = shallowRef<Track | null>(null)
 const boundaries = ref<number[]>([])
@@ -117,6 +119,8 @@ const objectiveScale = ref(1)
 const planId = ref<number | null>(null)
 
 const profile = computed(() => (track.value ? buildProfile(track.value) : null))
+/** Nom affiché partout (titre, impressions, compte) */
+const planName = computed(() => customName.value.trim() || track.value?.name || 'Mon parcours')
 const calibProfile = computed(() => (calibTrack.value ? buildProfile(calibTrack.value) : null))
 const segments = computed(() => (profile.value ? computeSegments(profile.value, boundaries.value) : []))
 const effort = computed(() => (profile.value ? cumulativeEffort(profile.value, settings.descente, settings.technicite) : []))
@@ -336,6 +340,7 @@ function loadGpx(text: string, name: string, presetRavitos?: Omit<Ravito, 'id'>[
   hoverD.value = null
   resetObjective()
   planId.value = null
+  customName.value = ''
   return true
 }
 
@@ -399,6 +404,7 @@ function clearTrack() {
   settings.finishBarrier = ''
   resetObjective()
   planId.value = null
+  customName.value = ''
 }
 
 // --- Actions du mode objectif ---
@@ -456,6 +462,11 @@ function clearPaceOverrides() {
   rebalance()
 }
 
+/** Renomme le plan ; un nom vide revient à celui du GPX */
+function renamePlan(name: string) {
+  customName.value = name.trim() === track.value?.name ? '' : name.trim()
+}
+
 function resetObjective() {
   settings.objectiveOn = false
   settings.objectiveTime = ''
@@ -472,6 +483,7 @@ function serialize() {
   return {
     gpxText: gpxText.value,
     fileName: fileName.value,
+    name: customName.value,
     boundaries: boundaries.value,
     ravitos: ravitos.value,
     settings,
@@ -496,6 +508,7 @@ function hydrate(saved: ReturnType<typeof serialize>) {
     if (saved.paceOverrides && typeof saved.paceOverrides === 'object') paceOverrides.value = saved.paceOverrides
     if (typeof saved.objectiveScale === 'number') objectiveScale.value = saved.objectiveScale
   }
+  customName.value = typeof saved.name === 'string' ? saved.name : ''
 }
 
 function restore() {
@@ -516,7 +529,7 @@ function restore() {
   effectScope(true).run(() => {
     // Saisir un nouvel objectif répartit à nouveau le temps (les allures fixées restent)
     watch(() => settings.objectiveTime, rebalance)
-    watch([gpxText, boundaries, ravitos, () => ({ ...settings }), calibText, paceOverrides, objectiveScale, planId], save, { deep: true })
+    watch([gpxText, boundaries, ravitos, () => ({ ...settings }), calibText, paceOverrides, objectiveScale, planId, customName], save, { deep: true })
   })
 }
 
@@ -545,12 +558,12 @@ function save() {
 export function usePlan() {
   return {
     // état
-    gpxText, fileName, track, boundaries, ravitos, settings, calibName, calibTrack, hoverD, error, planId,
+    gpxText, fileName, track, boundaries, ravitos, settings, calibName, calibTrack, hoverD, error, planId, planName,
     // dérivés
     profile, calibProfile, segments, segmentRows, reference, totalRun, predictedRun, flatPace10k, startSec, timeline, legs, markers,
     objectiveRun, objectiveGap, objectiveFeasible, totalStops,
     // actions
-    clockAt, restore, serialize, loadSaved, loadGpx, loadCalibration, clearCalibration, clearTrack, resetSegments, mergeWithNext, splitAt, addRavito, removeRavito,
+    clockAt, restore, serialize, loadSaved, loadGpx, renamePlan, loadCalibration, clearCalibration, clearTrack, resetSegments, mergeWithNext, splitAt, addRavito, removeRavito,
     enableObjective, disableObjective, setSegmentPace, clearPaceOverrides, rebalance,
   }
 }

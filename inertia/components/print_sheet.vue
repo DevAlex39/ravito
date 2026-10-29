@@ -2,7 +2,7 @@
   <div class="sheet">
     <header>
       <div>
-        <h1>{{ track.name }}</h1>
+        <h1>{{ planName }}</h1>
         <p>
           {{ formatKm(profile.distance) }} km · {{ Math.round(profile.gain) }} m D+ · {{ Math.round(profile.loss) }} m D−
           <template v-if="totalRun != null"> · départ {{ formatClock(startSec) }} · arrivée prévue {{ formatClock(finish!.arrival) }}</template>
@@ -90,9 +90,8 @@ import { SEG_LABELS } from '~/utils/segments'
 import { formatClock, formatDuration, formatKm, formatPace } from '~/utils/format'
 import ElevationProfile from '~/components/elevation_profile.vue'
 import MarginBadge from '~/components/margin_badge.vue'
-const { track: trackRef, profile: profileRef, segments, segmentRows, timeline, legs, markers, totalRun, startSec, settings } = usePlan()
+const { profile: profileRef, planName, segments, segmentRows, timeline, legs, markers, totalRun, startSec, settings } = usePlan()
 // Ce composant n'est monté que lorsqu'une trace est chargée
-const track = computed(() => trackRef.value!)
 const profile = computed(() => profileRef.value!)
 const finish = computed(() => timeline.value[timeline.value.length - 1])
 </script>

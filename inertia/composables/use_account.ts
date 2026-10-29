@@ -23,7 +23,7 @@ function payload() {
   const plan = usePlan()
   const finish = plan.timeline.value[plan.timeline.value.length - 1]
   return {
-    name: plan.track.value?.name || 'Mon parcours',
+    name: plan.planName.value,
     distance: plan.profile.value?.distance ?? 0,
     gain: plan.profile.value?.gain ?? 0,
     duration: plan.totalRun.value != null && finish ? finish.arrival - plan.startSec.value : null,

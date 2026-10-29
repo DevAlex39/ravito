@@ -4,7 +4,7 @@
     <div class="bands">
       <!-- Deux exemplaires : un au poignet, un dans le sac -->
       <div v-for="n in 2" :key="n" class="band">
-        <p class="name">{{ track.name }}</p>
+        <p class="name">{{ planName }}</p>
         <p class="meta">{{ formatKm(profile.distance, 0) }} km · {{ Math.round(profile.gain) }} D+</p>
         <ElevationProfile :profile="profile" :segments="segments" :markers="markers" :width="184" :height="44" compact />
         <table>
@@ -31,8 +31,7 @@ import { computed } from 'vue'
 import { usePlan } from '~/composables/use_plan'
 import { formatClock, formatKm } from '~/utils/format'
 import ElevationProfile from '~/components/elevation_profile.vue'
-const { track: trackRef, profile: profileRef, segments, timeline, markers } = usePlan()
-const track = computed(() => trackRef.value!)
+const { profile: profileRef, planName, segments, timeline, markers } = usePlan()
 const profile = computed(() => profileRef.value!)
 </script>
 

@@ -1,6 +1,6 @@
 <template>
   <DefaultLayout>
-    <Head :title="track ? track.name : undefined" />
+    <Head :title="track ? planName : undefined" />
     <section v-if="!track" class="container hero screen-only">
       <h1>Ton plan de course,<br><span>à partir du GPX.</span></h1>
       <p class="lead">
@@ -20,8 +20,22 @@
 
     <div v-else-if="profile" class="container plan screen-only">
       <div class="course-head">
-        <div>
-          <h1>{{ track.name }}</h1>
+        <div class="title">
+          <form v-if="editingName" class="rename" @submit.prevent="saveName">
+            <input
+              ref="nameInput"
+              v-model="nameDraft"
+              type="text"
+              maxlength="200"
+              aria-label="Nom du plan"
+              @keydown.esc="editingName = false"
+              @blur="saveName"
+            >
+          </form>
+          <h1 v-else>
+            {{ planName }}
+            <button class="rename-btn" type="button" title="Renommer ce plan" @click="startRename">✎</button>
+          </h1>
           <p class="hint">{{ fileName }}</p>
         </div>
         <div class="actions">
@@ -73,7 +87,7 @@
 </template>
 
 <script setup lang='ts'>
-import { computed, nextTick, onBeforeUnmount, onMounted } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
 import { APP_NAME } from '~/brand'
 import { usePlan } from '~/composables/use_plan'
@@ -95,7 +109,7 @@ import { useAccount } from '~/composables/use_account'
 /** `saved` : plan ouvert depuis « Mes parcours » (/parcours/:id) */
 const props = defineProps<{ saved?: { id: number, data: string } }>()
 
-const { track, profile, fileName, segments, markers, hoverD, totalRun, timeline, startSec, settings, error, clockAt: clockSecAt, loadGpx, loadSaved, clearTrack, enableObjective } = usePlan()
+const { track, profile, fileName, segments, markers, hoverD, totalRun, timeline, startSec, settings, error, clockAt: clockSecAt, loadGpx, loadSaved, clearTrack, enableObjective, planName, renamePlan } = usePlan()
 const { markSynced, resumePendingSave } = useAccount()
 
 if (props.saved) {
@@ -111,6 +125,23 @@ function changeGpx() {
 }
 
 const finish = computed(() => timeline.value[timeline.value.length - 1])
+
+// --- Renommer le plan (clic sur le crayon, Entrée ou clic ailleurs pour valider, Échap pour annuler) ---
+const editingName = ref(false)
+const nameDraft = ref('')
+const nameInput = ref<HTMLInputElement>()
+
+function startRename() {
+  nameDraft.value = planName.value
+  editingName.value = true
+  nextTick(() => nameInput.value?.select())
+}
+
+function saveName() {
+  if (!editingName.value) return
+  editingName.value = false
+  if (nameDraft.value.trim()) renamePlan(nameDraft.value)
+}
 
 /** Heure de passage prévue à une distance (infobulle du profil) */
 function clockAt(d: number): string {
@@ -155,6 +186,10 @@ function clearPrint() {
 .plan { display: flex; flex-direction: column; gap: 18px; }
 .course-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
 .course-head h1 { font-size: 2.2rem; }
+.title { min-width: 0; }
+.rename-btn { font: inherit; font-size: 1.1rem; vertical-align: 0.35em; background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.rename-btn:hover { color: var(--accent); background: var(--panel-2); }
+.rename input { font-family: 'Barlow Condensed', sans-serif; font-size: 2rem; font-weight: 700; width: min(560px, 100%); padding: 2px 8px; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .actions .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .actions .target-btn { color: var(--accent); border-color: var(--accent); }
