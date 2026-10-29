@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Importe le GPX de ta course : temps de passage, barrières horaires, ravitaillement et fiche imprimable." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title data-inertia>
+      Plan de course
+    </title>
+
+    @vite(['inertia/app.ts'])
+    @inertiaHead()
+    @stack('dumper')
+  </head>
+
+  <body>
+    @inertia()
+  </body>
+
+</html>
