@@ -7,10 +7,12 @@ export interface LatLon {
 }
 
 /**
- * Calcule un itinéraire pédestre entre deux points avec BRouter (profil randonnée).
- * Serveur public pour l'instant : https://brouter.de — à remplacer par une instance
- * auto-hébergée sur le VPS si le volume augmente.
+ * BRouter : instance du VPS en production (VITE_BROUTER_URL=/brouter, servie par Nginx),
+ * serveur public https://brouter.de en développement.
  */
+const BROUTER_URL = import.meta.env.VITE_BROUTER_URL || 'https://brouter.de/brouter'
+
+/** Calcule un itinéraire pédestre entre deux points avec BRouter (profil randonnée) */
 export function routeLeg(a: LatLon, b: LatLon, signal?: AbortSignal): Promise<Coord[]> {
   return routeVia([a, b], signal)
 }
@@ -18,7 +20,7 @@ export function routeLeg(a: LatLon, b: LatLon, signal?: AbortSignal): Promise<Co
 /** Itinéraire pédestre passant par tous les points, dans l'ordre (une seule requête) */
 export async function routeVia(points: LatLon[], signal?: AbortSignal): Promise<Coord[]> {
   const lonlats = points.map(p => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join('|')
-  const url = `https://brouter.de/brouter?lonlats=${lonlats}&profile=hiking-mountain&alternativeidx=0&format=geojson`
+  const url = `${BROUTER_URL}?lonlats=${lonlats}&profile=hiking-mountain&alternativeidx=0&format=geojson`
   const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`BRouter : ${res.status}`)
   const data = await res.json()

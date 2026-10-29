@@ -19,8 +19,9 @@ const dbConfig = defineConfig({
         naturalSort: true,
         paths: ['database/migrations'],
       },
+      // Les classes de schéma (database/schema.ts) ne se régénèrent qu'en développement
       schemaGeneration: {
-        enabled: true,
+        enabled: app.inDev,
         rulesPaths: ['./database/schema_rules.js'],
       },
       debug: app.inDev && env.get('LOG_LEVEL') === 'debug',

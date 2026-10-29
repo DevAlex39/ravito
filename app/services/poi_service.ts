@@ -1,10 +1,11 @@
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
+import db from '@adonisjs/lucid/services/db'
 import Poi from '#models/poi'
 import PoiCell from '#models/poi_cell'
 
 /** Taille d'une case de cache (degrés) : ~5,5 km du nord au sud */
-const CELL = 0.05
+export const CELL = 0.05
 /** Un secteur est redemandé à OpenStreetMap au bout de ce délai */
 const CELL_TTL_DAYS = 30
 const USER_AGENT = 'AlpaS/0.1 (https://alpastudio.fr)'
@@ -46,7 +47,7 @@ const KIND_BONUS: Record<string, number> = {
   square: 0.5,
 }
 
-interface OverpassElement {
+export interface OverpassElement {
   type: 'node' | 'way' | 'relation'
   id: number
   lat?: number
@@ -82,9 +83,10 @@ async function fillCells(bbox: Bbox) {
   for (let i = Math.floor(bbox[0] / CELL); i <= Math.floor(bbox[2] / CELL); i++) {
     for (let j = Math.floor(bbox[1] / CELL); j <= Math.floor(bbox[3] / CELL); j++) cells.push({ key: `${i}:${j}`, i, j })
   }
+  // Cases couvertes par l'import de la carte de France : jamais redemandées à Overpass
   const fresh = await PoiCell.query()
     .whereIn('cell', cells.map(c => c.key))
-    .where('fetchedAt', '>', DateTime.now().minus({ days: CELL_TTL_DAYS }).toSQL()!)
+    .where(q => q.where('source', 'import').orWhere('fetchedAt', '>', DateTime.now().minus({ days: CELL_TTL_DAYS }).toSQL()!))
   const known = new Set(fresh.map(c => c.cell))
   const missing = cells.filter(c => !known.has(c.key))
   if (!missing.length) return
@@ -97,16 +99,40 @@ async function fillCells(bbox: Bbox) {
     (Math.max(...missing.map(c => c.j)) + 1) * CELL,
   ]
   const elements = await fetchOverpass(area)
-  const pois = dedupe(elements.map(toPoi).filter(p => p != null))
-  const sitelinks = await fetchSitelinks(pois.map(p => p.wikidata).filter(q => q != null))
+  const count = await savePois(elements.map(toPoi).filter(p => p != null))
+  await PoiCell.updateOrCreateMany('cell', missing.map(c => ({ cell: c.key, fetchedAt: DateTime.now(), source: 'overpass' })))
+  logger.info({ area, count }, 'lieux importés depuis OpenStreetMap')
+}
+
+/**
+ * Enregistre des lieux (Overpass ou import d'un extrait OSM) : notoriété Wikidata, score,
+ * puis insertion ou mise à jour par identifiant OSM. Renvoie le nombre de lieux gardés.
+ */
+export async function savePois(candidates: NewPoi[], onProgress?: (done: number, total: number) => void): Promise<number> {
+  const pois = dedupe(candidates)
+  const sitelinks = await fetchSitelinks(pois.map(p => p.wikidata).filter(q => q != null), onProgress)
   for (const p of pois) {
     p.sitelinks = p.wikidata ? sitelinks.get(p.wikidata) ?? 0 : 0
     p.score = score(p.kind, p.sitelinks, p.wikidata != null)
   }
-
-  for (let k = 0; k < pois.length; k += 200) await Poi.updateOrCreateMany('osmKey', pois.slice(k, k + 200))
-  await PoiCell.updateOrCreateMany('cell', missing.map(c => ({ cell: c.key, fetchedAt: DateTime.now() })))
-  logger.info({ area, count: pois.length }, 'lieux importés depuis OpenStreetMap')
+  const knex = db.connection().getWriteClient()
+  const now = new Date()
+  for (let k = 0; k < pois.length; k += 500) {
+    const rows = pois.slice(k, k + 500).map(p => ({
+      osm_key: p.osmKey,
+      name: p.name.slice(0, 255),
+      lat: p.lat,
+      lon: p.lon,
+      kind: p.kind,
+      wikidata: p.wikidata,
+      sitelinks: p.sitelinks,
+      score: p.score,
+      created_at: now,
+      updated_at: now,
+    }))
+    await knex.table('pois').insert(rows).onConflict('osm_key').merge(['name', 'lat', 'lon', 'kind', 'wikidata', 'sitelinks', 'score', 'updated_at'])
+  }
+  return pois.length
 }
 
 async function fetchOverpass([s, w, n, e]: Bbox): Promise<OverpassElement[]> {
@@ -147,7 +173,7 @@ out center tags;`
   throw lastError
 }
 
-interface NewPoi {
+export interface NewPoi {
   osmKey: string
   name: string
   lat: number
@@ -158,8 +184,22 @@ interface NewPoi {
   score: number
 }
 
-function toPoi(el: OverpassElement): NewPoi | null {
+/** Mêmes critères que la requête Overpass : utilisés tels quels pour l'import d'un extrait OSM */
+function isWanted(t: Record<string, string>): boolean {
+  if (!t.name) return false
+  if (/^(attraction|viewpoint|museum|gallery)$/.test(t.tourism ?? '')) return true
+  if (!/^Q\d+$/.test(t.wikidata ?? '')) return false
+  return /^(castle|monument|ruins|city_gate|fort|archaeological_site|manor|tower|church|cathedral|palace|building|memorial)$/.test(t.historic ?? '')
+    || t.amenity === 'place_of_worship'
+    || /^(park|garden)$/.test(t.leisure ?? '')
+    || t.tourism === 'artwork'
+    || /^(tower|lighthouse|bridge)$/.test(t.man_made ?? '')
+    || t.place === 'square'
+}
+
+export function toPoi(el: OverpassElement): NewPoi | null {
   const t = el.tags ?? {}
+  if (!isWanted(t)) return null
   const lat = el.lat ?? el.center?.lat
   const lon = el.lon ?? el.center?.lon
   if (!t.name || lat == null || lon == null) return null
@@ -190,7 +230,7 @@ function dedupe(pois: NewPoi[]): NewPoi[] {
 }
 
 /** Nombre d'articles Wikipédia par élément Wikidata (par paquets de 50, limite de l'API) */
-async function fetchSitelinks(ids: string[]): Promise<Map<string, number>> {
+async function fetchSitelinks(ids: string[], onProgress?: (done: number, total: number) => void): Promise<Map<string, number>> {
   const result = new Map<string, number>()
   for (let k = 0; k < ids.length; k += 50) {
     const batch = ids.slice(k, k + 50)
@@ -206,6 +246,7 @@ async function fetchSitelinks(ids: string[]): Promise<Map<string, number>> {
       // Sans Wikidata, les lieux restent classés par type : moins fin, mais utilisable
       logger.warn({ err: String(e) }, 'Wikidata indisponible')
     }
+    onProgress?.(Math.min(k + 50, ids.length), ids.length)
   }
   return result
 }

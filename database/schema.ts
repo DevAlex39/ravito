@@ -31,12 +31,14 @@ export class PlanSchema extends BaseModel {
 }
 
 export class PoiCellSchema extends BaseModel {
-  static $columns = ['cell', 'fetchedAt'] as const
+  static $columns = ['cell', 'fetchedAt', 'source'] as const
   $columns = PoiCellSchema.$columns
   @column({ isPrimary: true })
   declare cell: string
   @column.dateTime()
   declare fetchedAt: DateTime
+  @column()
+  declare source: string
 }
 
 export class PoisSchema extends BaseModel {

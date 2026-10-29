@@ -1,0 +1,150 @@
+import { createReadStream } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { createInterface } from 'node:readline'
+import { BaseCommand, args } from '@adonisjs/core/ace'
+import type { CommandOptions } from '@adonisjs/core/types/ace'
+import db from '@adonisjs/lucid/services/db'
+import { CELL, savePois, toPoi, type NewPoi } from '#services/poi_service'
+
+type Ring = [lon: number, lat: number][]
+
+/**
+ * Importe les lieux remarquables d'un extrait OpenStreetMap (ex. la France entière) dans la base,
+ * puis marque les cases couvertes : elles ne seront plus jamais demandées aux serveurs Overpass publics.
+ *
+ * Préparation du fichier (voir README) :
+ *   osmium tags-filter … -o lieux.osm.pbf
+ *   osmium export lieux.osm.pbf -f geojsonseq -x print_record_separator=false -a type,id -o lieux.geojsonseq
+ */
+export default class ImportLieux extends BaseCommand {
+  static commandName = 'import:lieux'
+  static description = 'Importe les lieux remarquables d\'un extrait OSM (GeoJSON Seq) et marque les secteurs couverts'
+  static options: CommandOptions = { startApp: true }
+
+  @args.string({ description: 'Fichier GeoJSON Seq produit par « osmium export »' })
+  declare file: string
+
+  @args.string({ description: 'Contour de la zone couverte, au format .poly de Geofabrik' })
+  declare poly: string
+
+  async run() {
+    const candidates = await this.readCandidates()
+    this.logger.info(`${candidates.length} lieux retenus, récupération de leur notoriété sur Wikidata…`)
+
+    let lastShown = 0
+    const count = await savePois(candidates, (done, total) => {
+      if (done - lastShown >= 5000 || done === total) {
+        lastShown = done
+        this.logger.info(`Wikidata : ${done} / ${total}`)
+      }
+    })
+    this.logger.success(`${count} lieux enregistrés`)
+
+    const cells = await this.markCells()
+    this.logger.success(`${cells} secteurs marqués comme couverts par l'import`)
+  }
+
+  /** Lit le fichier ligne par ligne (une entité GeoJSON par ligne) et garde les lieux voulus */
+  private async readCandidates(): Promise<NewPoi[]> {
+    const lines = createInterface({ input: createReadStream(this.file, 'utf8'), crlfDelay: Infinity })
+    const result: NewPoi[] = []
+    let read = 0
+    for await (const line of lines) {
+      if (!line.trim()) continue
+      read++
+      const feature = JSON.parse(line) as { geometry: { coordinates: unknown }, properties: Record<string, string> }
+      const { '@type': type, '@id': id, ...tags } = feature.properties
+      const center = bboxCenter(feature.geometry.coordinates)
+      if (!center || (type !== 'node' && type !== 'way' && type !== 'relation')) continue
+      const poi = toPoi({ type, id: Number(id), lat: center[1], lon: center[0], tags })
+      if (poi) result.push(poi)
+    }
+    this.logger.info(`${read} objets lus dans ${this.file}`)
+    return result
+  }
+
+  /** Marque les cases entièrement à l'intérieur du contour (celles à cheval sur la frontière restent à Overpass) */
+  private async markCells(): Promise<number> {
+    const rings = parsePoly(await readFile(this.poly, 'utf8'))
+    const all = rings.flat()
+    const [minLon, maxLon] = [Math.min(...all.map(p => p[0])), Math.max(...all.map(p => p[0]))]
+    const [minLat, maxLat] = [Math.min(...all.map(p => p[1])), Math.max(...all.map(p => p[1]))]
+    const inside = (lon: number, lat: number) => rings.some(r => pointInRing(lon, lat, r))
+
+    const knex = db.connection().getWriteClient()
+    const now = new Date()
+    let batch: { cell: string, fetched_at: Date, source: string }[] = []
+    let total = 0
+    const flush = async () => {
+      if (!batch.length) return
+      await knex.table('poi_cells').insert(batch).onConflict('cell').merge(['fetched_at', 'source'])
+      total += batch.length
+      batch = []
+    }
+    for (let i = Math.floor(minLat / CELL); i <= Math.floor(maxLat / CELL); i++) {
+      for (let j = Math.floor(minLon / CELL); j <= Math.floor(maxLon / CELL); j++) {
+        const [s, w, n, e] = [i * CELL, j * CELL, (i + 1) * CELL, (j + 1) * CELL]
+        if (inside(w, s) && inside(e, s) && inside(w, n) && inside(e, n)) {
+          batch.push({ cell: `${i}:${j}`, fetched_at: now, source: 'import' })
+          if (batch.length >= 1000) await flush()
+        }
+      }
+    }
+    await flush()
+    return total
+  }
+}
+
+/** Centre du rectangle englobant d'une géométrie GeoJSON (point, ligne, polygone…) */
+function bboxCenter(coords: unknown): [number, number] | null {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  const walk = (c: unknown) => {
+    if (Array.isArray(c) && typeof c[0] === 'number') {
+      minX = Math.min(minX, c[0])
+      maxX = Math.max(maxX, c[0])
+      minY = Math.min(minY, c[1] as number)
+      maxY = Math.max(maxY, c[1] as number)
+    }
+    else if (Array.isArray(c)) c.forEach(walk)
+  }
+  walk(coords)
+  return Number.isFinite(minX) ? [(minX + maxX) / 2, (minY + maxY) / 2] : null
+}
+
+/** Format .poly (Osmosis/Geofabrik) : anneaux extérieurs uniquement, les trous (« !… ») sont ignorés */
+function parsePoly(text: string): Ring[] {
+  const rings: Ring[] = []
+  let current: Ring | null = null
+  let skip = false
+  for (const raw of text.split(/\r?\n/).slice(1)) {
+    const line = raw.trim()
+    if (!line) continue
+    if (line === 'END') {
+      if (current && !skip) rings.push(current)
+      current = null
+      continue
+    }
+    if (!current) {
+      current = []
+      skip = line.startsWith('!')
+      continue
+    }
+    const [lon, lat] = line.split(/\s+/).map(Number)
+    if (Number.isFinite(lon) && Number.isFinite(lat)) current.push([lon!, lat!])
+  }
+  return rings
+}
+
+/** Test du rayon : le point est-il à l'intérieur de l'anneau ? */
+function pointInRing(lon: number, lat: number, ring: Ring): boolean {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]!
+    const [xj, yj] = ring[j]!
+    if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
