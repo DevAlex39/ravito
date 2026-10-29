@@ -1,6 +1,5 @@
 import { createReadStream } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { createInterface } from 'node:readline'
 import { BaseCommand, args } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import db from '@adonisjs/lucid/services/db'
@@ -46,10 +45,9 @@ export default class ImportLieux extends BaseCommand {
 
   /** Lit le fichier ligne par ligne (une entité GeoJSON par ligne) et garde les lieux voulus */
   private async readCandidates(): Promise<NewPoi[]> {
-    const lines = createInterface({ input: createReadStream(this.file, 'utf8'), crlfDelay: Infinity })
     const result: NewPoi[] = []
     let read = 0
-    for await (const line of lines) {
+    for await (const line of readLines(this.file)) {
       if (!line.trim()) continue
       read++
       const feature = JSON.parse(line) as { geometry: { coordinates: unknown }, properties: Record<string, string> }
@@ -93,6 +91,20 @@ export default class ImportLieux extends BaseCommand {
     await flush()
     return total
   }
+}
+
+/**
+ * Lignes séparées par « \n » uniquement : readline coupe aussi sur U+2028, présent dans certains tags OSM,
+ * ce qui casserait le JSON en deux.
+ */
+async function* readLines(file: string): AsyncGenerator<string> {
+  let rest = ''
+  for await (const chunk of createReadStream(file, 'utf8')) {
+    const parts = (rest + chunk).split('\n')
+    rest = parts.pop()!
+    yield* parts
+  }
+  if (rest) yield rest
 }
 
 /** Centre du rectangle englobant d'une géométrie GeoJSON (point, ligne, polygone…) */
