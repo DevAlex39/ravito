@@ -31,7 +31,7 @@
 
     <div v-else class="calib">
       <p class="hint">
-        Le plus précis : donne le GPX d'une course que tu as faite et ton temps. Ravito en déduit ton niveau sur un terrain comparable.
+        Le plus précis : donne le GPX d'une course que tu as faite et ton temps. {{ APP_NAME }} en déduit ton niveau sur un terrain comparable.
       </p>
       <div class="row">
         <div class="field grow">
@@ -94,6 +94,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { usePlan } from '~/composables/use_plan'
+import { APP_NAME } from '~/brand'
 import { formatKm, formatPace, parsePace, parseTime } from '~/utils/format'
 const { settings, flatPace10k, calibName, calibProfile, loadCalibration, clearCalibration } = usePlan()
 

@@ -1,4 +1,4 @@
-# Ravito
+# AlpaS
 
 > Nom provisoire : il est défini à un seul endroit, `inertia/brand.ts`.
 
