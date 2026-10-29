@@ -19,16 +19,11 @@
       </label>
       <button class="btn ghost" type="button" @click="emit('example')">Essayer avec un exemple</button>
     </div>
-    <p class="draw">
-      Pas de fichier ? <Link href="/tracer">Trace ton parcours sur la carte</Link>
-      ou <Link href="/boucles">laisse-toi proposer une boucle découverte →</Link>
-    </p>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Link } from '@inertiajs/vue3'
 const emit = defineEmits<{ file: [File], example: [] }>()
 const over = ref(false)
 
@@ -62,7 +57,5 @@ function onPick(e: Event) {
 }
 .drop.over { border-color: var(--accent); background: #fff6f0; }
 .title { font-weight: 600; color: var(--text); font-size: 1.05rem; }
-.draw { margin-top: 10px; font-size: 0.9rem; color: var(--text-soft); }
-.draw a { font-weight: 600; color: var(--accent); }
 .buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 </style>

@@ -11,7 +11,7 @@
         <div class="search">
           <input v-model="query" type="text" placeholder="Ville ou lieu de départ…" aria-label="Rechercher un lieu de départ" @keydown.enter.prevent="onSearch">
           <button class="btn ghost" type="button" :disabled="!query.trim() || searching" @click="onSearch">Rechercher</button>
-          <button class="btn ghost" type="button" title="Partir de ma position" @click="onLocate">📍</button>
+          <button class="btn ghost" type="button" title="Partir de ma position" @click="onLocate()">📍</button>
         </div>
         <label class="distance">
           <span>Distance</span>
@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
 import DefaultLayout from '~/layouts/default.vue'
 import LoopMap from '~/components/loop_map.vue'
@@ -145,13 +145,14 @@ async function onSearch() {
   }
 }
 
-function onLocate() {
+function onLocate(then?: () => void) {
   message.value = ''
   if (!navigator.geolocation) return showError('Position indisponible sur cet appareil.')
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       setStart({ lat: pos.coords.latitude, lon: pos.coords.longitude })
       mapRef.value?.flyTo(pos.coords.latitude, pos.coords.longitude)
+      then?.()
     },
     () => showError('Position indisponible : autorise la localisation dans ton navigateur.'),
     { timeout: 10000 },
@@ -214,6 +215,20 @@ async function propose() {
     busy.value = false
   }
 }
+
+// --- Arrivée depuis l'accueil (/boucles?depart=Dole&km=10 ou ?position=1) : on enchaîne tout seul ---
+onMounted(async () => {
+  const params = new URLSearchParams(window.location.search)
+  if (!params.has('depart') && !params.has('position')) return
+  const wanted = Number(params.get('km'))
+  if (wanted) km.value = Math.min(40, Math.max(3, Math.round(wanted)))
+  // L'adresse redevient /boucles : recharger la page ne relance pas le calcul
+  history.replaceState(history.state, '', '/boucles')
+  if (params.has('position')) return onLocate(propose)
+  query.value = params.get('depart') ?? ''
+  await onSearch()
+  if (start.value) propose()
+})
 
 // --- Sortie ---
 function gpxText() {

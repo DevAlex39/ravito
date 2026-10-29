@@ -5,10 +5,10 @@ import { createInertiaApp } from '@inertiajs/vue3'
 import { TuyauProvider } from '@adonisjs/inertia/vue'
 import { createApp, type DefineComponent, h } from 'vue'
 import { resolvePageComponent } from '@adonisjs/inertia/helpers'
-import { APP_NAME } from '~/brand'
+import { APP_NAME, APP_TAGLINE } from '~/brand'
 
 createInertiaApp({
-  title: (title) => (title ? `${title} · ${APP_NAME}` : `${APP_NAME} · Plan de course à partir d'un GPX`),
+  title: (title) => (title ? `${title} · ${APP_NAME}` : `${APP_NAME} · ${APP_TAGLINE}`),
   resolve: (name) => {
     return resolvePageComponent(
       `./pages/${name}.vue`,

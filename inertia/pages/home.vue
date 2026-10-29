@@ -1,21 +1,44 @@
 <template>
   <DefaultLayout>
     <Head :title="track ? planName : undefined" />
-    <section v-if="!track" class="container hero screen-only">
-      <h1>Ton plan de course,<br><span>à partir du GPX.</span></h1>
-      <p class="lead">
-        Importe la trace de ta course : {{ APP_NAME }} la découpe en montées et descentes, estime tes temps de passage
-        selon ton niveau, vérifie les barrières horaires et calcule ce que tu dois emporter entre chaque ravito.
-        Le tout s'imprime en fiche A4 ou en bracelet.
+    <section v-if="!track" class="container home screen-only">
+      <div class="hero">
+        <h1>Joins l'utile à l'agréable :<br><span>cours et découvre les alentours.</span></h1>
+        <p class="lead">
+          Donne un point de départ et une distance : {{ APP_NAME }} te trace une boucle
+          qui passe par les plus beaux lieux du coin.
+        </p>
+        <form class="loop-form card" @submit.prevent="findLoop()">
+          <input v-model="loopStart" type="text" placeholder="Ville ou lieu de départ (ex. Dole)" aria-label="Lieu de départ">
+          <label class="km">
+            <input v-model.number="loopKm" type="number" min="3" max="40" step="1" inputmode="numeric" aria-label="Distance en kilomètres">
+            <span>km</span>
+          </label>
+          <button class="btn" type="submit" :disabled="!loopStart.trim()">Trouver ma boucle →</button>
+        </form>
+        <button class="locate" type="button" @click="findLoop(true)">📍 ou pars de ma position</button>
+      </div>
+
+      <div class="paths">
+        <section class="card path">
+          <h2>Tu prépares une course ?</h2>
+          <p>
+            Importe le GPX : temps de passage selon ton niveau, barrières horaires,
+            nutrition entre chaque ravito, fiche A4 ou bracelet à imprimer.
+          </p>
+          <GpxDrop @file="onFile" @example="loadExample" />
+          <p v-if="error" class="error">{{ error }}</p>
+        </section>
+        <section class="card path">
+          <h2>Tu as ton tracé en tête ?</h2>
+          <p>Dessine-le sur la carte : il suit les sentiers, avec la distance et le dénivelé en direct.</p>
+          <Link href="/tracer" class="btn ghost">Tracer mon parcours</Link>
+        </section>
+      </div>
+
+      <p class="account-note">
+        <strong>Sans compte</strong>, rien ne quitte ton navigateur. <strong>Avec un compte</strong>, tes plans te suivent partout.
       </p>
-      <GpxDrop @file="onFile" @example="loadExample" />
-      <p v-if="error" class="error">{{ error }}</p>
-      <ul class="features">
-        <li><strong>Temps réalistes</strong> calculés mètre par mètre selon la pente, calibrables sur une de tes anciennes courses.</li>
-        <li><strong>Barrières horaires</strong> : ta marge à chaque ravito, en un coup d'œil.</li>
-        <li><strong>Nutrition</strong> : gels et eau à emporter pour chaque portion.</li>
-        <li><strong>Sans compte</strong>, rien ne quitte ton navigateur. <strong>Avec un compte</strong>, tes plans te suivent partout.</li>
-      </ul>
     </section>
 
     <div v-else-if="profile" class="container plan screen-only">
@@ -88,7 +111,7 @@
 
 <script setup lang='ts'>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Head, router } from '@inertiajs/vue3'
+import { Head, Link, router } from '@inertiajs/vue3'
 import { APP_NAME } from '~/brand'
 import { usePlan } from '~/composables/use_plan'
 import { formatClock, formatDuration, formatKm } from '~/utils/format'
@@ -125,6 +148,18 @@ function changeGpx() {
 }
 
 const finish = computed(() => timeline.value[timeline.value.length - 1])
+
+// --- Boucle découverte lancée depuis l'accueil (la page /boucles fait la recherche et le calcul) ---
+const loopStart = ref('')
+const loopKm = ref(10)
+
+function findLoop(fromPosition = false) {
+  const params = new URLSearchParams({ km: String(Math.min(40, Math.max(3, Math.round(loopKm.value || 10)))) })
+  if (fromPosition) params.set('position', '1')
+  else if (loopStart.value.trim()) params.set('depart', loopStart.value.trim())
+  else return
+  router.visit(`/boucles?${params}`)
+}
 
 // --- Renommer le plan (clic sur le crayon, Entrée ou clic ailleurs pour valider, Échap pour annuler) ---
 const editingName = ref(false)
@@ -174,14 +209,30 @@ function clearPrint() {
 </script>
 
 <style scoped>
-.hero { max-width: 760px; padding-top: 24px; }
-.hero h1 { font-size: clamp(2.4rem, 6vw, 3.6rem); margin-bottom: 16px; }
+.home { display: flex; flex-direction: column; gap: 36px; padding-top: 24px; }
+.hero { max-width: 820px; }
+.hero h1 { font-size: clamp(2.2rem, 5.5vw, 3.4rem); margin-bottom: 14px; }
 .hero h1 span { color: var(--accent); }
-.lead { font-size: 1.05rem; color: var(--text-soft); margin-bottom: 24px; }
-.error { margin-top: 12px; color: var(--bad); background: var(--bad-bg); padding: 8px 12px; border-radius: var(--radius-sm); }
-.features { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 28px; }
-.features li { font-size: 0.9rem; color: var(--text-soft); padding-left: 14px; border-left: 3px solid var(--forest); }
-.features strong { color: var(--text); }
+.lead { font-size: 1.1rem; color: var(--text-soft); margin-bottom: 20px; }
+.loop-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px; }
+.loop-form > input { flex: 1 1 260px; min-width: 0; font-size: 1rem; padding: 10px 12px; }
+.loop-form .km { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text-soft); }
+.loop-form .km input { width: 70px; text-align: center; font-size: 1rem; padding: 10px 6px; }
+.loop-form .btn { font-size: 1rem; padding: 10px 18px; }
+.loop-form .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.locate { font: inherit; font-size: 0.92rem; font-weight: 600; color: var(--forest); background: none; border: none; cursor: pointer; padding: 8px 2px; }
+.locate:hover { color: var(--accent); }
+
+.paths { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .paths { grid-template-columns: minmax(0, 1fr); } }
+.path { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.path h2 { font-size: 1.5rem; }
+.path p { color: var(--text-soft); font-size: 0.95rem; }
+.path :deep(.drop) { align-self: stretch; padding: 22px 16px; }
+.account-note { font-size: 0.9rem; color: var(--text-soft); padding-left: 14px; border-left: 3px solid var(--forest); }
+.account-note strong { color: var(--text); }
+.error { color: var(--bad); background: var(--bad-bg); padding: 8px 12px; border-radius: var(--radius-sm); }
+@media (max-width: 640px) { .loop-form .btn { flex: 1 1 100%; } }
 
 .plan { display: flex; flex-direction: column; gap: 18px; }
 .course-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
