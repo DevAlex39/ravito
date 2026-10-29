@@ -1,6 +1,6 @@
 # AlpaS
 
-> Nom provisoire : il est défini à un seul endroit, `inertia/brand.ts`.
+> Le nom est défini à un seul endroit : `inertia/brand.ts`.
 
 Plan de course à partir d'un GPX : découpage du parcours, temps de passage selon le niveau du coureur,
 temps ciblé avec allures par tronçon, barrières horaires, plan de ravitaillement, fiche A4 et bracelet imprimables.
@@ -9,16 +9,19 @@ temps ciblé avec allures par tronçon, barrières horaires, plan de ravitaillem
 
 - **AdonisJS 7** (backend, TypeScript) + **Inertia** + **Vue 3** (frontend, `inertia/`)
 - Leaflet + OpenTopoMap pour la carte
-- Base de données prévue : MySQL (pas encore utilisée — arrivera avec les comptes)
+- MySQL (Lucid) pour les comptes et les plans enregistrés
 
-Les calculs (lecture GPX, profil, modèle de temps) tournent dans le navigateur : le fichier GPX n'est
-pas envoyé au serveur. L'état est gardé dans le `localStorage`.
+Les calculs (lecture GPX, profil, modèle de temps) tournent dans le navigateur. Sans compte, rien n'est
+envoyé au serveur : l'état est gardé dans le `localStorage`. Avec un compte, le bouton « Enregistrer »
+envoie le plan complet (GPX compris) dans la table `plans`, puis chaque modification est resynchronisée.
+Les pages : `/connexion`, `/inscription`, `/mes-parcours`, `/parcours/:id`, `/tracer`.
 
 ## Lancer
 
 ```bash
 npm install
-cp .env.example .env   # puis générer une clé : node ace generate:key
+cp .env.example .env   # puis générer une clé : node ace generate:key, et renseigner DB_*
+node ace migration:run # crée les tables dans la base MySQL (à créer avant, utf8mb4)
 npm run dev            # http://localhost:3333
 npm run typecheck
 npm run build          # build de production dans build/
@@ -28,7 +31,9 @@ npm run build          # build de production dans build/
 
 | Fichier | Rôle |
 | --- | --- |
-| `start/routes.ts` | Routes (une seule page Inertia pour l'instant : `home`) |
+| `start/routes.ts` | Routes (pages Inertia, compte, enregistrement des plans) |
+| `app/controllers/` | Connexion / inscription, plans enregistrés |
+| `inertia/composables/use_account.ts` | Enregistrement du plan dans le compte et synchronisation |
 | `inertia/pages/home.vue` | Page principale (import GPX, plan, impressions) |
 | `inertia/layouts/default.vue` | En-tête et pied de page |
 | `inertia/brand.ts` | Nom et accroche de l'application |

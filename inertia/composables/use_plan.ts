@@ -1,7 +1,7 @@
 import type { Track } from '~/utils/gpx'
 import type { Segment } from '~/utils/segments'
 import type { Reference } from '~/utils/model'
-import { computed, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, effectScope, reactive, ref, shallowRef, watch } from 'vue'
 import { parseGpx } from '~/utils/gpx'
 import { buildProfile, climb, indexAt } from '~/utils/profile'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
@@ -113,6 +113,8 @@ const error = ref('')
 /** Allures imposées par tronçon (s/km), clé = bornes du tronçon */
 const paceOverrides = ref<Record<string, number>>({})
 const objectiveScale = ref(1)
+/** Identifiant du plan dans le compte, s'il y est enregistré */
+const planId = ref<number | null>(null)
 
 const profile = computed(() => (track.value ? buildProfile(track.value) : null))
 const calibProfile = computed(() => (calibTrack.value ? buildProfile(calibTrack.value) : null))
@@ -333,6 +335,7 @@ function loadGpx(text: string, name: string, presetRavitos?: Omit<Ravito, 'id'>[
   ravitos.value = (presetRavitos ?? []).map(r => ({ ...r, id: nextId++ }))
   hoverD.value = null
   resetObjective()
+  planId.value = null
   return true
 }
 
@@ -395,6 +398,7 @@ function clearTrack() {
   hoverD.value = null
   settings.finishBarrier = ''
   resetObjective()
+  planId.value = null
 }
 
 // --- Actions du mode objectif ---
@@ -463,6 +467,37 @@ function resetObjective() {
 
 let restored = false
 
+/** Tout ce qu'il faut pour rouvrir le plan à l'identique (navigateur et compte) */
+function serialize() {
+  return {
+    gpxText: gpxText.value,
+    fileName: fileName.value,
+    boundaries: boundaries.value,
+    ravitos: ravitos.value,
+    settings,
+    calibText: calibText.value,
+    calibName: calibName.value,
+    paceOverrides: paceOverrides.value,
+    objectiveScale: objectiveScale.value,
+  }
+}
+
+/** Remplace le plan courant par un plan sérialisé (lève une erreur s'il est illisible) */
+function hydrate(saved: ReturnType<typeof serialize>) {
+  clearTrack()
+  clearCalibration()
+  Object.assign(settings, defaultSettings(), saved.settings ?? {})
+  if (saved.calibText) loadCalibration(saved.calibText, saved.calibName ?? '')
+  if (saved.gpxText) {
+    setTrack(saved.gpxText, saved.fileName ?? '')
+    boundaries.value = Array.isArray(saved.boundaries) ? saved.boundaries : autoBoundaries(profile.value!)
+    ravitos.value = Array.isArray(saved.ravitos) ? saved.ravitos : []
+    nextId = Math.max(0, ...ravitos.value.map(r => r.id)) + 1
+    if (saved.paceOverrides && typeof saved.paceOverrides === 'object') paceOverrides.value = saved.paceOverrides
+    if (typeof saved.objectiveScale === 'number') objectiveScale.value = saved.objectiveScale
+  }
+}
+
 function restore() {
   if (restored) return
   restored = true
@@ -470,39 +505,37 @@ function restore() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const saved = JSON.parse(raw)
-      Object.assign(settings, defaultSettings(), saved.settings ?? {})
-      if (saved.calibText) loadCalibration(saved.calibText, saved.calibName ?? '')
-      if (saved.gpxText) {
-        setTrack(saved.gpxText, saved.fileName ?? '')
-        boundaries.value = Array.isArray(saved.boundaries) ? saved.boundaries : autoBoundaries(profile.value!)
-        ravitos.value = Array.isArray(saved.ravitos) ? saved.ravitos : []
-        nextId = Math.max(0, ...ravitos.value.map(r => r.id)) + 1
-        if (saved.paceOverrides && typeof saved.paceOverrides === 'object') paceOverrides.value = saved.paceOverrides
-        if (typeof saved.objectiveScale === 'number') objectiveScale.value = saved.objectiveScale
-      }
+      hydrate(saved)
+      if (typeof saved.planId === 'number') planId.value = saved.planId
     }
   }
   catch {
     // Sauvegarde illisible ou stockage bloqué : on repart de zéro
   }
-  // Saisir un nouvel objectif répartit à nouveau le temps (les allures fixées restent)
-  watch(() => settings.objectiveTime, rebalance)
-  watch([gpxText, boundaries, ravitos, () => ({ ...settings }), calibText, paceOverrides, objectiveScale], save, { deep: true })
+  // Portée détachée : ces surveillances doivent survivre aux changements de page
+  effectScope(true).run(() => {
+    // Saisir un nouvel objectif répartit à nouveau le temps (les allures fixées restent)
+    watch(() => settings.objectiveTime, rebalance)
+    watch([gpxText, boundaries, ravitos, () => ({ ...settings }), calibText, paceOverrides, objectiveScale, planId], save, { deep: true })
+  })
+}
+
+/** Ouvre un plan enregistré dans le compte */
+function loadSaved(id: number, data: string) {
+  restore()
+  try {
+    hydrate(JSON.parse(data))
+    planId.value = id
+    error.value = ''
+  }
+  catch {
+    error.value = 'Ce plan enregistré est illisible.'
+  }
 }
 
 function save() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      gpxText: gpxText.value,
-      fileName: fileName.value,
-      boundaries: boundaries.value,
-      ravitos: ravitos.value,
-      settings,
-      calibText: calibText.value,
-      calibName: calibName.value,
-      paceOverrides: paceOverrides.value,
-      objectiveScale: objectiveScale.value,
-    }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...serialize(), planId: planId.value }))
   }
   catch {
     // Quota dépassé (très gros GPX) ou stockage indisponible : tant pis pour la reprise
@@ -512,12 +545,12 @@ function save() {
 export function usePlan() {
   return {
     // état
-    gpxText, fileName, track, boundaries, ravitos, settings, calibName, calibTrack, hoverD, error,
+    gpxText, fileName, track, boundaries, ravitos, settings, calibName, calibTrack, hoverD, error, planId,
     // dérivés
     profile, calibProfile, segments, segmentRows, reference, totalRun, predictedRun, flatPace10k, startSec, timeline, legs, markers,
     objectiveRun, objectiveGap, objectiveFeasible, totalStops,
     // actions
-    clockAt, restore, loadGpx, loadCalibration, clearCalibration, clearTrack, resetSegments, mergeWithNext, splitAt, addRavito, removeRavito,
+    clockAt, restore, serialize, loadSaved, loadGpx, loadCalibration, clearCalibration, clearTrack, resetSegments, mergeWithNext, splitAt, addRavito, removeRavito,
     enableObjective, disableObjective, setSegmentPace, clearPaceOverrides, rebalance,
   }
 }

@@ -14,7 +14,7 @@
         <li><strong>Temps réalistes</strong> calculés mètre par mètre selon la pente, calibrables sur une de tes anciennes courses.</li>
         <li><strong>Barrières horaires</strong> : ta marge à chaque ravito, en un coup d'œil.</li>
         <li><strong>Nutrition</strong> : gels et eau à emporter pour chaque portion.</li>
-        <li><strong>Rien ne quitte ton navigateur</strong> : aucun compte, aucun envoi de fichier.</li>
+        <li><strong>Sans compte</strong>, rien ne quitte ton navigateur. <strong>Avec un compte</strong>, tes plans te suivent partout.</li>
       </ul>
     </section>
 
@@ -25,7 +25,8 @@
           <p class="hint">{{ fileName }}</p>
         </div>
         <div class="actions">
-          <button class="btn ghost" type="button" @click="clearTrack">Changer de GPX</button>
+          <SaveButton />
+          <button class="btn ghost" type="button" @click="changeGpx">Changer de GPX</button>
           <button v-if="!settings.objectiveOn" class="btn ghost target-btn" type="button" @click="enableObjective">◎ Définir un temps ciblé</button>
           <button class="btn" type="button" :disabled="totalRun == null" @click="print('fiche')">Imprimer la fiche</button>
           <button class="btn" type="button" :disabled="totalRun == null" @click="print('bracelet')">Imprimer le bracelet</button>
@@ -73,7 +74,7 @@
 
 <script setup lang='ts'>
 import { computed, nextTick, onBeforeUnmount, onMounted } from 'vue'
-import { Head } from '@inertiajs/vue3'
+import { Head, router } from '@inertiajs/vue3'
 import { APP_NAME } from '~/brand'
 import { usePlan } from '~/composables/use_plan'
 import { formatClock, formatDuration, formatKm } from '~/utils/format'
@@ -88,8 +89,26 @@ import NutritionTable from '~/components/nutrition_table.vue'
 import ObjectivePanel from '~/components/objective_panel.vue'
 import PrintSheet from '~/components/print_sheet.vue'
 import PrintBand from '~/components/print_band.vue'
+import SaveButton from '~/components/save_button.vue'
+import { useAccount } from '~/composables/use_account'
 
-const { track, profile, fileName, segments, markers, hoverD, totalRun, timeline, startSec, settings, error, clockAt: clockSecAt, loadGpx, clearTrack, enableObjective } = usePlan()
+/** `saved` : plan ouvert depuis « Mes parcours » (/parcours/:id) */
+const props = defineProps<{ saved?: { id: number, data: string } }>()
+
+const { track, profile, fileName, segments, markers, hoverD, totalRun, timeline, startSec, settings, error, clockAt: clockSecAt, loadGpx, loadSaved, clearTrack, enableObjective } = usePlan()
+const { markSynced, resumePendingSave } = useAccount()
+
+if (props.saved) {
+  loadSaved(props.saved.id, props.saved.data)
+  markSynced()
+}
+onMounted(resumePendingSave)
+
+/** Repart d'un plan vierge ; depuis un plan du compte, on quitte aussi son adresse */
+function changeGpx() {
+  clearTrack()
+  if (props.saved) router.visit('/')
+}
 
 const finish = computed(() => timeline.value[timeline.value.length - 1])
 

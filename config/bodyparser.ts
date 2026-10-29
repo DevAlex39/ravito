@@ -33,6 +33,11 @@ const bodyParserConfig = defineConfig({
     convertEmptyStringsToNull: true,
 
     /**
+     * Un plan enregistré embarque son GPX : il peut peser plusieurs Mo.
+     */
+    limit: '20mb',
+
+    /**
      * Content types handled by the JSON parser.
      */
     types: [

@@ -10,6 +10,13 @@
           {{ APP_NAME }}
         </Link>
         <span class="tagline">{{ APP_TAGLINE }}</span>
+        <nav class="account">
+          <template v-if="user">
+            <Link href="/mes-parcours" class="nav-link">Mes parcours</Link>
+            <Link href="/deconnexion" method="post" as="button" class="nav-link quiet" :title="user.email">Se déconnecter</Link>
+          </template>
+          <Link v-else href="/connexion" class="nav-link">Se connecter</Link>
+        </nav>
       </div>
     </header>
     <main>
@@ -17,7 +24,7 @@
     </main>
     <footer class="screen-only">
       <div class="container">
-        {{ APP_NAME }} · tes fichiers restent dans ton navigateur · fonds de carte © OpenStreetMap / OpenTopoMap
+        {{ APP_NAME }} · sans compte, tes fichiers restent dans ton navigateur · fonds de carte © OpenStreetMap / OpenTopoMap
       </div>
     </footer>
   </div>
@@ -27,9 +34,11 @@
 import { Link } from '@inertiajs/vue3'
 import { APP_NAME, APP_TAGLINE } from '~/brand'
 import { usePlan } from '~/composables/use_plan'
+import { useAccount } from '~/composables/use_account'
 
 const { restore, clearTrack } = usePlan()
 restore()
+const { user } = useAccount()
 </script>
 
 <style scoped>
@@ -38,6 +47,10 @@ restore()
 .bar { height: 100%; display: flex; align-items: center; gap: 16px; }
 .logo { display: flex; align-items: center; gap: 8px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.6rem; color: var(--text); text-decoration: none; }
 .tagline { color: var(--text-dim); font-size: 0.88rem; }
+.account { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.nav-link { font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--forest); text-decoration: none; background: none; border: none; padding: 0; cursor: pointer; white-space: nowrap; }
+.nav-link:hover { text-decoration: underline; }
+.nav-link.quiet { color: var(--text-dim); font-weight: 500; }
 main { flex: 1; padding: 28px 0 40px; }
 footer { border-top: 1px solid var(--border); padding: 16px 0; font-size: 0.8rem; color: var(--text-dim); }
 @media (max-width: 640px) { .tagline { display: none; } }

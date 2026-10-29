@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, effectScope, ref, watch } from 'vue'
 import { haversine, toGpx, type Track, type TrackPoint } from '~/utils/gpx'
 import { routeLeg, type Coord, type LatLon } from '~/utils/routing'
 import { buildProfile } from '~/utils/profile'
@@ -191,7 +191,8 @@ function restore() {
   catch {
     // Brouillon illisible ou stockage bloqué : on repart d'une carte vide
   }
-  watch([waypoints, legs, mode, name], save, { deep: true })
+  // Portée détachée : la surveillance doit survivre au départ de la page
+  effectScope(true).run(() => watch([waypoints, legs, mode, name], save, { deep: true }))
 }
 
 function save() {
