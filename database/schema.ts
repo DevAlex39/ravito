@@ -30,6 +30,42 @@ export class PlanSchema extends BaseModel {
   declare userId: number
 }
 
+export class PoiCellSchema extends BaseModel {
+  static $columns = ['cell', 'fetchedAt'] as const
+  $columns = PoiCellSchema.$columns
+  @column({ isPrimary: true })
+  declare cell: string
+  @column.dateTime()
+  declare fetchedAt: DateTime
+}
+
+export class PoisSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'kind', 'lat', 'lon', 'name', 'osmKey', 'score', 'sitelinks', 'updatedAt', 'wikidata'] as const
+  $columns = PoisSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare kind: string
+  @column()
+  declare lat: number
+  @column()
+  declare lon: number
+  @column()
+  declare name: string
+  @column()
+  declare osmKey: string
+  @column()
+  declare score: number
+  @column()
+  declare sitelinks: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare wikidata: string | null
+}
+
 export class UserSchema extends BaseModel {
   static $columns = ['createdAt', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
   $columns = UserSchema.$columns

@@ -34,6 +34,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<unknown>
     }
   }
+  'loops': {
+    methods: ["GET","HEAD"]
+    pattern: '/boucles'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+      rawResponse: ExtractRawResponse<unknown>
+    }
+  }
+  'pois.around': {
+    methods: ["GET","HEAD"]
+    pattern: '/lieux'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/pois_controller').default['around']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/pois_controller').default['around']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/pois_controller').default['around']>>>
+    }
+  }
   'signup': {
     methods: ["GET","HEAD"]
     pattern: '/inscription'

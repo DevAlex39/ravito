@@ -14,7 +14,12 @@ temps ciblé avec allures par tronçon, barrières horaires, plan de ravitaillem
 Les calculs (lecture GPX, profil, modèle de temps) tournent dans le navigateur. Sans compte, rien n'est
 envoyé au serveur : l'état est gardé dans le `localStorage`. Avec un compte, le bouton « Enregistrer »
 envoie le plan complet (GPX compris) dans la table `plans`, puis chaque modification est resynchronisée.
-Les pages : `/connexion`, `/inscription`, `/mes-parcours`, `/parcours/:id`, `/tracer`.
+Les pages : `/connexion`, `/inscription`, `/mes-parcours`, `/parcours/:id`, `/tracer`, `/boucles`.
+
+**Boucles découverte** (`/boucles`) : le serveur récupère les lieux remarquables auprès d'OpenStreetMap
+(Overpass) et leur notoriété auprès de Wikidata (nombre de Wikipédia), puis les garde dans les tables `pois` /
+`poi_cells` (cases de 0,05°, renouvelées après 30 jours) : chaque secteur n'est demandé qu'une fois. Le navigateur
+compose ensuite les boucles (`inertia/utils/loops.ts`) et les fait tracer par BRouter.
 
 ## Lancer
 

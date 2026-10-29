@@ -108,6 +108,15 @@ function undo() {
   legs.value = prev.legs
 }
 
+/** Remplace le tracé par un itinéraire déjà calculé (boucle découverte), pour l'ajuster à la main */
+function loadRoute(points: LatLon[], legCoords: Coord[][], routeName: string) {
+  if (waypoints.value.length) snapshot()
+  waypoints.value = points.map(p => ({ lat: p.lat, lon: p.lon }))
+  legs.value = legCoords.map(coords => ({ id: nextLegId++, mode: 'sentiers', coords, status: 'ok' }))
+  mode.value = 'sentiers'
+  name.value = routeName
+}
+
 function clear() {
   if (!waypoints.value.length) return
   snapshot()
@@ -208,6 +217,6 @@ export function useTracer() {
   return {
     waypoints, legs, mode, name, history,
     track, profile, isLoop, pending, failed, noElevation,
-    restore, addPoint, movePoint, removePoint, closeLoop, undo, clear, gpxText,
+    restore, addPoint, movePoint, removePoint, closeLoop, undo, clear, gpxText, loadRoute,
   }
 }

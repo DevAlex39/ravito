@@ -12,9 +12,12 @@ import { middleware } from '#start/kernel'
 
 const AuthController = () => import('#controllers/auth_controller')
 const PlansController = () => import('#controllers/plans_controller')
+const PoisController = () => import('#controllers/pois_controller')
 
 router.on('/').renderInertia('home', {}).as('home')
 router.on('/tracer').renderInertia('tracer', {}).as('tracer')
+router.on('/boucles').renderInertia('loops', {}).as('loops')
+router.get('/lieux', [PoisController, 'around']).as('pois.around')
 
 router
   .group(() => {

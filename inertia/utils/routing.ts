@@ -11,8 +11,14 @@ export interface LatLon {
  * Serveur public pour l'instant : https://brouter.de — à remplacer par une instance
  * auto-hébergée sur le VPS si le volume augmente.
  */
-export async function routeLeg(a: LatLon, b: LatLon, signal?: AbortSignal): Promise<Coord[]> {
-  const url = `https://brouter.de/brouter?lonlats=${a.lon},${a.lat}|${b.lon},${b.lat}&profile=hiking-mountain&alternativeidx=0&format=geojson`
+export function routeLeg(a: LatLon, b: LatLon, signal?: AbortSignal): Promise<Coord[]> {
+  return routeVia([a, b], signal)
+}
+
+/** Itinéraire pédestre passant par tous les points, dans l'ordre (une seule requête) */
+export async function routeVia(points: LatLon[], signal?: AbortSignal): Promise<Coord[]> {
+  const lonlats = points.map(p => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join('|')
+  const url = `https://brouter.de/brouter?lonlats=${lonlats}&profile=hiking-mountain&alternativeidx=0&format=geojson`
   const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`BRouter : ${res.status}`)
   const data = await res.json()

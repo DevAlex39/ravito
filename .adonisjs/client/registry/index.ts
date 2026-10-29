@@ -20,6 +20,18 @@ const routes = {
     tokens: [[0,"tracer"]],
     types: placeholder as Registry['tracer']['types'],
   },
+  'loops': {
+    methods: ["GET","HEAD"],
+    pattern: '/boucles',
+    tokens: [[0,"boucles"]],
+    types: placeholder as Registry['loops']['types'],
+  },
+  'pois.around': {
+    methods: ["GET","HEAD"],
+    pattern: '/lieux',
+    tokens: [[0,"lieux"]],
+    types: placeholder as Registry['pois.around']['types'],
+  },
   'signup': {
     methods: ["GET","HEAD"],
     pattern: '/inscription',

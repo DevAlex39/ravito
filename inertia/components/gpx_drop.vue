@@ -19,7 +19,10 @@
       </label>
       <button class="btn ghost" type="button" @click="emit('example')">Essayer avec un exemple</button>
     </div>
-    <p class="draw">Pas de fichier ? <Link href="/tracer">Trace ton parcours sur la carte →</Link></p>
+    <p class="draw">
+      Pas de fichier ? <Link href="/tracer">Trace ton parcours sur la carte</Link>
+      ou <Link href="/boucles">laisse-toi proposer une boucle découverte →</Link>
+    </p>
   </div>
 </template>
 

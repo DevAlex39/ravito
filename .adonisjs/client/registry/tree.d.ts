@@ -4,6 +4,10 @@ import type { routes } from './index.ts'
 export interface ApiDefinition {
   home: typeof routes['home']
   tracer: typeof routes['tracer']
+  loops: typeof routes['loops']
+  pois: {
+    around: typeof routes['pois.around']
+  }
   signup: typeof routes['signup']
   auth: {
     signup: typeof routes['auth.signup']
