@@ -223,6 +223,8 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
   const remaining = Array.from({ length: 12 }, (_, i) => fitCandidate(start, pois, target, (i * Math.PI) / 6))
     .sort((a, b) => b.quality - a.quality)
 
+  // Écart minimal entre deux directions de départ : 75° pour 3 boucles, resserré quand on en demande plus
+  const minGap = Math.min((Math.PI * 5) / 12, ((Math.PI * 2) / count) * 0.8)
   const loops: { direction: number, loop: Loop }[] = []
   // Boucles trop éloignées de la distance demandée : gardées seulement à défaut de mieux
   const weak: { direction: number, loop: Loop }[] = []
@@ -234,7 +236,7 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
     for (const c of [...remaining]) {
       if (loops.length + picked.length >= count) break
       const taken = [...loops.map(l => l.direction), ...picked.map(p => p.direction)]
-      if (taken.every(d => angleGap(d, c.direction) >= (Math.PI * 5) / 12)) {
+      if (taken.every(d => angleGap(d, c.direction) >= minGap)) {
         picked.push(c)
         remaining.splice(remaining.indexOf(c), 1)
       }
@@ -250,7 +252,7 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
   weak.sort((a, b) => Math.abs(a.loop.distance - target) - Math.abs(b.loop.distance - target))
   for (const w of weak) {
     if (loops.length >= count) break
-    if (loops.every(l => angleGap(l.direction, w.direction) >= (Math.PI * 5) / 12)) loops.push(w)
+    if (loops.every(l => angleGap(l.direction, w.direction) >= minGap)) loops.push(w)
   }
   if (!loops.length) throw lastError ?? new Error('Aucune boucle trouvée')
   return loops.map(l => l.loop)

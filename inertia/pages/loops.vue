@@ -18,6 +18,12 @@
           <input v-model.number="km" type="number" min="3" max="40" step="1" inputmode="numeric" aria-label="Distance en kilomètres">
           <span>km</span>
         </label>
+        <label class="distance">
+          <select v-model.number="count" aria-label="Nombre de boucles proposées">
+            <option v-for="n in 6" :key="n" :value="n">{{ n }}</option>
+          </select>
+          <span>boucle{{ count > 1 ? 's' : '' }}</span>
+        </label>
         <button class="btn" type="submit" :disabled="!start || busy">{{ busy ? 'Recherche…' : 'Proposer des boucles' }}</button>
       </form>
 
@@ -100,6 +106,8 @@ const start = ref<LatLon | null>(null)
 /** Nom court du lieu de départ, pour nommer la boucle */
 const placeName = ref('')
 const km = ref(10)
+/** Nombre de boucles demandées (3 par défaut, de 1 à 6) */
+const count = ref(3)
 const loops = ref<Loop[]>([])
 const selected = ref(0)
 const hoverD = ref<number | null>(null)
@@ -200,12 +208,13 @@ async function propose() {
   }
   try {
     showInfo('Calcul des itinéraires…')
-    loops.value = await generateLoops(start.value, target, pois)
+    loops.value = await generateLoops(start.value, target, pois, count.value)
     selected.value = 0
     // Les nouvelles boucles n'arrivent à la carte qu'au rendu suivant
     nextTick(() => mapRef.value?.fitLoops())
     if (poisFailed) showError('Les lieux à voir sont indisponibles pour le moment : voici des boucles sans étapes.')
     else if (!loops.value.some(l => l.stops.length)) showInfo('Peu de lieux remarquables connus ici : ces boucles explorent simplement les alentours.')
+    else if (loops.value.length < count.value) showInfo(`Seulement ${loops.value.length} boucle${loops.value.length > 1 ? 's' : ''} trouvée${loops.value.length > 1 ? 's' : ''} autour de ce départ (relief, rivière ou manque de chemins).`)
     else message.value = ''
   }
   catch {
@@ -216,15 +225,24 @@ async function propose() {
   }
 }
 
-// --- Arrivée depuis l'accueil (/boucles?depart=Dole&km=10 ou ?position=1) : on enchaîne tout seul ---
+// --- Arrivée depuis l'accueil (?depart=Dole, ?position=1 ou ?lat=…&lon=…, avec &km=10) : on enchaîne tout seul ---
 onMounted(async () => {
   const params = new URLSearchParams(window.location.search)
-  if (!params.has('depart') && !params.has('position')) return
+  const lat = Number(params.get('lat'))
+  const lon = Number(params.get('lon'))
+  const fromPoint = params.has('lat') && Math.abs(lat) <= 90 && Math.abs(lon) <= 180
+  if (!params.has('depart') && !params.has('position') && !fromPoint) return
   const wanted = Number(params.get('km'))
   if (wanted) km.value = Math.min(40, Math.max(3, Math.round(wanted)))
   // L'adresse redevient /boucles : recharger la page ne relance pas le calcul
   history.replaceState(history.state, '', '/boucles')
   if (params.has('position')) return onLocate(propose)
+  if (fromPoint) {
+    // La carte se centre d'elle-même sur ce départ à sa création
+    setStart({ lat, lon })
+    mapRef.value?.flyTo(lat, lon)
+    return propose()
+  }
   query.value = params.get('depart') ?? ''
   await onSearch()
   if (start.value) propose()
@@ -271,6 +289,7 @@ function useForPlan() {
 .search input { flex: 1; min-width: 0; }
 .distance { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; color: var(--text-soft); }
 .distance input { width: 70px; text-align: center; }
+.distance select { font: inherit; padding: 6px 8px; }
 .controls .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .notice { font-size: 0.9rem; color: var(--text-soft); }

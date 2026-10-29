@@ -9,14 +9,33 @@
           qui passe par les plus beaux lieux du coin.
         </p>
         <form class="loop-form card" @submit.prevent="findLoop()">
-          <input v-model="loopStart" type="text" placeholder="Ville ou lieu de départ (ex. Dole)" aria-label="Lieu de départ">
+          <input
+            v-model="loopStart"
+            type="text"
+            :placeholder="loopPoint ? 'Point choisi sur la carte ✓' : 'Ville ou lieu de départ (ex. Dole)'"
+            :class="{ picked: loopPoint }"
+            aria-label="Lieu de départ"
+          >
           <label class="km">
             <input v-model.number="loopKm" type="number" min="3" max="40" step="1" inputmode="numeric" aria-label="Distance en kilomètres">
             <span>km</span>
           </label>
-          <button class="btn" type="submit" :disabled="!loopStart.trim()">Trouver ma boucle →</button>
+          <button class="btn" type="submit" :disabled="!loopStart.trim() && !loopPoint">Trouver ma boucle →</button>
         </form>
-        <button class="locate" type="button" @click="findLoop(true)">📍 ou pars de ma position</button>
+        <div class="alt-starts">
+          <button class="alt" type="button" @click="findLoop(true)">📍 ou pars de ma position</button>
+          <button class="alt" type="button" :aria-expanded="showMap" @click="showMap = !showMap">
+            🗺️ {{ showMap ? 'masquer la carte' : 'ou choisis un point sur la carte' }}
+          </button>
+        </div>
+        <div v-if="showMap" class="pick-map card">
+          <div class="pick-map-inner">
+            <LoopMap ref="pickMap" :start="loopPoint" :loops="[]" :selected="0" :track="null" :hover="null" @pick="pickPoint" />
+          </div>
+          <p class="pick-hint">
+            {{ loopPoint ? 'Départ posé : glisse-le pour l\'ajuster, puis « Trouver ma boucle ».' : 'Clique sur la carte pour poser ton départ.' }}
+          </p>
+        </div>
       </div>
 
       <div class="paths">
@@ -110,7 +129,7 @@
 </template>
 
 <script setup lang='ts'>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import { APP_NAME } from '~/brand'
 import { usePlan } from '~/composables/use_plan'
@@ -127,6 +146,8 @@ import ObjectivePanel from '~/components/objective_panel.vue'
 import PrintSheet from '~/components/print_sheet.vue'
 import PrintBand from '~/components/print_band.vue'
 import SaveButton from '~/components/save_button.vue'
+import LoopMap from '~/components/loop_map.vue'
+import type { LatLon } from '~/utils/routing'
 import { useAccount } from '~/composables/use_account'
 
 /** `saved` : plan ouvert depuis « Mes parcours » (/parcours/:id) */
@@ -152,11 +173,30 @@ const finish = computed(() => timeline.value[timeline.value.length - 1])
 // --- Boucle découverte lancée depuis l'accueil (la page /boucles fait la recherche et le calcul) ---
 const loopStart = ref('')
 const loopKm = ref(10)
+/** Départ posé sur la carte (remplace le nom tapé, et inversement) */
+const loopPoint = ref<LatLon | null>(null)
+const showMap = ref(false)
+const pickMap = ref<InstanceType<typeof LoopMap>>()
+
+function pickPoint(p: LatLon) {
+  // Premier point (souvent posé sur la carte de France entière) : on zoome dessus pour l'ajuster
+  if (!loopPoint.value) pickMap.value?.flyTo(p.lat, p.lon, 13)
+  loopPoint.value = p
+  loopStart.value = ''
+}
+
+watch(loopStart, (v) => {
+  if (v.trim()) loopPoint.value = null
+})
 
 function findLoop(fromPosition = false) {
   const params = new URLSearchParams({ km: String(Math.min(40, Math.max(3, Math.round(loopKm.value || 10)))) })
   if (fromPosition) params.set('position', '1')
   else if (loopStart.value.trim()) params.set('depart', loopStart.value.trim())
+  else if (loopPoint.value) {
+    params.set('lat', loopPoint.value.lat.toFixed(5))
+    params.set('lon', loopPoint.value.lon.toFixed(5))
+  }
   else return
   router.visit(`/boucles?${params}`)
 }
@@ -220,8 +260,15 @@ function clearPrint() {
 .loop-form .km input { width: 70px; text-align: center; font-size: 1rem; padding: 10px 6px; }
 .loop-form .btn { font-size: 1rem; padding: 10px 18px; }
 .loop-form .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.locate { font: inherit; font-size: 0.92rem; font-weight: 600; color: var(--forest); background: none; border: none; cursor: pointer; padding: 8px 2px; }
-.locate:hover { color: var(--accent); }
+.loop-form > input.picked::placeholder { color: var(--forest); font-weight: 600; opacity: 1; }
+.alt-starts { display: flex; gap: 4px 20px; flex-wrap: wrap; }
+.alt { font: inherit; font-size: 0.92rem; font-weight: 600; color: var(--forest); background: none; border: none; cursor: pointer; padding: 8px 2px; }
+.alt:hover { color: var(--accent); }
+.pick-map { padding: 10px; margin-top: 4px; }
+.pick-map-inner { height: 340px; }
+.pick-map-inner .map { min-height: 0; }
+.pick-hint { font-size: 0.88rem; color: var(--text-soft); margin-top: 8px; }
+@media (max-width: 640px) { .pick-map-inner { height: 280px; } }
 
 .paths { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 860px) { .paths { grid-template-columns: minmax(0, 1fr); } }
