@@ -16,17 +16,46 @@ const OVERPASS = [
   'https://overpass.kumi.systems/api/interpreter',
 ]
 
+export type PoiCategory = 'patrimoine' | 'nature'
+
 export interface PoiDto {
   id: number
   name: string
   lat: number
   lon: number
   kind: string
+  category: PoiCategory
   score: number
 }
 
-/** Bonus selon le type de lieu, en plus de la notoriété Wikipédia */
+/** Types naturels gardés sur leur seul nom (une cascade ou une grotte a rarement une page Wikipédia) */
+const NATURE_NAMED = /^(waterfall|cave_entrance|peak|arch|gorge|volcano)$/
+/** Types naturels trop nombreux sur la carte : gardés seulement s'ils sont documentés (Wikidata) */
+const NATURE_DOCUMENTED = /^(spring|rock|stone|cliff|beach|saddle)$/
+/** Tout le reste est du patrimoine */
+const NATURE_KINDS = new Set(['waterfall', 'cave_entrance', 'peak', 'arch', 'gorge', 'volcano', 'spring', 'rock', 'stone', 'cliff', 'beach', 'saddle', 'viewpoint', 'park', 'garden'])
+
+export function categoryOf(kind: string): PoiCategory {
+  return NATURE_KINDS.has(kind) ? 'nature' : 'patrimoine'
+}
+
+/**
+ * Bonus selon le type de lieu, en plus de la notoriété Wikipédia.
+ * Les lieux naturels en ont un plus fort : sans lui, une cascade serait toujours devancée par une église.
+ */
 const KIND_BONUS: Record<string, number> = {
+  waterfall: 2.5,
+  cave_entrance: 2,
+  gorge: 2,
+  arch: 2,
+  volcano: 2,
+  peak: 1.5,
+  spring: 1.5,
+  saddle: 1,
+  cliff: 1,
+  beach: 1,
+  rock: 1,
+  stone: 1,
   attraction: 1.5,
   museum: 1.5,
   viewpoint: 1.5,
@@ -62,7 +91,7 @@ type Bbox = [south: number, west: number, north: number, east: number]
  * Lieux remarquables autour d'un point. Les secteurs jamais vus (ou trop anciens) sont d'abord
  * demandés à OpenStreetMap puis enregistrés : les recherches suivantes ne touchent que la base.
  */
-export async function poisAround(lat: number, lon: number, radius: number): Promise<PoiDto[]> {
+export async function poisAround(lat: number, lon: number, radius: number, category?: PoiCategory): Promise<PoiDto[]> {
   const dLat = radius / 111_320
   const dLon = radius / (111_320 * Math.cos(lat * Math.PI / 180))
   const bbox: Bbox = [lat - dLat, lon - dLon, lat + dLat, lon + dLon]
@@ -72,10 +101,11 @@ export async function poisAround(lat: number, lon: number, radius: number): Prom
   const rows = await Poi.query()
     .whereBetween('lat', [bbox[0], bbox[2]])
     .whereBetween('lon', [bbox[1], bbox[3]])
+    .if(category, q => q.where('category', category!))
     .orderBy('score', 'desc')
     .limit(400)
 
-  return rows.map(p => ({ id: p.id, name: p.name, lat: p.lat, lon: p.lon, kind: p.kind, score: p.score }))
+  return rows.map(p => ({ id: p.id, name: p.name, lat: p.lat, lon: p.lon, kind: p.kind, category: p.category as PoiCategory, score: p.score }))
 }
 
 async function fillCells(bbox: Bbox) {
@@ -104,13 +134,23 @@ async function fillCells(bbox: Bbox) {
   logger.info({ area, count }, 'lieux importés depuis OpenStreetMap')
 }
 
+export interface SaveOptions {
+  onProgress?: (done: number, total: number) => void
+  /** Redemande la notoriété de tous les lieux, même ceux déjà connus en base */
+  refreshWikidata?: boolean
+}
+
 /**
  * Enregistre des lieux (Overpass ou import d'un extrait OSM) : notoriété Wikidata, score,
  * puis insertion ou mise à jour par identifiant OSM. Renvoie le nombre de lieux gardés.
+ * La notoriété déjà connue en base est réutilisée (elle bouge peu) : seuls les nouveaux lieux interrogent Wikidata.
  */
-export async function savePois(candidates: NewPoi[], onProgress?: (done: number, total: number) => void): Promise<number> {
+export async function savePois(candidates: NewPoi[], { onProgress, refreshWikidata = false }: SaveOptions = {}): Promise<number> {
   const pois = dedupe(candidates)
-  const sitelinks = await fetchSitelinks(pois.map(p => p.wikidata).filter(q => q != null), onProgress)
+  const ids = [...new Set(pois.map(p => p.wikidata).filter(q => q != null))]
+  const sitelinks = refreshWikidata ? new Map<string, number>() : await knownSitelinks(ids)
+  const fetched = await fetchSitelinks(ids.filter(q => !sitelinks.has(q)), onProgress)
+  for (const [q, n] of fetched) sitelinks.set(q, n)
   for (const p of pois) {
     p.sitelinks = p.wikidata ? sitelinks.get(p.wikidata) ?? 0 : 0
     p.score = score(p.kind, p.sitelinks, p.wikidata != null)
@@ -124,15 +164,26 @@ export async function savePois(candidates: NewPoi[], onProgress?: (done: number,
       lat: p.lat,
       lon: p.lon,
       kind: p.kind,
+      category: categoryOf(p.kind),
       wikidata: p.wikidata,
       sitelinks: p.sitelinks,
       score: p.score,
       created_at: now,
       updated_at: now,
     }))
-    await knex.table('pois').insert(rows).onConflict('osm_key').merge(['name', 'lat', 'lon', 'kind', 'wikidata', 'sitelinks', 'score', 'updated_at'])
+    await knex.table('pois').insert(rows).onConflict('osm_key').merge(['name', 'lat', 'lon', 'kind', 'category', 'wikidata', 'sitelinks', 'score', 'updated_at'])
   }
   return pois.length
+}
+
+/** Notoriété déjà enregistrée pour ces éléments Wikidata */
+async function knownSitelinks(ids: string[]): Promise<Map<string, number>> {
+  const result = new Map<string, number>()
+  for (let k = 0; k < ids.length; k += 1000) {
+    const rows = await db.from('pois').select('wikidata', 'sitelinks').whereIn('wikidata', ids.slice(k, k + 1000))
+    for (const r of rows as { wikidata: string, sitelinks: number }[]) result.set(r.wikidata, r.sitelinks)
+  }
+  return result
 }
 
 async function fetchOverpass([s, w, n, e]: Bbox): Promise<OverpassElement[]> {
@@ -146,6 +197,9 @@ async function fetchOverpass([s, w, n, e]: Bbox): Promise<OverpassElement[]> {
   nwr["tourism"="artwork"]["name"]["wikidata"]${b};
   nwr["man_made"~"^(tower|lighthouse|bridge)$"]["name"]["wikidata"]${b};
   nwr["place"="square"]["name"]["wikidata"]${b};
+  nwr["natural"~"^(waterfall|cave_entrance|peak|arch|gorge|volcano)$"]["name"]${b};
+  nwr["waterway"="waterfall"]["name"]${b};
+  nwr["natural"~"^(spring|rock|stone|cliff|beach|saddle)$"]["name"]["wikidata"]${b};
 );
 out center tags;`
   let lastError: unknown
@@ -188,6 +242,7 @@ export interface NewPoi {
 function isWanted(t: Record<string, string>): boolean {
   if (!t.name) return false
   if (/^(attraction|viewpoint|museum|gallery)$/.test(t.tourism ?? '')) return true
+  if (NATURE_NAMED.test(t.natural ?? '') || t.waterway === 'waterfall') return true
   if (!/^Q\d+$/.test(t.wikidata ?? '')) return false
   return /^(castle|monument|ruins|city_gate|fort|archaeological_site|manor|tower|church|cathedral|palace|building|memorial)$/.test(t.historic ?? '')
     || t.amenity === 'place_of_worship'
@@ -195,6 +250,14 @@ function isWanted(t: Record<string, string>): boolean {
     || t.tourism === 'artwork'
     || /^(tower|lighthouse|bridge)$/.test(t.man_made ?? '')
     || t.place === 'square'
+    || NATURE_DOCUMENTED.test(t.natural ?? '')
+}
+
+/** Type naturel d'un objet (une cascade peut être un point « natural » ou un tronçon de cours d'eau) */
+function naturalKind(t: Record<string, string>): string | null {
+  if (t.waterway === 'waterfall') return 'waterfall'
+  const n = t.natural ?? ''
+  return NATURE_NAMED.test(n) || NATURE_DOCUMENTED.test(n) ? n : null
 }
 
 export function toPoi(el: OverpassElement): NewPoi | null {
@@ -204,6 +267,7 @@ export function toPoi(el: OverpassElement): NewPoi | null {
   const lon = el.lon ?? el.center?.lon
   if (!t.name || lat == null || lon == null) return null
   const kind = (t.historic && t.historic !== 'building' && t.historic !== 'church' ? t.historic : null)
+    ?? naturalKind(t)
     ?? (t.amenity === 'place_of_worship' ? (t.building === 'cathedral' ? 'cathedral' : 'place_of_worship') : null)
     ?? t.tourism ?? t.leisure ?? t.man_made ?? t.place ?? t.historic
   return {

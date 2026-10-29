@@ -1,6 +1,6 @@
 import { createReadStream } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { BaseCommand, args } from '@adonisjs/core/ace'
+import { BaseCommand, args, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import db from '@adonisjs/lucid/services/db'
 import { CELL, savePois, toPoi, type NewPoi } from '#services/poi_service'
@@ -26,21 +26,50 @@ export default class ImportLieux extends BaseCommand {
   @args.string({ description: 'Contour de la zone couverte, au format .poly de Geofabrik' })
   declare poly: string
 
+  @flags.boolean({ description: 'Redemande à Wikidata la notoriété de tous les lieux (sinon seulement des nouveaux)' })
+  declare rafraichirWikidata: boolean
+
   async run() {
+    const startedAt = new Date()
     const candidates = await this.readCandidates()
-    this.logger.info(`${candidates.length} lieux retenus, récupération de leur notoriété sur Wikidata…`)
+    this.logger.info(`${candidates.length} lieux retenus, récupération de la notoriété des nouveaux lieux sur Wikidata…`)
 
     let lastShown = 0
-    const count = await savePois(candidates, (done, total) => {
-      if (done - lastShown >= 5000 || done === total) {
-        lastShown = done
-        this.logger.info(`Wikidata : ${done} / ${total}`)
-      }
+    const count = await savePois(candidates, {
+      refreshWikidata: this.rafraichirWikidata,
+      onProgress: (done, total) => {
+        if (done - lastShown >= 5000 || done === total) {
+          lastShown = done
+          this.logger.info(`Wikidata : ${done} / ${total}`)
+        }
+      },
     })
     this.logger.success(`${count} lieux enregistrés`)
 
     const cells = await this.markCells()
     this.logger.success(`${cells} secteurs marqués comme couverts par l'import`)
+
+    await this.deleteStale(startedAt, count)
+  }
+
+  /**
+   * Lieux des secteurs importés qui n'apparaissent plus dans l'extrait (supprimés ou modifiés dans OSM).
+   * Garde-fou : si l'import paraît incomplet (fichier tronqué…), on ne supprime rien.
+   */
+  private async deleteStale(startedAt: Date, imported: number) {
+    const knex = db.connection().getWriteClient()
+    const [{ total }] = await knex.from('pois').count({ total: '*' }) as { total: number }[]
+    if (imported < Number(total) * 0.7) {
+      this.logger.warning(`Seulement ${imported} lieux importés pour ${total} en base : suppression des anciens lieux annulée par prudence`)
+      return
+    }
+    const [result] = await knex.raw(
+      `DELETE p FROM pois p
+       JOIN poi_cells c ON c.cell = CONCAT(FLOOR(p.lat / ?), ':', FLOOR(p.lon / ?))
+       WHERE c.source = 'import' AND p.updated_at < ?`,
+      [CELL, CELL, startedAt],
+    ) as [{ affectedRows: number }]
+    this.logger.success(`${result.affectedRows} lieux disparus de la carte supprimés`)
   }
 
   /** Lit le fichier ligne par ligne (une entité GeoJSON par ligne) et garde les lieux voulus */

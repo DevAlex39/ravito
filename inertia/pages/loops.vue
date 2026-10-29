@@ -24,6 +24,19 @@
           </select>
           <span>boucle{{ count > 1 ? 's' : '' }}</span>
         </label>
+        <div class="themes" role="radiogroup" aria-label="Lieux à voir">
+          <button
+            v-for="t in THEMES"
+            :key="t.value"
+            type="button"
+            role="radio"
+            :aria-checked="theme === t.value"
+            :class="{ on: theme === t.value }"
+            @click="theme = t.value"
+          >
+            {{ t.label }}
+          </button>
+        </div>
         <button class="btn" type="submit" :disabled="!start || busy">{{ busy ? 'Recherche…' : 'Proposer des boucles' }}</button>
       </form>
 
@@ -108,6 +121,15 @@ const placeName = ref('')
 const km = ref(10)
 /** Nombre de boucles demandées (3 par défaut, de 1 à 6) */
 const count = ref(3)
+
+type Theme = 'tout' | 'patrimoine' | 'nature'
+const THEMES: { value: Theme, label: string }[] = [
+  { value: 'tout', label: 'Tout' },
+  { value: 'patrimoine', label: '🏛️ Patrimoine' },
+  { value: 'nature', label: '🌿 Nature' },
+]
+/** Lieux à voir sur les boucles : tous, ou seulement le patrimoine / la nature */
+const theme = ref<Theme>('tout')
 const loops = ref<Loop[]>([])
 const selected = ref(0)
 const hoverD = ref<number | null>(null)
@@ -182,7 +204,8 @@ async function fetchPois(p: LatLon, target: number): Promise<Poi[]> {
   // Premier passage dans un secteur : les lieux sont récupérés auprès d'OpenStreetMap, c'est plus long
   const slow = setTimeout(() => showInfo('Premier passage dans ce secteur : la recherche des lieux peut prendre jusqu\'à une minute. Les suivantes seront immédiates.'), 3000)
   try {
-    const res = await fetch(`/lieux?lat=${p.lat.toFixed(5)}&lon=${p.lon.toFixed(5)}&rayon=${searchRadius(target)}`, { headers: { Accept: 'application/json' } })
+    const filter = theme.value === 'tout' ? '' : `&categorie=${theme.value}`
+    const res = await fetch(`/lieux?lat=${p.lat.toFixed(5)}&lon=${p.lon.toFixed(5)}&rayon=${searchRadius(target)}${filter}`, { headers: { Accept: 'application/json' } })
     if (!res.ok) throw new Error()
     return (await res.json() as { lieux: Poi[] }).lieux
   }
@@ -213,7 +236,10 @@ async function propose() {
     // Les nouvelles boucles n'arrivent à la carte qu'au rendu suivant
     nextTick(() => mapRef.value?.fitLoops())
     if (poisFailed) showError('Les lieux à voir sont indisponibles pour le moment : voici des boucles sans étapes.')
-    else if (!loops.value.some(l => l.stops.length)) showInfo('Peu de lieux remarquables connus ici : ces boucles explorent simplement les alentours.')
+    else if (!loops.value.some(l => l.stops.length)) {
+      const what = theme.value === 'nature' ? 'de lieux naturels' : theme.value === 'patrimoine' ? 'de patrimoine' : 'de lieux remarquables'
+      showInfo(`Peu ${what} connus ici : ces boucles explorent simplement les alentours.`)
+    }
     else if (loops.value.length < count.value) showInfo(`Seulement ${loops.value.length} boucle${loops.value.length > 1 ? 's' : ''} trouvée${loops.value.length > 1 ? 's' : ''} autour de ce départ (relief, rivière ou manque de chemins).`)
     else message.value = ''
   }
@@ -290,6 +316,10 @@ function useForPlan() {
 .distance { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; color: var(--text-soft); }
 .distance input { width: 70px; text-align: center; }
 .distance select { font: inherit; padding: 6px 8px; }
+.themes { display: flex; border: 1px solid var(--border-strong); border-radius: 999px; overflow: hidden; }
+.themes button { font: inherit; font-size: 0.85rem; font-weight: 600; padding: 6px 12px; background: var(--panel); color: var(--text-soft); border: none; cursor: pointer; }
+.themes button + button { border-left: 1px solid var(--border-strong); }
+.themes button.on { background: var(--forest); color: #fff; }
 .controls .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .notice { font-size: 0.9rem; color: var(--text-soft); }

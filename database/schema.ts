@@ -42,8 +42,10 @@ export class PoiCellSchema extends BaseModel {
 }
 
 export class PoisSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'kind', 'lat', 'lon', 'name', 'osmKey', 'score', 'sitelinks', 'updatedAt', 'wikidata'] as const
+  static $columns = ['category', 'createdAt', 'id', 'kind', 'lat', 'lon', 'name', 'osmKey', 'score', 'sitelinks', 'updatedAt', 'wikidata'] as const
   $columns = PoisSchema.$columns
+  @column()
+  declare category: string
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column({ isPrimary: true })
