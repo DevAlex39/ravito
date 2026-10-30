@@ -128,11 +128,7 @@
           </button>
         </div>
 
-        <section v-if="profile" class="card">
-          <ElevationProfile v-model:hover="hoverD" :profile="profile" :segments="segments" :height="150" />
-        </section>
-
-        <section class="card finish">
+        <section v-if="current?.stops.length" class="card finish">
           <template v-if="current?.stops.length">
             <p class="stops-hint">Les lieux du parcours, dans l'ordre (clique pour en savoir plus) :</p>
             <ol class="stops">
@@ -148,6 +144,13 @@
               <PoiDetail v-if="selectedStop" :poi="selectedStop" @close="selectedStop = null" />
             </div>
           </template>
+        </section>
+
+        <section v-if="profile" class="card">
+          <ElevationProfile v-model:hover="hoverD" :profile="profile" :segments="segments" :markers="stopMarkers" :height="150" />
+        </section>
+
+        <section class="card finish">
           <div class="finish-actions">
             <button class="btn ghost" type="button" @click="download">Télécharger le GPX</button>
             <button class="btn ghost" type="button" @click="adjust">Ajuster dans le traceur</button>
@@ -176,7 +179,7 @@ import PlaceInput from '~/components/place_input.vue'
 import { buildProfile } from '~/utils/profile'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
 import { formatKm } from '~/utils/format'
-import { toGpx } from '~/utils/gpx'
+import { haversine, toGpx } from '~/utils/gpx'
 import { KIND_GROUPS, kindOf } from '~/utils/places'
 
 const plan = usePlan()
@@ -262,6 +265,33 @@ const gains = computed(() => profiles.value.map(p => p.gain))
 const track = computed(() => tracks.value[selected.value] ?? null)
 const profile = computed(() => profiles.value[selected.value] ?? null)
 const segments = computed(() => (profile.value ? computeSegments(profile.value, autoBoundaries(profile.value)) : []))
+
+/**
+ * Lieux sur le graphique km / D+ : numéro et icône au kilomètre où l'on y passe.
+ * On suit le tracé dans l'ordre : pour chaque lieu, le premier passage à moins de 150 m après le
+ * précédent (une boucle repasse près du départ à la fin : il ne faut pas confondre les deux).
+ */
+const stopMarkers = computed(() => {
+  const points = track.value?.points ?? []
+  const stops = current.value?.stops ?? []
+  let from = 0
+  return stops.flatMap((stop, k) => {
+    let best = -1
+    let bestDist = Infinity
+    for (let i = from; i < points.length; i++) {
+      const dist = haversine(points[i]!, stop)
+      if (dist < bestDist) {
+        best = i
+        bestDist = dist
+      }
+      // Assez près et l'on s'en éloigne : c'est ce passage-là
+      else if (bestDist < 150 && dist > bestDist + 50) break
+    }
+    if (best < 0) return []
+    from = best
+    return [{ d: points[best]!.d, label: `${k + 1} ${kindOf(stop).icon}` }]
+  })
+})
 
 // --- Parcours partagés par les autres coureurs autour du départ ---
 type SharedItem = { id: number, name: string, distance: number, gain: number, votes: number, away: number }

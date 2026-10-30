@@ -10,9 +10,9 @@
       <path v-for="s in segPaths" :key="s.i" :d="s.area" :class="['area', s.type]" />
       <path :d="line" class="line" />
 
-      <g v-for="m in markers" :key="`${m.label}${m.d}`" class="marker">
+      <g v-for="m in placedMarkers" :key="`${m.label}${m.d}`" class="marker">
         <line :x1="x(m.d)" :x2="x(m.d)" :y1="padT" :y2="height - padB" />
-        <text v-if="!compact" :x="x(m.d) + 4" :y="padT + 9">{{ m.label }}</text>
+        <text v-if="!compact" :x="x(m.d) + 4" :y="padT + 9 + 13 * m.row">{{ m.label }}</text>
       </g>
 
       <g v-if="hoverInfo" class="cursor">
@@ -87,6 +87,18 @@ const xTicks = computed(() => {
   const out: number[] = []
   for (let v = 0; v <= km + 1e-6; v += step) out.push(v)
   return out
+})
+
+/** Repères trop proches pour que leurs étiquettes tiennent côte à côte : on les décale d'une ligne */
+const placedMarkers = computed(() => {
+  const lastX: number[] = []
+  return [...props.markers].sort((a, b) => a.d - b.d).map((m) => {
+    const px = x(m.d)
+    let row = lastX.findIndex(prev => px - prev >= 36)
+    if (row < 0) row = lastX.length < 3 ? lastX.length : 0
+    lastX[row] = px
+    return { ...m, row }
+  })
 })
 
 const x = (d: number) => padL.value + (d / props.profile.distance) * (w.value - padL.value - padR.value)
