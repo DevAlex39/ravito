@@ -26,6 +26,9 @@ export interface PoiDto {
   kind: string
   category: PoiCategory
   score: number
+  /** Pour la fiche du lieu : élément Wikidata (photo, Wikipédia) et objet OpenStreetMap */
+  wikidata: string | null
+  osmKey: string
 }
 
 /** Types naturels gardés sur leur seul nom (une cascade ou une grotte a rarement une page Wikipédia) */
@@ -110,7 +113,17 @@ export async function poisAround(lat: number, lon: number, radius: number, categ
     ? await best(category, 400)
     : (await Promise.all([best('patrimoine', 250), best('nature', 150)])).flat()
 
-  return rows.map(p => ({ id: p.id, name: p.name, lat: p.lat, lon: p.lon, kind: p.kind, category: p.category as PoiCategory, score: p.score }))
+  return rows.map(p => ({
+    id: p.id,
+    name: p.name,
+    lat: p.lat,
+    lon: p.lon,
+    kind: p.kind,
+    category: p.category as PoiCategory,
+    score: p.score,
+    wikidata: p.wikidata,
+    osmKey: p.osmKey,
+  }))
 }
 
 async function fillCells(bbox: Bbox) {

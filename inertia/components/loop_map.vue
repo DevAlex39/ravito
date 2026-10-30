@@ -9,7 +9,8 @@ import type * as Leaflet from 'leaflet'
 import type { Track } from '~/utils/gpx'
 import { pointAt } from '~/utils/gpx'
 import type { LatLon } from '~/utils/routing'
-import type { Loop } from '~/utils/loops'
+import type { Loop, Poi } from '~/utils/loops'
+import { kindOf } from '~/utils/places'
 
 const props = defineProps<{
   start: LatLon | null
@@ -22,6 +23,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   pick: [LatLon]
   select: [number]
+  stop: [Poi]
 }>()
 
 const el = ref<HTMLElement>()
@@ -101,11 +103,16 @@ function drawLoops() {
   L.polyline(latlngs, { color: '#fff', weight: 9, opacity: 0.85, interactive: false }).addTo(loopLayer)
   L.polyline(latlngs, { color: '#e2672b', weight: 5, interactive: false }).addTo(loopLayer)
   loop.stops.forEach((s, k) => {
+    const kind = kindOf(s)
     L!.marker([s.lat, s.lon], {
-      icon: L!.divIcon({ className: 'stop', html: String(k + 1), iconSize: [22, 22], iconAnchor: [11, 11] }),
+      icon: L!.divIcon({ className: `stop stop-${s.category}`, html: String(k + 1), iconSize: [22, 22], iconAnchor: [11, 11] }),
       keyboard: false,
     })
-      .bindTooltip(s.name, { direction: 'top', offset: [0, -10] })
+      .bindTooltip(`${kind.icon} ${s.name}<br><small>${kind.label} · clique pour en savoir plus</small>`, { direction: 'top', offset: [0, -10] })
+      .on('click', (e) => {
+        L!.DomEvent.stopPropagation(e)
+        emit('stop', s)
+      })
       .addTo(loopLayer!)
   })
 }
@@ -169,5 +176,7 @@ defineExpose({ flyTo, fitLoops })
   color: #e2672b;
   font: 700 11px/1 'Inter', sans-serif;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
 }
+:deep(.stop-nature) { border-color: #2f7d4f; color: #2f7d4f; }
 </style>

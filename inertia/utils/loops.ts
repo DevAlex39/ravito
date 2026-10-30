@@ -7,6 +7,9 @@ export interface Poi extends LatLon {
   kind: string
   category: 'patrimoine' | 'nature'
   score: number
+  wikidata: string | null
+  /** Objet OpenStreetMap : n = nœud, w = chemin, r = relation (ex. « w123456 ») */
+  osmKey: string
   /** Score rapporté au meilleur lieu de la même catégorie (0 à 1) : sert à mélanger patrimoine et nature */
   weight?: number
 }

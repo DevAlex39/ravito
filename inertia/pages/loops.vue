@@ -67,6 +67,7 @@
             :hover="hoverD"
             @pick="setStart"
             @select="selected = $event"
+            @stop="openStop"
           />
           <div v-if="!start" class="overlay">Clique sur la carte pour choisir ton départ</div>
         </div>
@@ -86,7 +87,7 @@
             <span class="meta num">{{ formatKm(loop.distance) }} km · +{{ Math.round(gains[i] ?? 0) }} m</span>
             <span v-if="surfaceText(loop)" class="surface">{{ surfaceText(loop) }}</span>
             <span class="places">
-              <template v-if="loop.stops.length">{{ loop.stops.length }} lieu{{ loop.stops.length > 1 ? 'x' : '' }} : {{ loop.stops.map(s => s.name).join(' · ') }}</template>
+              <template v-if="loop.stops.length">{{ loop.stops.length }} lieu{{ loop.stops.length > 1 ? 'x' : '' }} : {{ loop.stops.map(s => `${kindOf(s).icon} ${s.name}`).join(' · ') }}</template>
               <template v-else>Pas de lieu remarquable sur ce tour</template>
             </span>
           </button>
@@ -97,9 +98,21 @@
         </section>
 
         <section class="card finish">
-          <ol v-if="current?.stops.length" class="stops">
-            <li v-for="s in current.stops" :key="s.id">{{ s.name }}</li>
-          </ol>
+          <template v-if="current?.stops.length">
+            <p class="stops-hint">Les lieux du parcours, dans l'ordre (clique pour en savoir plus) :</p>
+            <ol class="stops">
+              <li v-for="(s, k) in current.stops" :key="s.id">
+                <button type="button" class="stop" :class="[s.category, { on: selectedStop?.id === s.id }]" @click="toggleStop(s)">
+                  <span class="num">{{ k + 1 }}</span>
+                  {{ kindOf(s).icon }} {{ s.name }}
+                  <small>{{ kindOf(s).label }}</small>
+                </button>
+              </li>
+            </ol>
+            <div ref="detailRef">
+              <PoiDetail v-if="selectedStop" :poi="selectedStop" @close="selectedStop = null" />
+            </div>
+          </template>
           <div class="finish-actions">
             <button class="btn ghost" type="button" @click="download">Télécharger le GPX</button>
             <button class="btn ghost" type="button" @click="adjust">Ajuster dans le traceur</button>
@@ -112,11 +125,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
 import DefaultLayout from '~/layouts/default.vue'
 import LoopMap from '~/components/loop_map.vue'
 import ElevationProfile from '~/components/elevation_profile.vue'
+import PoiDetail from '~/components/poi_detail.vue'
 import { usePlan } from '~/composables/use_plan'
 import { useTracer } from '~/composables/use_tracer'
 import { generateLoops, loopTrack, searchRadius, type Loop, type Poi } from '~/utils/loops'
@@ -125,6 +139,7 @@ import { buildProfile } from '~/utils/profile'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
 import { formatKm } from '~/utils/format'
 import { toGpx } from '~/utils/gpx'
+import { kindOf } from '~/utils/places'
 
 const plan = usePlan()
 const tracer = useTracer()
@@ -169,6 +184,23 @@ const message = ref('')
 const messageBad = ref(false)
 
 const current = computed(() => loops.value[selected.value] ?? null)
+
+// --- Fiche d'un lieu ---
+const selectedStop = ref<Poi | null>(null)
+const detailRef = ref<HTMLElement>()
+// Une autre boucle n'a pas les mêmes lieux : on referme la fiche
+watch([loops, selected], () => (selectedStop.value = null))
+
+function toggleStop(poi: Poi) {
+  selectedStop.value = selectedStop.value?.id === poi.id ? null : poi
+}
+
+/** Clic sur un lieu de la carte : ouvre sa fiche sous la liste */
+async function openStop(poi: Poi) {
+  selectedStop.value = poi
+  await nextTick()
+  detailRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
 const loopName = computed(() => `Boucle découverte${placeName.value ? ` – ${placeName.value}` : ''} (${Math.round(km.value)} km)`)
 const tracks = computed(() => loops.value.map(l => loopTrack(l, loopName.value)))
 const profiles = computed(() => tracks.value.map(t => buildProfile(t)))
@@ -393,7 +425,38 @@ function useForPlan() {
 .result .places { font-size: 0.85rem; color: var(--text-soft); }
 
 .finish { display: flex; flex-direction: column; gap: 12px; }
-.stops { padding-left: 22px; display: flex; flex-wrap: wrap; gap: 4px 22px; font-size: 0.9rem; }
+.stops-hint { font-size: 0.85rem; color: var(--text-soft); }
+.stops { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.stop {
+  font: inherit;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 5px;
+  text-align: left;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.stop:hover, .stop.on { border-color: var(--accent); }
+.stop.nature:hover, .stop.nature.on { border-color: var(--forest); }
+.stop .num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #e2672b;
+  color: #e2672b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stop.nature .num { border-color: #2f7d4f; color: #2f7d4f; }
+.stop small { color: var(--text-soft); font-size: 0.78rem; }
 .finish-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 
 @media (max-width: 640px) {
