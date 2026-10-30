@@ -143,7 +143,9 @@ function fitCandidate(start: LatLon, pois: Poi[], target: number, direction: num
 
 /**
  * Lieux retenus pour composer les boucles, catégorie par catégorie :
- * - les lieux documentés (Wikidata) d'abord, les autres seulement là où la catégorie a peu de choix ;
+ * - patrimoine : les lieux documentés (Wikidata) d'abord, les autres seulement là où il y a peu de choix
+ *   (écarte les petites chapelles anonymes) ;
+ * - nature : tout est gardé, un sommet ou un belvédère nommé est un vrai but de sortie même sans fiche Wikipédia ;
  * - chaque lieu est noté par rapport au meilleur de sa catégorie, pour qu'une belle cascade
  *   pèse autant qu'un beau monument (le patrimoine a des scores Wikipédia bien plus élevés).
  */
@@ -151,7 +153,7 @@ function balance(allPois: Poi[]): Poi[] {
   return (['patrimoine', 'nature'] as const).flatMap((category) => {
     const all = allPois.filter(p => p.category === category)
     const documented = all.filter(p => p.score >= 3)
-    const kept = documented.length >= 5 ? documented : all
+    const kept = category === 'nature' || documented.length < 5 ? all : documented
     const best = Math.max(...kept.map(p => p.score), 1)
     return kept.map(p => ({ ...p, weight: p.score / best }))
   })
