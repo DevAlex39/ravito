@@ -38,6 +38,10 @@ const MAX_SPUR_POI = 300
 const MIN_SPUR = 30
 /** Autour du départ (m) : lieux visités en début ou en fin de boucle, même loin du cercle */
 const START_ZONE = 600
+/** Lieux du centre enchaînés au plus, à l'aller comme au retour */
+const NEAR_MAX = 3
+/** Longueur maximale de chacune des deux promenades dans le centre, en part de la boucle */
+const NEAR_BUDGET = 0.08
 
 /** Projection locale en mètres autour du départ (suffisante à l'échelle d'une boucle) */
 function projector(origin: LatLon) {
@@ -114,18 +118,19 @@ function candidate(start: LatLon, pois: Poi[], target: number, direction: number
     return [{ p, t, x, y, nearStart: fromStart <= START_ZONE }]
   })
 
+  const byWeight = [...near].sort((a, b) => (b.p.weight ?? b.p.score) - (a.p.weight ?? a.p.score))
   const chosen: typeof near = []
-  for (const c of [...near].sort((a, b) => (b.p.weight ?? b.p.score) - (a.p.weight ?? a.p.score))) {
+  for (const c of byWeight) {
     if (chosen.length >= maxStops) break
-    // Près du départ : un seul lieu à l'aller et un seul au retour, sinon la boucle tourne en rond
-    // dans la vieille ville au lieu de partir explorer
-    if (c.nearStart) {
-      const outward = c.t < Math.PI
-      if (chosen.some(o => o.nearStart && (o.t < Math.PI) === outward)) continue
-      chosen.push(c)
-      continue
-    }
-    if (chosen.every(o => o.nearStart || Math.abs(o.t - c.t) >= minGap)) chosen.push(c)
+    if (!c.nearStart && chosen.every(o => Math.abs(o.t - c.t) >= minGap)) chosen.push(c)
+  }
+  // Le centre, autour du départ : une petite promenade à l'aller et une au retour (voir centerWalk),
+  // orientée vers le premier lieu plus loin (aller) ou depuis le dernier (retour), sinon vers le cercle
+  const far = [...chosen].sort((a, b) => a.t - b.t)
+  for (const outward of [true, false]) {
+    const side = byWeight.filter(c => c.nearStart && (c.t < Math.PI) === outward)
+    const toward = (outward ? far[0] : far[far.length - 1]) ?? { x: cx, y: cy }
+    chosen.push(...centerWalk(side, outward, NEAR_BUDGET * target, toward))
   }
 
   // Points de forme dans les grands vides du tour (au moins un, pour pouvoir régler la longueur)
@@ -150,6 +155,42 @@ function candidate(start: LatLon, pois: Poi[], target: number, direction: number
     stops: marks.flatMap(m => (m.poi ? [m.poi] : [])),
     quality: chosen.reduce((acc, c) => acc + (c.p.weight ?? c.p.score), 0),
   }
+}
+
+/**
+ * Promenade dans le centre, autour du départ : les lieux les plus connus de ce côté de la boucle
+ * (au plus NEAR_MAX, sans doublon à moins de 80 m), enchaînés de proche en proche depuis le départ.
+ * À l'aller on s'éloigne du départ de lieu en lieu ; au retour, même chaîne parcourue à l'envers.
+ * Leur position sur le tour est réécrite pour garder cet ordre : tout au début, ou tout à la fin.
+ */
+function centerWalk<T extends { p: Poi, t: number, x: number, y: number }>(side: T[], outward: boolean, budget: number, toward: { x: number, y: number }): T[] {
+  // Avancement vers la suite de la boucle : un lieu derrière le départ obligerait à revenir sur ses pas
+  const norm = Math.hypot(toward.x, toward.y) || 1
+  const ahead = (c: { x: number, y: number }) => (c.x * toward.x + c.y * toward.y) / norm
+  const picked: T[] = []
+  for (const c of side) {
+    if (picked.length >= NEAR_MAX) break
+    if (ahead(c) < -100) continue
+    if (picked.every(o => Math.hypot(o.x - c.x, o.y - c.y) >= 80)) picked.push(c)
+  }
+  // Dans l'ordre d'avancement, en s'arrêtant quand la promenade devient trop longue
+  const chain: T[] = []
+  let at = { x: 0, y: 0 }
+  let length = 0
+  const left = [...picked].sort((a, b) => ahead(a) - ahead(b))
+  while (left.length) {
+    const next = left.shift()!
+    const step = Math.hypot(next.x - at.x, next.y - at.y)
+    if (chain.length && length + step > budget) break
+    chain.push(next)
+    length += step
+    at = next
+  }
+  const n = chain.length
+  return (outward ? chain : chain.reverse()).map((c, k) => ({
+    ...c,
+    t: outward ? 0.001 * (k + 1) : 2 * Math.PI - 0.001 * (n - k),
+  }))
 }
 
 /** Ajuste le rayon jusqu'à ce que la distance estimée (vol d'oiseau × détour) corresponde à la cible */
