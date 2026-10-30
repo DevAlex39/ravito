@@ -8,6 +8,8 @@ export type ScannedRoutes = {
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
+    'shared.around': { paramsTuple?: []; params?: {} }
+    'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }
     'auth.signup': { paramsTuple?: []; params?: {} }
     'login': { paramsTuple?: []; params?: {} }
@@ -17,6 +19,8 @@ export type ScannedRoutes = {
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'plans.store': { paramsTuple?: []; params?: {} }
     'plans.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'plans.share': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'shared.vote': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   GET: {
@@ -24,6 +28,8 @@ export type ScannedRoutes = {
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
+    'shared.around': { paramsTuple?: []; params?: {} }
+    'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }
     'login': { paramsTuple?: []; params?: {} }
     'plans.index': { paramsTuple?: []; params?: {} }
@@ -34,6 +40,8 @@ export type ScannedRoutes = {
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
+    'shared.around': { paramsTuple?: []; params?: {} }
+    'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }
     'login': { paramsTuple?: []; params?: {} }
     'plans.index': { paramsTuple?: []; params?: {} }
@@ -44,9 +52,13 @@ export type ScannedRoutes = {
     'auth.login': { paramsTuple?: []; params?: {} }
     'logout': { paramsTuple?: []; params?: {} }
     'plans.store': { paramsTuple?: []; params?: {} }
+    'shared.vote': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   PUT: {
     'plans.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+  }
+  PATCH: {
+    'plans.share': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   DELETE: {
     'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

@@ -8,6 +8,11 @@ export interface ApiDefinition {
   pois: {
     around: typeof routes['pois.around']
   }
+  shared: {
+    around: typeof routes['shared.around']
+    show: typeof routes['shared.show']
+    vote: typeof routes['shared.vote']
+  }
   signup: typeof routes['signup']
   auth: {
     signup: typeof routes['auth.signup']
@@ -20,6 +25,7 @@ export interface ApiDefinition {
     show: typeof routes['plans.show']
     store: typeof routes['plans.store']
     update: typeof routes['plans.update']
+    share: typeof routes['plans.share']
     destroy: typeof routes['plans.destroy']
   }
 }

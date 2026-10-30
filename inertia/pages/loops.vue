@@ -73,6 +73,19 @@
         </div>
       </section>
 
+      <section v-if="shared.length" class="card shared">
+        <h2>👍 Parcours partagés près d'ici</h2>
+        <ul>
+          <li v-for="p in shared" :key="p.id">
+            <Link :href="`/partages/${p.id}`" class="shared-item">
+              <strong>{{ p.name }}</strong>
+              <span class="num">{{ formatKm(p.distance) }} km · +{{ p.gain }} m · {{ p.away < 1000 ? 'départ tout près' : `départ à ${formatKm(p.away)} km` }}</span>
+              <span class="votes num">👍 {{ p.votes }}</span>
+            </Link>
+          </li>
+        </ul>
+      </section>
+
       <template v-if="loops.length">
         <div class="results">
           <button
@@ -126,7 +139,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { Head, router } from '@inertiajs/vue3'
+import { Head, Link, router } from '@inertiajs/vue3'
 import DefaultLayout from '~/layouts/default.vue'
 import LoopMap from '~/components/loop_map.vue'
 import ElevationProfile from '~/components/elevation_profile.vue'
@@ -208,6 +221,22 @@ const gains = computed(() => profiles.value.map(p => p.gain))
 const track = computed(() => tracks.value[selected.value] ?? null)
 const profile = computed(() => profiles.value[selected.value] ?? null)
 const segments = computed(() => (profile.value ? computeSegments(profile.value, autoBoundaries(profile.value)) : []))
+
+// --- Parcours partagés par les autres coureurs autour du départ ---
+type SharedItem = { id: number, name: string, distance: number, gain: number, votes: number, away: number }
+const shared = ref<SharedItem[]>([])
+watch(start, async (p) => {
+  shared.value = []
+  if (!p) return
+  try {
+    const res = await fetch(`/partages?lat=${p.lat.toFixed(5)}&lon=${p.lon.toFixed(5)}`, { headers: { Accept: 'application/json' } })
+    // Le départ a pu changer pendant la requête
+    if (res.ok && start.value === p) shared.value = (await res.json() as { parcours: SharedItem[] }).parcours
+  }
+  catch {
+    // Facultatif : sans réponse, la page fonctionne sans
+  }
+})
 
 function setStart(p: LatLon, name = '') {
   start.value = p
@@ -423,6 +452,24 @@ function useForPlan() {
 .result .meta { font-weight: 600; }
 .result .surface { font-size: 0.82rem; font-weight: 600; color: var(--forest); }
 .result .places { font-size: 0.85rem; color: var(--text-soft); }
+
+.shared { display: flex; flex-direction: column; gap: 8px; }
+.shared h2 { font-size: 1.25rem; }
+.shared ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.shared-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+}
+.shared-item:hover { border-color: var(--accent); }
+.shared-item strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shared-item span { font-size: 0.85rem; color: var(--text-soft); }
+.shared-item .votes { grid-row: 1 / 3; grid-column: 2; align-self: center; font-weight: 700; color: var(--forest); font-size: 0.95rem; }
 
 .finish { display: flex; flex-direction: column; gap: 12px; }
 .stops-hint { font-size: 0.85rem; color: var(--text-soft); }

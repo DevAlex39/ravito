@@ -1,13 +1,16 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import db from '@adonisjs/lucid/services/db'
 import Plan from '#models/plan'
 import { planValidator } from '#validators/plan'
+import { startOfPlan } from '#services/plan_start'
 
 export default class PlansController {
   /** Mes parcours : les plus récemment modifiés d'abord */
   async index({ inertia, auth }: HttpContext) {
     const plans = await Plan.query()
       .where('userId', auth.user!.id)
-      .select('id', 'name', 'distance', 'gain', 'duration', 'updatedAt', 'createdAt')
+      .select('id', 'name', 'distance', 'gain', 'duration', 'isPublic', 'updatedAt', 'createdAt')
+      .select(db.raw('(SELECT COUNT(*) FROM plan_votes v WHERE v.plan_id = plans.id) AS votes'))
       .orderBy('updatedAt', 'desc')
     return inertia.render('plans/index', {
       plans: plans.map(p => ({
@@ -16,6 +19,8 @@ export default class PlansController {
         distance: p.distance,
         gain: p.gain,
         duration: p.duration,
+        isPublic: !!p.isPublic,
+        votes: Number(p.$extras.votes),
         updatedAt: (p.updatedAt ?? p.createdAt).toISO()!,
       })),
     })
@@ -30,7 +35,7 @@ export default class PlansController {
   async store({ request, auth, response }: HttpContext) {
     const payload = await request.validateUsing(planValidator)
     if (!isPlanData(payload.data)) return response.badRequest({ message: 'Plan illisible' })
-    const plan = await Plan.create({ ...payload, ...round(payload), userId: auth.user!.id })
+    const plan = await Plan.create({ ...payload, ...round(payload), ...start(payload.data), userId: auth.user!.id })
     return { id: plan.id }
   }
 
@@ -38,7 +43,8 @@ export default class PlansController {
     const plan = await Plan.query().where('id', params.id).where('userId', auth.user!.id).firstOrFail()
     const payload = await request.validateUsing(planValidator)
     if (!isPlanData(payload.data)) return response.badRequest({ message: 'Plan illisible' })
-    plan.merge({ ...payload, ...round(payload) })
+    // La trace peut avoir changé : le point de départ suit (recherche des parcours partagés)
+    plan.merge({ ...payload, ...round(payload), ...start(payload.data) })
     await plan.save()
     return { id: plan.id }
   }
@@ -49,6 +55,11 @@ export default class PlansController {
     session.flash('success', `« ${plan.name} » a été supprimé.`)
     return response.redirect().back()
   }
+}
+
+function start(data: string) {
+  const p = startOfPlan(data)
+  return { startLat: p?.lat ?? null, startLon: p?.lon ?? null }
 }
 
 function round(p: { distance: number, gain: number, duration: number | null }) {

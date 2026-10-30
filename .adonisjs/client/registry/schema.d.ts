@@ -60,6 +60,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/pois_controller').default['around']>>>
     }
   }
+  'shared.around': {
+    methods: ["GET","HEAD"]
+    pattern: '/partages'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['around']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['around']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['around']>>>
+    }
+  }
+  'shared.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/partages/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['show']>>>
+    }
+  }
   'signup': {
     methods: ["GET","HEAD"]
     pattern: '/inscription'
@@ -175,6 +201,32 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/plans_controller').default['update']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/plans_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/plans_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'plans.share': {
+    methods: ["PATCH"]
+    pattern: '/parcours/:id/partage'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['share']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['share']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['share']>>>
+    }
+  }
+  'shared.vote': {
+    methods: ["POST"]
+    pattern: '/partages/:id/vote'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['vote']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['vote']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/shared_plans_controller').default['vote']>>>
     }
   }
   'plans.destroy': {

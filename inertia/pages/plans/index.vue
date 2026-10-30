@@ -25,6 +25,18 @@
             </span>
             <span class="date">Modifié {{ formatDate(p.updatedAt) }}</span>
           </Link>
+          <div class="sharing">
+            <button
+              type="button"
+              class="share"
+              :class="{ on: p.isPublic }"
+              :title="p.isPublic ? 'Visible de tous : clique pour le rendre privé' : 'Toi seul le vois : clique pour le partager avec les autres coureurs'"
+              @click="toggleShare(p)"
+            >
+              {{ p.isPublic ? '🌍 Public' : '🔒 Privé' }}
+            </button>
+            <Link v-if="p.isPublic" :href="`/partages/${p.id}`" class="public-link">👍 {{ p.votes }} · voir la page</Link>
+          </div>
           <button class="btn icon" type="button" :title="`Supprimer « ${p.name} »`" @click="remove(p)">✕</button>
         </li>
       </ul>
@@ -45,6 +57,8 @@ type PlanItem = {
   distance: number
   gain: number
   duration: number | null
+  isPublic: boolean
+  votes: number
   updatedAt: string
 }
 
@@ -58,6 +72,11 @@ function formatDate(iso: string) {
   const d = new Date(iso)
   if (d.toDateString() === new Date().toDateString()) return `aujourd'hui à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
   return `le ${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+}
+
+function toggleShare(p: PlanItem) {
+  if (!p.isPublic && !confirm(`Partager « ${p.name} » ? Sa trace (pas tes allures ni tes ravitos) sera visible de tous et proposée aux coureurs qui cherchent autour de son départ.`)) return
+  router.patch(`/parcours/${p.id}/partage`, { public: !p.isPublic }, { preserveScroll: true })
 }
 
 function remove(p: PlanItem) {
@@ -88,7 +107,14 @@ function remove(p: PlanItem) {
 .meta { color: var(--text-soft); font-size: 0.92rem; align-self: center; white-space: nowrap; }
 .date { grid-column: 1 / -1; color: var(--text-dim); font-size: 0.8rem; }
 .item .btn.icon { margin-right: 12px; }
+.sharing { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.share { font: inherit; font-size: 0.82rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text-soft); cursor: pointer; white-space: nowrap; }
+.share.on { background: var(--forest); border-color: var(--forest); color: #fff; }
+.public-link { font-size: 0.78rem; font-weight: 600; color: var(--forest); white-space: nowrap; }
 @media (max-width: 640px) {
   .open { grid-template-columns: minmax(0, 1fr); }
+  .item { flex-wrap: wrap; }
+  .sharing { flex-direction: row; align-items: center; padding: 0 0 12px 16px; flex: 1; }
+  .item .btn.icon { margin-bottom: 12px; }
 }
 </style>

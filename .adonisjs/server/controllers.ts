@@ -7,4 +7,5 @@ export const controllers = {
   Auth: () => import('#controllers/auth_controller'),
   Plans: () => import('#controllers/plans_controller'),
   Pois: () => import('#controllers/pois_controller'),
+  SharedPlans: () => import('#controllers/shared_plans_controller'),
 }

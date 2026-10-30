@@ -32,6 +32,18 @@ const routes = {
     tokens: [[0,"lieux"]],
     types: placeholder as Registry['pois.around']['types'],
   },
+  'shared.around': {
+    methods: ["GET","HEAD"],
+    pattern: '/partages',
+    tokens: [[0,"partages"]],
+    types: placeholder as Registry['shared.around']['types'],
+  },
+  'shared.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/partages/:id',
+    tokens: [[0,"partages"],[1,"id"]],
+    types: placeholder as Registry['shared.show']['types'],
+  },
   'signup': {
     methods: ["GET","HEAD"],
     pattern: '/inscription',
@@ -85,6 +97,18 @@ const routes = {
     pattern: '/parcours/:id',
     tokens: [[0,"parcours"],[1,"id"]],
     types: placeholder as Registry['plans.update']['types'],
+  },
+  'plans.share': {
+    methods: ["PATCH"],
+    pattern: '/parcours/:id/partage',
+    tokens: [[0,"parcours"],[1,"id"],[0,"partage"]],
+    types: placeholder as Registry['plans.share']['types'],
+  },
+  'shared.vote': {
+    methods: ["POST"],
+    pattern: '/partages/:id/vote',
+    tokens: [[0,"partages"],[1,"id"],[0,"vote"]],
+    types: placeholder as Registry['shared.vote']['types'],
   },
   'plans.destroy': {
     methods: ["DELETE"],
