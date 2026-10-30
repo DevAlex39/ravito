@@ -30,6 +30,12 @@ export interface Loop {
 const DETOUR = 1.3
 /** Écart accepté avec la distance demandée */
 const TOLERANCE = 0.1
+/**
+ * Aller-retour accepté pour aller voir un lieu (m) : un château au bout d'une petite impasse, oui ;
+ * doubler un long chemin, non. Aux points de forme, tout aller-retour est coupé.
+ */
+const MAX_SPUR_POI = 300
+const MIN_SPUR = 30
 
 /** Projection locale en mètres autour du départ (suffisante à l'échelle d'une boucle) */
 function projector(origin: LatLon) {
@@ -189,6 +195,93 @@ function splitLegs(coords: Coord[], waypoints: LatLon[]): Coord[][] {
   return legs
 }
 
+/** Distance d'un point du tronçon au suivant */
+function step(coords: Coord[], i: number) {
+  return haversine({ lon: coords[i]![0], lat: coords[i]![1] }, { lon: coords[i + 1]![0], lat: coords[i + 1]![1] })
+}
+
+/** Points tous les 10 m le long d'un tronçon */
+function sample(coords: Coord[], max: number): LatLon[] {
+  const out: LatLon[] = []
+  let d = 0
+  for (let i = 0; i < coords.length - 1 && d < max; i++) {
+    const a = { lon: coords[i]![0], lat: coords[i]![1] }
+    const b = { lon: coords[i + 1]![0], lat: coords[i + 1]![1] }
+    const len = step(coords, i)
+    for (let s = 0; s < len && d + s < max; s += 10) {
+      out.push({ lat: a.lat + ((b.lat - a.lat) * s) / len, lon: a.lon + ((b.lon - a.lon) * s) / len })
+    }
+    d += len
+  }
+  return out
+}
+
+const at = (c: Coord): LatLon => ({ lon: c[0], lat: c[1] })
+
+/** Index du point situé à `length` mètres avant (dir = -1) ou après (dir = 1) le point i */
+function walk(coords: Coord[], i: number, length: number, dir: 1 | -1): number {
+  let d = 0
+  let j = i
+  while (d < length && j + dir >= 0 && j + dir < coords.length) {
+    d += haversine(at(coords[j]!), at(coords[j + dir]!))
+    j += dir
+  }
+  return j
+}
+
+/** Le tracé repart presque à l'opposé au point i (direction vue à 10 m de part et d'autre) */
+function isTurnaround(coords: Coord[], i: number): boolean {
+  const { toXY } = projector(at(coords[i]!))
+  const p = toXY(at(coords[walk(coords, i, 10, -1)]!))
+  const q = toXY(at(coords[walk(coords, i, 10, 1)]!))
+  const n1 = Math.hypot(p.x, p.y)
+  const n2 = Math.hypot(q.x, q.y)
+  // p et q partent tous deux du point i : un demi-tour les fait pointer dans le même sens
+  return n1 > 3 && n2 > 3 && (p.x * q.x + p.y * q.y) / (n1 * n2) > 0.7
+}
+
+/** Longueur sur laquelle le tracé revient sur ses pas après le point i (à 15 m près) */
+function spurLength(coords: Coord[], i: number): number {
+  const back = sample(coords.slice(0, i + 1).reverse(), 5000)
+  const next = sample(coords.slice(i), 5000)
+  let n = 0
+  while (n < back.length && n < next.length && haversine(back[n]!, next[n]!) < 15) n++
+  return n * 10
+}
+
+/**
+ * Coupe les allers-retours : quand le tracé va toucher un point de passage puis revient sur ses pas,
+ * on retire la partie faite deux fois. Le point de forme disparaît ; un lieu au bout d'un long
+ * cul-de-sac est abandonné (mieux vaut une boucle un peu plus courte qu'un aller-retour inutile).
+ */
+function cutSpurs(coords: Coord[], waypoints: LatLon[], stops: Poi[]) {
+  let kept = waypoints.slice(1, -1)
+  for (let guard = 0; guard < 30; guard++) {
+    let cut = false
+    for (let i = 1; i < coords.length - 1 && !cut; i++) {
+      if (!isTurnaround(coords, i)) continue
+      const spur = spurLength(coords, i)
+      if (spur < MIN_SPUR) continue
+      // Point de passage à l'origine du demi-tour (le plus proche de la pointe)
+      const tip = at(coords[i]!)
+      const near = kept
+        .map(w => ({ w, d: haversine(w, tip) }))
+        .filter(x => x.d < 250)
+        .sort((a, b) => a.d - b.d)[0]?.w
+      if (near && stops.includes(near as Poi) && spur <= MAX_SPUR_POI) continue
+      coords = [...coords.slice(0, walk(coords, i, spur, -1) + 1), ...coords.slice(walk(coords, i, spur, 1))]
+      if (near) kept = kept.filter(w => w !== near)
+      cut = true
+    }
+    if (!cut) break
+  }
+  return {
+    coords,
+    waypoints: [waypoints[0]!, ...kept, waypoints[waypoints.length - 1]!],
+    stops: stops.filter(p => kept.includes(p)),
+  }
+}
+
 async function routeOnce(waypoints: LatLon[], stops: Poi[], opts: RouteOptions): Promise<Loop> {
   let route: Route
   try {
@@ -199,12 +292,14 @@ async function routeOnce(waypoints: LatLon[], stops: Poi[], opts: RouteOptions):
     await new Promise(r => setTimeout(r, 1500))
     route = await routeVia(waypoints, opts)
   }
-  const { coords, surface } = route
+  const cut = cutSpurs(route.coords, waypoints, stops)
+  const { coords } = cut
   let distance = 0
-  for (let i = 1; i < coords.length; i++) {
-    distance += haversine({ lon: coords[i - 1]![0], lat: coords[i - 1]![1] }, { lon: coords[i]![0], lat: coords[i]![1] })
-  }
-  return { waypoints, stops, legs: splitLegs(coords, waypoints), coords, distance, surface }
+  for (let i = 0; i < coords.length - 1; i++) distance += step(coords, i)
+  // Les parts de sentiers et de routes sont données pour tout l'itinéraire : on les ramène au tracé coupé
+  const ratio = route.surface.total ? distance / route.surface.total : 1
+  const surface = { total: distance, trail: route.surface.trail * ratio, bigRoad: route.surface.bigRoad * ratio }
+  return { ...cut, legs: splitLegs(coords, cut.waypoints), distance, surface }
 }
 
 /**

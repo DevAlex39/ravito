@@ -22,7 +22,7 @@ const TERRAIN_PARAMS: Record<Terrain, string> = {
   // Réglages par défaut du profil : léger penchant pour les chemins
   mixte: '',
   // Rues et pistes goudronnées fortement pénalisées : la boucle cherche les sentiers, quitte à s'allonger
-  sentiers: '&profile:road_avoidance=2&profile:path_preference=4',
+  sentiers: '&profile:road_avoidance=3.5&profile:path_preference=4',
 }
 
 export interface RouteOptions {

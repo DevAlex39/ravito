@@ -15,7 +15,7 @@
 
 # AlpaS : 0 = comme hiking-mountain, 1 = évite nettement les routes à circulation (défaut), plus = encore davantage.
 # Les autres réglages (path_preference, Offroad_factor…) sont passés par la requête selon le terrain choisi.
-assign   road_avoidance           1.0  # %road_avoidance% | Surcoût des routes à circulation (0 à 2) | number
+assign   road_avoidance           2.5  # %road_avoidance% | Surcoût des routes à circulation (0 à 4) : 2.5 fait traverser les départementales sans les longer | number
 
 assign   consider_elevation     = false   # %consider_elevation% | Activate to prefer a route with few elevation meters | boolean
 assign   consider_noise         = false   # %consider_noise% | Activate to prefer a low-noise route | boolean
