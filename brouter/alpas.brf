@@ -16,6 +16,8 @@
 # AlpaS : 0 = comme hiking-mountain, 1 = évite nettement les routes à circulation (défaut), plus = encore davantage.
 # Les autres réglages (path_preference, Offroad_factor…) sont passés par la requête selon le terrain choisi.
 assign   road_avoidance           2.5  # %road_avoidance% | Surcoût des routes à circulation (0 à 4) : 2.5 fait traverser les départementales sans les longer | number
+# AlpaS : 0 = ignore le cadre, 1 = préfère le calme, l'eau, les arbres et les vieilles rues (défaut), plus = encore davantage
+assign   pretty                   1.0  # %pretty% | Préférence pour les jolis endroits (0 à 3) | number
 
 assign   consider_elevation     = false   # %consider_elevation% | Activate to prefer a route with few elevation meters | boolean
 assign   consider_noise         = false   # %consider_noise% | Activate to prefer a low-noise route | boolean
@@ -343,6 +345,35 @@ assign road_penalty
 
 assign rawcostfactor2 add rawcostfactor_hiking road_penalty
 
+# AlpaS « joli » : à pied, le cadre compte autant que le revêtement. Les classes « estimated_* » sont calculées
+# par BRouter pour chaque voie (0 = rien, 6 = beaucoup) : bruit des routes proches, eau et forêt à côté.
+assign pretty_noise
+  if      estimated_noise_class=6 then 1.0
+  else if estimated_noise_class=5 then 0.7
+  else if estimated_noise_class=4 then 0.45
+  else if estimated_noise_class=3 then 0.25
+  else if estimated_noise_class=2 then 0.1
+  else 0.0
+
+assign pretty_nature
+  if      estimated_river_class=4|5|6  then 0.0
+  else if estimated_forest_class=4|5|6 then 0.0
+  else if estimated_river_class=2|3    then 0.1
+  else if estimated_forest_class=2|3   then 0.1
+  else 0.25
+
+# Vieilles rues : piétonnes, pavées, ruelles ; à l'inverse, voies de service (parkings, zones d'activités)
+assign is_old_street or highway=pedestrian|living_street
+                     or surface=sett|cobblestone|paving_stones
+                        service=alley
+
+assign pretty_street
+  if      is_old_street                                    then -0.3
+  else if and highway=service not service=alley            then 0.2
+  else 0.0
+
+assign pretty_penalty multiply pretty ( max 0.0 ( add pretty_noise ( add pretty_nature pretty_street ) ) )
+
 assign noise_penalty
    switch consider_noise
      switch estimated_noise_class=  0
@@ -386,6 +417,7 @@ assign town_penalty
 assign trafficpenalty = 0
 
 assign costfactor
+add pretty_penalty
 add town_penalty
   add no_forest_penalty
   add no_river_penalty
@@ -396,6 +428,7 @@ if shortest_way  then  ( add 1 accesspenalty )
 
 assign downhillcostfactor
     if shortest_way  then (   add 1 accesspenalty )   else
+    add pretty_penalty
     max 1.0
     add rawcostfactor2
     add Offroad_factor_for_road
@@ -407,6 +440,7 @@ assign downhillcostfactor
 
 assign uphillcostfactor
     if shortest_way  then (   add 1 accesspenalty )   else
+    add pretty_penalty
     max 1.0
     add rawcostfactor2
     add Offroad_factor_for_road

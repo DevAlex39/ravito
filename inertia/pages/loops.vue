@@ -72,7 +72,7 @@
           </div>
           <button v-if="groups.length" type="button" class="clear" @click="groups = []">Tout décocher</button>
         </div>
-        <button class="btn" type="submit" :disabled="!start || busy">{{ busy ? 'Recherche…' : 'Proposer des boucles' }}</button>
+        <button class="btn" type="submit" :disabled="(!start && !query.trim()) || busy">{{ busy ? 'Recherche…' : 'Proposer des boucles' }}</button>
       </form>
 
       <p v-if="message" class="notice" :class="{ bad: messageBad }">{{ message }}</p>
@@ -278,6 +278,8 @@ watch(start, async (p) => {
 })
 
 function setStart(p: LatLon, name = '') {
+  // Départ choisi (recherche, carte ou position) : le texte du champ est « consommé »
+  usedQuery.value = query.value.trim()
   start.value = p
   placeName.value = name
   loops.value = []
@@ -286,20 +288,28 @@ function setStart(p: LatLon, name = '') {
 
 // --- Choix du départ ---
 const query = ref('')
+/** Texte du champ au moment où le départ actuel a été choisi : s'il a changé depuis, on relance la recherche */
+const usedQuery = ref('')
 const searching = ref(false)
 
-async function onSearch() {
-  if (!query.value.trim() || searching.value) return
+/** Cherche le lieu tapé et en fait le départ ; renvoie false si rien n'a été trouvé */
+async function onSearch(): Promise<boolean> {
+  if (!query.value.trim() || searching.value) return false
   searching.value = true
   message.value = ''
   try {
     const place = await searchPlace(query.value.trim())
-    if (!place) return showError(`Aucun lieu trouvé pour « ${query.value.trim()} ».`)
+    if (!place) {
+      showError(`Aucun lieu trouvé pour « ${query.value.trim()} ».`)
+      return false
+    }
     setStart({ lat: place.lat, lon: place.lon }, place.name.split(',')[0]!.trim())
     mapRef.value?.flyTo(place.lat, place.lon)
+    return true
   }
   catch {
     showError('La recherche est indisponible pour le moment.')
+    return false
   }
   finally {
     searching.value = false
@@ -348,7 +358,10 @@ async function fetchPois(p: LatLon, target: number): Promise<Poi[]> {
 }
 
 async function propose() {
-  if (!start.value || busy.value) return
+  if (busy.value) return
+  // Ville changée dans le champ sans cliquer sur « Rechercher » : on cherche d'abord la nouvelle ville
+  if (query.value.trim() && query.value.trim() !== usedQuery.value && !(await onSearch())) return
+  if (!start.value) return
   const target = Math.min(40, Math.max(3, Math.round(km.value || 10))) * 1000
   km.value = target / 1000
   busy.value = true
