@@ -28,8 +28,16 @@ router
     router.post('/inscription', [AuthController, 'signup'])
     router.get('/connexion', [AuthController, 'showLogin']).as('login')
     router.post('/connexion', [AuthController, 'login'])
+    router.get('/mot-de-passe-oublie', [AuthController, 'showForgot']).as('password.forgot')
+    router.post('/mot-de-passe-oublie', [AuthController, 'forgot'])
+    router.get('/nouveau-mot-de-passe/:token', [AuthController, 'showReset']).as('password.reset')
+    router.post('/nouveau-mot-de-passe/:token', [AuthController, 'reset'])
   })
   .use(middleware.guest())
+
+// Ouvert même connecté : sert aussi à relier un compte Google ou Strava au compte en cours
+router.get('/connexion/:provider', [AuthController, 'redirectToProvider']).as('sso.redirect').where('provider', /^(google|strava)$/)
+router.get('/connexion/:provider/retour', [AuthController, 'providerCallback']).as('sso.callback').where('provider', /^(google|strava)$/)
 
 router
   .group(() => {

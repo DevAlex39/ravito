@@ -9,3 +9,7 @@ h1 { font-size: 2rem; }
 .btn:disabled { opacity: 0.6; cursor: wait; }
 .switch { font-size: 0.9rem; color: var(--text-soft); text-align: center; }
 .switch a { color: var(--accent); font-weight: 600; }
+.forgot { align-self: flex-end; font-size: 0.82rem; color: var(--text-soft); margin-top: 4px; display: inline-block; }
+.forgot:hover { color: var(--accent); }
+.flash { font-size: 0.88rem; border-radius: var(--radius-sm); padding: 8px 12px; border: 1px solid var(--border); background: var(--panel-2); }
+.flash.bad { color: var(--bad); }

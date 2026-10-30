@@ -88,18 +88,26 @@ export class PoisSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
+  static $columns = ['createdAt', 'email', 'fullName', 'googleId', 'id', 'password', 'resetExpiresAt', 'resetTokenHash', 'stravaId', 'updatedAt'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()
-  declare email: string
+  declare email: string | null
   @column()
   declare fullName: string | null
+  @column()
+  declare googleId: string | null
   @column({ isPrimary: true })
   declare id: number
   @column({ serializeAs: null })
-  declare password: string
+  declare password: string | null
+  @column.dateTime()
+  declare resetExpiresAt: DateTime | null
+  @column()
+  declare resetTokenHash: string | null
+  @column()
+  declare stravaId: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

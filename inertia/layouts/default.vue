@@ -13,7 +13,7 @@
         <nav class="account">
           <template v-if="user">
             <Link href="/mes-parcours" class="nav-link">Mes parcours</Link>
-            <Link href="/deconnexion" method="post" as="button" class="nav-link quiet" :title="user.email">Se déconnecter</Link>
+            <Link href="/deconnexion" method="post" as="button" class="nav-link quiet" :title="user.email ?? user.fullName ?? ''">Se déconnecter</Link>
           </template>
           <Link v-else href="/connexion" class="nav-link">Se connecter</Link>
         </nav>

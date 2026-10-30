@@ -23,3 +23,17 @@ export const loginValidator = vine.create(
   }),
 )
 loginValidator.messagesProvider = messages
+
+export const forgotValidator = vine.create(
+  vine.object({
+    email: vine.string().trim().toLowerCase().email().maxLength(254),
+  }),
+)
+forgotValidator.messagesProvider = messages
+
+export const resetValidator = vine.create(
+  vine.object({
+    password: vine.string().minLength(8).maxLength(100),
+  }),
+)
+resetValidator.messagesProvider = messages

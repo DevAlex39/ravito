@@ -17,8 +17,18 @@ export interface ApiDefinition {
   auth: {
     signup: typeof routes['auth.signup']
     login: typeof routes['auth.login']
+    forgot: typeof routes['auth.forgot']
+    reset: typeof routes['auth.reset']
   }
   login: typeof routes['login']
+  password: {
+    forgot: typeof routes['password.forgot']
+    reset: typeof routes['password.reset']
+  }
+  sso: {
+    redirect: typeof routes['sso.redirect']
+    callback: typeof routes['sso.callback']
+  }
   logout: typeof routes['logout']
   plans: {
     index: typeof routes['plans.index']

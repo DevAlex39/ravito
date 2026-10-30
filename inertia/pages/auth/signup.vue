@@ -5,6 +5,7 @@
       <form class="card" @submit.prevent="submit">
         <h1>Créer un compte</h1>
         <p class="hint">Gratuit. Il sert seulement à garder tes plans de course et à les retrouver partout.</p>
+        <SsoButtons :sso="sso" :next="next" />
         <label class="field">
           <span>Adresse e-mail</span>
           <input v-model="form.email" type="email" autocomplete="email" required autofocus>
@@ -25,8 +26,9 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import DefaultLayout from '~/layouts/default.vue'
+import SsoButtons from '~/components/sso_buttons.vue'
 
-const props = defineProps<{ next: string }>()
+const props = defineProps<{ next: string, sso: { google: boolean, strava: boolean } }>()
 const form = useForm({ email: '', password: '', next: props.next })
 
 function submit() {

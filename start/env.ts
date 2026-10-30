@@ -30,4 +30,16 @@ export default await Env.create(new URL('../', import.meta.url), {
   DB_USER: Env.schema.string(),
   DB_PASSWORD: Env.schema.string.optional(),
   DB_DATABASE: Env.schema.string(),
+
+  // Envoi des e-mails (mot de passe oublié) : même compte SMTP que les autres sites
+  SMTP_HOST: Env.schema.string.optional(),
+  SMTP_PORT: Env.schema.number.optional(),
+  SMTP_USER: Env.schema.string.optional(),
+  SMTP_PASS: Env.schema.string.optional(),
+
+  // Connexion avec Google / Strava : le bouton n'apparaît que si les deux valeurs sont remplies
+  GOOGLE_CLIENT_ID: Env.schema.string.optional(),
+  GOOGLE_CLIENT_SECRET: Env.schema.string.optional(),
+  STRAVA_CLIENT_ID: Env.schema.string.optional(),
+  STRAVA_CLIENT_SECRET: Env.schema.string.optional(),
 })

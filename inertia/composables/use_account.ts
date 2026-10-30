@@ -12,7 +12,7 @@ const syncError = ref('')
 /** Dernière version envoyée : évite de renvoyer un plan identique */
 let lastSent = ''
 let timer: ReturnType<typeof setTimeout> | undefined
-let user: ComputedRef<{ id: number, email: string } | null> | null = null
+let user: ComputedRef<{ id: number, email: string | null, fullName: string | null } | null> | null = null
 
 function xsrfToken() {
   const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
@@ -73,7 +73,7 @@ function setup() {
   const page = usePage()
   effectScope(true).run(() => {
     const plan = usePlan()
-    user = computed(() => (page.props.user as { id: number, email: string } | undefined) ?? null)
+    user = computed(() => (page.props.user as { id: number, email: string | null, fullName: string | null } | undefined) ?? null)
 
     // Un plan déjà enregistré suit ensuite chaque modification (regroupées)
     watch(() => [plan.planId.value, plan.serialize()], () => {

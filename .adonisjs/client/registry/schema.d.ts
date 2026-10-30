@@ -138,6 +138,84 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['login']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'password.forgot': {
+    methods: ["GET","HEAD"]
+    pattern: '/mot-de-passe-oublie'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['showForgot']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['showForgot']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['showForgot']>>>
+    }
+  }
+  'auth.forgot': {
+    methods: ["POST"]
+    pattern: '/mot-de-passe-oublie'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/auth').forgotValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/auth').forgotValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['forgot']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['forgot']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['forgot']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'password.reset': {
+    methods: ["GET","HEAD"]
+    pattern: '/nouveau-mot-de-passe/:token'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { token: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['showReset']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['showReset']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['showReset']>>>
+    }
+  }
+  'auth.reset': {
+    methods: ["POST"]
+    pattern: '/nouveau-mot-de-passe/:token'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/auth').resetValidator)>>
+      paramsTuple: [ParamValue]
+      params: { token: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/auth').resetValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['reset']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['reset']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['reset']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'sso.redirect': {
+    methods: ["GET","HEAD"]
+    pattern: '/connexion/:provider'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { provider: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['redirectToProvider']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['redirectToProvider']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['redirectToProvider']>>>
+    }
+  }
+  'sso.callback': {
+    methods: ["GET","HEAD"]
+    pattern: '/connexion/:provider/retour'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { provider: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['providerCallback']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['providerCallback']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['providerCallback']>>>
+    }
+  }
   'logout': {
     methods: ["POST"]
     pattern: '/deconnexion'

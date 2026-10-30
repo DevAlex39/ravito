@@ -68,6 +68,42 @@ const routes = {
     tokens: [[0,"connexion"]],
     types: placeholder as Registry['auth.login']['types'],
   },
+  'password.forgot': {
+    methods: ["GET","HEAD"],
+    pattern: '/mot-de-passe-oublie',
+    tokens: [[0,"mot-de-passe-oublie"]],
+    types: placeholder as Registry['password.forgot']['types'],
+  },
+  'auth.forgot': {
+    methods: ["POST"],
+    pattern: '/mot-de-passe-oublie',
+    tokens: [[0,"mot-de-passe-oublie"]],
+    types: placeholder as Registry['auth.forgot']['types'],
+  },
+  'password.reset': {
+    methods: ["GET","HEAD"],
+    pattern: '/nouveau-mot-de-passe/:token',
+    tokens: [[0,"nouveau-mot-de-passe"],[1,"token"]],
+    types: placeholder as Registry['password.reset']['types'],
+  },
+  'auth.reset': {
+    methods: ["POST"],
+    pattern: '/nouveau-mot-de-passe/:token',
+    tokens: [[0,"nouveau-mot-de-passe"],[1,"token"]],
+    types: placeholder as Registry['auth.reset']['types'],
+  },
+  'sso.redirect': {
+    methods: ["GET","HEAD"],
+    pattern: '/connexion/:provider',
+    tokens: [[0,"connexion"],[1,"provider"]],
+    types: placeholder as Registry['sso.redirect']['types'],
+  },
+  'sso.callback': {
+    methods: ["GET","HEAD"],
+    pattern: '/connexion/:provider/retour',
+    tokens: [[0,"connexion"],[1,"provider"],[0,"retour"]],
+    types: placeholder as Registry['sso.callback']['types'],
+  },
   'logout': {
     methods: ["POST"],
     pattern: '/deconnexion',

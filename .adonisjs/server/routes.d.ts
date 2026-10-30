@@ -14,6 +14,12 @@ export type ScannedRoutes = {
     'auth.signup': { paramsTuple?: []; params?: {} }
     'login': { paramsTuple?: []; params?: {} }
     'auth.login': { paramsTuple?: []; params?: {} }
+    'password.forgot': { paramsTuple?: []; params?: {} }
+    'auth.forgot': { paramsTuple?: []; params?: {} }
+    'password.reset': { paramsTuple: [ParamValue]; params: {'token': ParamValue} }
+    'auth.reset': { paramsTuple: [ParamValue]; params: {'token': ParamValue} }
+    'sso.redirect': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
+    'sso.callback': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
     'logout': { paramsTuple?: []; params?: {} }
     'plans.index': { paramsTuple?: []; params?: {} }
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -32,6 +38,10 @@ export type ScannedRoutes = {
     'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }
     'login': { paramsTuple?: []; params?: {} }
+    'password.forgot': { paramsTuple?: []; params?: {} }
+    'password.reset': { paramsTuple: [ParamValue]; params: {'token': ParamValue} }
+    'sso.redirect': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
+    'sso.callback': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
     'plans.index': { paramsTuple?: []; params?: {} }
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
@@ -44,12 +54,18 @@ export type ScannedRoutes = {
     'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }
     'login': { paramsTuple?: []; params?: {} }
+    'password.forgot': { paramsTuple?: []; params?: {} }
+    'password.reset': { paramsTuple: [ParamValue]; params: {'token': ParamValue} }
+    'sso.redirect': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
+    'sso.callback': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
     'plans.index': { paramsTuple?: []; params?: {} }
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   POST: {
     'auth.signup': { paramsTuple?: []; params?: {} }
     'auth.login': { paramsTuple?: []; params?: {} }
+    'auth.forgot': { paramsTuple?: []; params?: {} }
+    'auth.reset': { paramsTuple: [ParamValue]; params: {'token': ParamValue} }
     'logout': { paramsTuple?: []; params?: {} }
     'plans.store': { paramsTuple?: []; params?: {} }
     'shared.vote': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
