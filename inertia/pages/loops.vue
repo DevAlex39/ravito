@@ -9,7 +9,7 @@
 
       <form class="controls card" @submit.prevent="propose">
         <div class="search">
-          <input v-model="query" type="text" placeholder="Ville ou lieu de départ…" aria-label="Rechercher un lieu de départ" @keydown.enter.prevent="onSearch">
+          <PlaceInput v-model="query" class="place" placeholder="Ville, adresse ou code postal…" aria-label="Rechercher un lieu de départ" @pick="onPick" @enter="onSearch" />
           <button class="btn ghost" type="button" :disabled="!query.trim() || searching" @click="onSearch">Rechercher</button>
           <button class="btn ghost" type="button" title="Partir de ma position" @click="onLocate()">📍</button>
         </div>
@@ -170,7 +170,9 @@ import RunnerLoader from '~/components/runner_loader.vue'
 import { usePlan } from '~/composables/use_plan'
 import { useTracer } from '~/composables/use_tracer'
 import { generateLoops, loopTrack, searchRadius, type Loop, type Poi } from '~/utils/loops'
-import { searchPlace, type LatLon, type Terrain } from '~/utils/routing'
+import type { LatLon, Terrain } from '~/utils/routing'
+import { searchPlace, type PlaceSuggestion } from '~/utils/geocode'
+import PlaceInput from '~/components/place_input.vue'
 import { buildProfile } from '~/utils/profile'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
 import { formatKm } from '~/utils/format'
@@ -303,7 +305,7 @@ async function onSearch(): Promise<boolean> {
       showError(`Aucun lieu trouvé pour « ${query.value.trim()} ».`)
       return false
     }
-    setStart({ lat: place.lat, lon: place.lon }, place.name.split(',')[0]!.trim())
+    setStart({ lat: place.lat, lon: place.lon }, place.name)
     mapRef.value?.flyTo(place.lat, place.lon)
     return true
   }
@@ -314,6 +316,13 @@ async function onSearch(): Promise<boolean> {
   finally {
     searching.value = false
   }
+}
+
+/** Suggestion choisie dans la liste : c'est le départ, sans autre recherche */
+function onPick(place: PlaceSuggestion) {
+  query.value = place.label
+  setStart({ lat: place.lat, lon: place.lon }, place.name)
+  mapRef.value?.flyTo(place.lat, place.lon)
 }
 
 function onLocate(then?: () => void) {
@@ -409,8 +418,10 @@ onMounted(async () => {
   history.replaceState(history.state, '', '/boucles')
   if (params.has('position')) return onLocate(propose)
   if (fromPoint) {
+    // Adresse choisie dans les suggestions de l'accueil : on la remet dans le champ
+    query.value = params.get('nom') ?? ''
     // La carte se centre d'elle-même sur ce départ à sa création
-    setStart({ lat, lon })
+    setStart({ lat, lon }, query.value)
     mapRef.value?.flyTo(lat, lon)
     return propose()
   }
@@ -457,7 +468,7 @@ function useForPlan() {
 
 .controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px; }
 .search { display: flex; gap: 6px; flex: 1 1 360px; min-width: 0; }
-.search input { flex: 1; min-width: 0; }
+.search .place { flex: 1; }
 .distance { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; color: var(--text-soft); }
 .distance input { width: 70px; text-align: center; }
 .distance select { font: inherit; padding: 6px 8px; }

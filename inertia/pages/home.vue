@@ -9,13 +9,15 @@
           qui passe par les plus beaux lieux du coin.
         </p>
         <form class="loop-form card" @submit.prevent="findLoop()">
-          <input
+          <PlaceInput
             v-model="loopStart"
-            type="text"
-            :placeholder="loopPoint ? 'Point choisi sur la carte ✓' : 'Ville ou lieu de départ (ex. Dole)'"
-            :class="{ picked: loopPoint }"
+            class="place"
+            :placeholder="loopPoint ? 'Point choisi sur la carte ✓' : 'Ville, adresse ou code postal (ex. Dole)'"
+            :input-class="{ picked: loopPoint }"
             aria-label="Lieu de départ"
-          >
+            @pick="loopPicked = $event"
+            @enter="findLoop()"
+          />
           <label class="km">
             <input v-model.number="loopKm" type="number" min="3" max="40" step="1" inputmode="numeric" aria-label="Distance en kilomètres">
             <span>km</span>
@@ -147,6 +149,8 @@ import PrintSheet from '~/components/print_sheet.vue'
 import PrintBand from '~/components/print_band.vue'
 import SaveButton from '~/components/save_button.vue'
 import LoopMap from '~/components/loop_map.vue'
+import PlaceInput from '~/components/place_input.vue'
+import type { PlaceSuggestion } from '~/utils/geocode'
 import type { LatLon } from '~/utils/routing'
 import { useAccount } from '~/composables/use_account'
 
@@ -172,6 +176,8 @@ const finish = computed(() => timeline.value[timeline.value.length - 1])
 
 // --- Boucle découverte lancée depuis l'accueil (la page /boucles fait la recherche et le calcul) ---
 const loopStart = ref('')
+/** Suggestion choisie : ses coordonnées servent tant que le champ n'est pas retouché */
+const loopPicked = ref<PlaceSuggestion | null>(null)
 const loopKm = ref(10)
 /** Départ posé sur la carte (remplace le nom tapé, et inversement) */
 const loopPoint = ref<LatLon | null>(null)
@@ -192,6 +198,11 @@ watch(loopStart, (v) => {
 function findLoop(fromPosition = false) {
   const params = new URLSearchParams({ km: String(Math.min(40, Math.max(3, Math.round(loopKm.value || 10)))) })
   if (fromPosition) params.set('position', '1')
+  else if (loopPicked.value && loopPicked.value.label === loopStart.value) {
+    params.set('lat', loopPicked.value.lat.toFixed(5))
+    params.set('lon', loopPicked.value.lon.toFixed(5))
+    params.set('nom', loopPicked.value.label)
+  }
   else if (loopStart.value.trim()) params.set('depart', loopStart.value.trim())
   else if (loopPoint.value) {
     params.set('lat', loopPoint.value.lat.toFixed(5))
@@ -255,12 +266,13 @@ function clearPrint() {
 .hero h1 span { color: var(--accent); }
 .lead { font-size: 1.1rem; color: var(--text-soft); margin-bottom: 20px; }
 .loop-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px; }
-.loop-form > input { flex: 1 1 260px; min-width: 0; font-size: 1rem; padding: 10px 12px; }
+.loop-form > .place { flex: 1 1 260px; }
+.loop-form > .place :deep(input) { font-size: 1rem; padding: 10px 12px; }
 .loop-form .km { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text-soft); }
 .loop-form .km input { width: 70px; text-align: center; font-size: 1rem; padding: 10px 6px; }
 .loop-form .btn { font-size: 1rem; padding: 10px 18px; }
 .loop-form .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.loop-form > input.picked::placeholder { color: var(--forest); font-weight: 600; opacity: 1; }
+.loop-form > .place :deep(input.picked::placeholder) { color: var(--forest); font-weight: 600; opacity: 1; }
 .alt-starts { display: flex; gap: 4px 20px; flex-wrap: wrap; }
 .alt { font: inherit; font-size: 0.92rem; font-weight: 600; color: var(--forest); background: none; border: none; cursor: pointer; padding: 8px 2px; }
 .alt:hover { color: var(--accent); }
