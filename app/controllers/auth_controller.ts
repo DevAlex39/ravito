@@ -28,9 +28,19 @@ function userForToken(token: string) {
 const PROVIDER_NAMES: Record<Provider, string> = { google: 'Google', strava: 'Strava' }
 const PROVIDER_COLUMNS = { google: 'googleId', strava: 'stravaId' } as const
 
+/**
+ * Connecte l'utilisateur sur cet appareil. La session retient la « version » du compte :
+ * changer le mot de passe l'augmente, ce qui déconnecte les autres appareils (voir silent_auth_middleware).
+ */
+async function signIn({ auth, session }: HttpContext, user: User) {
+  await auth.use('web').login(user)
+  session.put('accountVersion', user.sessionVersion)
+}
+
 /** Après connexion, on revient sur la page demandée (chemin interne uniquement) */
 function nextPath(value: unknown) {
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : '/'
+  // Les navigateurs lisent « /\site.com » comme « //site.com » : barres obliques inverses et espaces refusés
+  return typeof value === 'string' && /^\/(?!\/)[^\\\s]*$/.test(value) ? value : '/'
 }
 
 export default class AuthController {
@@ -38,7 +48,8 @@ export default class AuthController {
     return inertia.render('auth/signup', { next: nextPath(request.input('next')), sso: enabledProviders() })
   }
 
-  async signup({ request, response, session, auth }: HttpContext) {
+  async signup(ctx: HttpContext) {
+    const { request, response, session } = ctx
     const { email, password } = await request.validateUsing(signupValidator)
     if (await User.findBy('email', email)) {
       session.flash('inputErrorsBag', { email: 'Un compte existe déjà avec cette adresse : connecte-toi.' })
@@ -46,7 +57,7 @@ export default class AuthController {
       return response.redirect().back()
     }
     const user = await User.create({ email, password })
-    await auth.use('web').login(user)
+    await signIn(ctx, user)
     return response.redirect(nextPath(request.input('next')))
   }
 
@@ -54,7 +65,8 @@ export default class AuthController {
     return inertia.render('auth/login', { next: nextPath(request.input('next')), sso: enabledProviders() })
   }
 
-  async login({ request, response, session, auth }: HttpContext) {
+  async login(ctx: HttpContext) {
+    const { request, response, session } = ctx
     const { email, password } = await request.validateUsing(loginValidator)
     let user: User
     try {
@@ -65,7 +77,7 @@ export default class AuthController {
       session.flashExcept(['password'])
       return response.redirect().back()
     }
-    await auth.use('web').login(user)
+    await signIn(ctx, user)
     return response.redirect(nextPath(request.input('next')))
   }
 
@@ -104,16 +116,18 @@ export default class AuthController {
     return inertia.render('auth/reset', { token: params.token, valid: !!user })
   }
 
-  async reset({ request, response, session, auth, params }: HttpContext) {
+  async reset(ctx: HttpContext) {
+    const { request, response, session, params } = ctx
     const { password } = await request.validateUsing(resetValidator)
     const user = await userForToken(params.token)
     if (!user) {
       session.flash('error', 'Ce lien a expiré ou a déjà servi. Redemande un e-mail.')
       return response.redirect('/mot-de-passe-oublie')
     }
-    user.merge({ password, resetTokenHash: null, resetExpiresAt: null })
+    // Nouveau mot de passe : les autres appareils sont déconnectés
+    user.merge({ password, resetTokenHash: null, resetExpiresAt: null, sessionVersion: user.sessionVersion + 1 })
     await user.save()
-    await auth.use('web').login(user)
+    await signIn(ctx, user)
     session.flash('success', 'Ton nouveau mot de passe est enregistré, tu es connecté.')
     return response.redirect('/mes-parcours')
   }
@@ -158,15 +172,26 @@ export default class AuthController {
     let user = await User.findBy(column, profile.id)
     // Déjà connecté : on relie ce compte au compte en cours
     if (!user && auth.user && !auth.user[column]) user = auth.user
-    // Même adresse vérifiée qu'un compte existant : c'est la même personne
-    if (!user && profile.email) user = await User.findBy('email', profile.email)
+    if (!user && profile.email) {
+      // Même adresse vérifiée par Google qu'un compte existant : c'est la même personne. Mais l'adresse
+      // n'est pas vérifiée à l'inscription : quelqu'un a pu créer ce compte avec l'adresse d'un autre et
+      // son propre mot de passe. On annule donc ce mot de passe (et les sessions ouvertes avec) ;
+      // le vrai titulaire peut en choisir un nouveau avec « mot de passe oublié ».
+      user = await User.findBy('email', profile.email)
+      if (user && !user[column]) {
+        if (user.password) {
+          session.flash('success', `Ton compte est maintenant relié à ${name}. Pour te connecter aussi avec un mot de passe, utilise « Mot de passe oublié ».`)
+        }
+        user.merge({ password: null, resetTokenHash: null, resetExpiresAt: null, sessionVersion: user.sessionVersion + 1 })
+      }
+    }
     if (!user) user = new User()
     user[column] = profile.id
     user.email ??= profile.email
     user.fullName ??= profile.name
     await user.save()
 
-    await auth.use('web').login(user)
+    await signIn(ctx, user)
     return response.redirect().withQs(false).toPath(pending.next)
   }
 

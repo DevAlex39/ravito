@@ -42,4 +42,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   GOOGLE_CLIENT_SECRET: Env.schema.string.optional(),
   STRAVA_CLIENT_ID: Env.schema.string.optional(),
   STRAVA_CLIENT_SECRET: Env.schema.string.optional(),
+
+  // Limites de tentatives : en base par défaut (elles survivent à un redémarrage)
+  LIMITER_STORE: Env.schema.enum.optional(['database', 'memory'] as const),
 })

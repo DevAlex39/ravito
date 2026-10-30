@@ -8,6 +8,7 @@
             <circle cx="22" cy="6" r="3" fill="#e2672b" />
           </svg>
           {{ APP_NAME }}
+          <span class="beta" title="Le site est en cours de construction : certaines choses peuvent encore changer ou mal fonctionner">Beta</span>
         </Link>
         <span class="tagline">{{ APP_TAGLINE }}</span>
         <nav class="account">
@@ -46,6 +47,7 @@ const { user } = useAccount()
 .topbar { height: var(--header-h); border-bottom: 1px solid var(--border); background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(6px); position: sticky; top: 0; z-index: 10; }
 .bar { height: 100%; display: flex; align-items: center; gap: 16px; }
 .logo { display: flex; align-items: center; gap: 8px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.6rem; color: var(--text); text-decoration: none; }
+.beta { font-family: 'Inter', system-ui, sans-serif; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: #e2672b; border-radius: 999px; padding: 2px 7px; align-self: center; position: relative; top: -6px; }
 .tagline { color: var(--text-dim); font-size: 0.88rem; }
 .account { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .nav-link { font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--forest); text-decoration: none; background: none; border: none; padding: 0; cursor: pointer; white-space: nowrap; }

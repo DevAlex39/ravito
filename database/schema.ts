@@ -87,8 +87,19 @@ export class PoisSchema extends BaseModel {
   declare wikidata: string | null
 }
 
+export class RateLimitSchema extends BaseModel {
+  static $columns = ['expire', 'key', 'points'] as const
+  $columns = RateLimitSchema.$columns
+  @column()
+  declare expire: bigint | number | null
+  @column({ isPrimary: true })
+  declare key: string
+  @column()
+  declare points: number
+}
+
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'email', 'fullName', 'googleId', 'id', 'password', 'resetExpiresAt', 'resetTokenHash', 'stravaId', 'updatedAt'] as const
+  static $columns = ['createdAt', 'email', 'fullName', 'googleId', 'id', 'password', 'resetExpiresAt', 'resetTokenHash', 'sessionVersion', 'stravaId', 'updatedAt'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -106,6 +117,8 @@ export class UserSchema extends BaseModel {
   declare resetExpiresAt: DateTime | null
   @column()
   declare resetTokenHash: string | null
+  @column()
+  declare sessionVersion: number
   @column()
   declare stravaId: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })

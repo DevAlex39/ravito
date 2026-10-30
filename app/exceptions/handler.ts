@@ -1,6 +1,7 @@
 import app from '@adonisjs/core/services/app'
 import { type HttpContext, ExceptionHandler } from '@adonisjs/core/http'
 import type { StatusPageRange, StatusPageRenderer } from '@adonisjs/core/types/http'
+import { errors as limiterErrors } from '@adonisjs/limiter'
 
 export default class HttpExceptionHandler extends ExceptionHandler {
   /**
@@ -30,6 +31,17 @@ export default class HttpExceptionHandler extends ExceptionHandler {
    * response to the client
    */
   async handle(error: unknown, ctx: HttpContext) {
+    if (error instanceof limiterErrors.E_TOO_MANY_REQUESTS) {
+      const minutes = Math.max(1, Math.ceil(error.response.availableIn / 60))
+      const message = `Trop de tentatives : réessaie dans ${minutes} minute${minutes > 1 ? 's' : ''}.`
+      // Formulaire (Inertia) : le message s'affiche sous le champ e-mail et en haut de la page
+      if (ctx.request.header('x-inertia')) {
+        ctx.session.flash('error', message)
+        ctx.session.flash('inputErrorsBag', { email: message })
+        return ctx.response.redirect().back()
+      }
+      error.setMessage(message)
+    }
     return super.handle(error, ctx)
   }
 

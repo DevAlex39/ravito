@@ -10,6 +10,12 @@ import type { NextFn } from '@adonisjs/core/types/http'
 export default class SilentAuthMiddleware {
   async handle(ctx: HttpContext, next: NextFn) {
     await ctx.auth.check()
+    // Mot de passe changé (ou compte relié à Google) depuis cette connexion : session révoquée.
+    // Les sessions ouvertes avant cette protection n'ont pas de version : elles valent 0.
+    const user = ctx.auth.user
+    if (user && (ctx.session.get('accountVersion') ?? 0) !== user.sessionVersion) {
+      await ctx.auth.use('web').logout()
+    }
 
     return next()
   }
