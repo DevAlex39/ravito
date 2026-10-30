@@ -91,6 +91,7 @@
             @stop="openStop"
           />
           <div v-if="!start" class="overlay">Clique sur la carte pour choisir ton départ</div>
+          <div v-if="busy" class="loading"><RunnerLoader /></div>
         </div>
       </section>
 
@@ -165,6 +166,7 @@ import DefaultLayout from '~/layouts/default.vue'
 import LoopMap from '~/components/loop_map.vue'
 import ElevationProfile from '~/components/elevation_profile.vue'
 import PoiDetail from '~/components/poi_detail.vue'
+import RunnerLoader from '~/components/runner_loader.vue'
 import { usePlan } from '~/composables/use_plan'
 import { useTracer } from '~/composables/use_tracer'
 import { generateLoops, loopTrack, searchRadius, type Loop, type Poi } from '~/utils/loops'
@@ -351,7 +353,7 @@ async function propose() {
   km.value = target / 1000
   busy.value = true
   loops.value = []
-  showInfo('Recherche des lieux à voir…')
+  message.value = ''
   let pois: Poi[] = []
   let poisFailed = false
   try {
@@ -361,7 +363,6 @@ async function propose() {
     poisFailed = true
   }
   try {
-    showInfo('Calcul des itinéraires…')
     loops.value = await generateLoops(start.value, target, pois, count.value, { terrain: terrain.value })
     selected.value = 0
     // Les nouvelles boucles n'arrivent à la carte qu'au rendu suivant
@@ -467,6 +468,7 @@ function useForPlan() {
 
 .map-card { padding: 12px; }
 .map-wrap { position: relative; height: 58vh; min-height: 380px; }
+.loading { position: absolute; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.35); pointer-events: none; }
 .overlay {
   position: absolute;
   top: 14px;
