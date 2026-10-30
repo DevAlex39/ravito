@@ -51,6 +51,27 @@
             {{ t.label }}
           </button>
         </div>
+        <button type="button" class="more" :aria-expanded="moreOpen" @click="moreOpen = !moreOpen">
+          {{ groups.length ? `${groups.length} type${groups.length > 1 ? 's' : ''} choisi${groups.length > 1 ? 's' : ''}` : 'Plus de choix' }} {{ moreOpen ? '▴' : '▾' }}
+        </button>
+        <div v-if="moreOpen" class="groups">
+          <p class="groups-hint">Coche ce que tu veux voir en chemin (rien de coché : tous les lieux du thème).</p>
+          <div v-for="cat in visibleCategories" :key="cat" class="group-row">
+            <span v-if="visibleCategories.length > 1" class="group-title">{{ cat === 'patrimoine' ? 'Patrimoine' : 'Nature' }}</span>
+            <button
+              v-for="g in KIND_GROUPS.filter(g => g.category === cat)"
+              :key="g.id"
+              type="button"
+              class="chip"
+              :class="{ on: groups.includes(g.id) }"
+              :aria-pressed="groups.includes(g.id)"
+              @click="toggleGroup(g.id)"
+            >
+              {{ g.label }}
+            </button>
+          </div>
+          <button v-if="groups.length" type="button" class="clear" @click="groups = []">Tout décocher</button>
+        </div>
         <button class="btn" type="submit" :disabled="!start || busy">{{ busy ? 'Recherche…' : 'Proposer des boucles' }}</button>
       </form>
 
@@ -152,7 +173,7 @@ import { buildProfile } from '~/utils/profile'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
 import { formatKm } from '~/utils/format'
 import { toGpx } from '~/utils/gpx'
-import { kindOf } from '~/utils/places'
+import { KIND_GROUPS, kindOf } from '~/utils/places'
 
 const plan = usePlan()
 const tracer = useTracer()
@@ -173,6 +194,22 @@ const THEMES: { value: Theme, label: string }[] = [
 ]
 /** Lieux à voir sur les boucles : tous, ou seulement le patrimoine / la nature */
 const theme = ref<Theme>('tout')
+
+// --- « Plus de choix » : familles de lieux précises (cascades, grottes, châteaux…) ---
+const moreOpen = ref(false)
+const groups = ref<string[]>([])
+const visibleCategories = computed(() => (theme.value === 'tout' ? ['patrimoine', 'nature'] as const : [theme.value]))
+// Passer en « Nature » décoche les familles du patrimoine, et inversement
+watch(theme, (t) => {
+  if (t !== 'tout') groups.value = groups.value.filter(id => KIND_GROUPS.find(g => g.id === id)?.category === t)
+})
+
+function toggleGroup(id: string) {
+  groups.value = groups.value.includes(id) ? groups.value.filter(g => g !== id) : [...groups.value, id]
+}
+
+/** Types de lieux demandés au serveur (vide : tout le thème) */
+const kinds = computed(() => KIND_GROUPS.filter(g => groups.value.includes(g.id)).flatMap(g => g.kinds))
 
 const TERRAINS: { value: Terrain, label: string, hint: string }[] = [
   { value: 'route', label: 'Route', hint: 'Plutôt du bitume, pour une allure régulière' },
@@ -296,7 +333,9 @@ async function fetchPois(p: LatLon, target: number): Promise<Poi[]> {
   // Premier passage dans un secteur : les lieux sont récupérés auprès d'OpenStreetMap, c'est plus long
   const slow = setTimeout(() => showInfo('Premier passage dans ce secteur : la recherche des lieux peut prendre jusqu\'à une minute. Les suivantes seront immédiates.'), 3000)
   try {
-    const filter = theme.value === 'tout' ? '' : `&categorie=${theme.value}`
+    const filter = kinds.value.length
+      ? `&types=${kinds.value.join(',')}`
+      : theme.value === 'tout' ? '' : `&categorie=${theme.value}`
     const res = await fetch(`/lieux?lat=${p.lat.toFixed(5)}&lon=${p.lon.toFixed(5)}&rayon=${searchRadius(target)}${filter}`, { headers: { Accept: 'application/json' } })
     if (!res.ok) throw new Error()
     return (await res.json() as { lieux: Poi[] }).lieux
@@ -329,7 +368,7 @@ async function propose() {
     nextTick(() => mapRef.value?.fitLoops())
     if (poisFailed) showError('Les lieux à voir sont indisponibles pour le moment : voici des boucles sans étapes.')
     else if (!loops.value.some(l => l.stops.length)) {
-      const what = theme.value === 'nature' ? 'de lieux naturels' : theme.value === 'patrimoine' ? 'de patrimoine' : 'de lieux remarquables'
+      const what = kinds.value.length ? 'de lieux de ce type' : theme.value === 'nature' ? 'de lieux naturels' : theme.value === 'patrimoine' ? 'de patrimoine' : 'de lieux remarquables'
       showInfo(`Peu ${what} connus ici : ces boucles explorent simplement les alentours.`)
     }
     else if (loops.value.length < count.value) showInfo(`Seulement ${loops.value.length} boucle${loops.value.length > 1 ? 's' : ''} trouvée${loops.value.length > 1 ? 's' : ''} autour de ce départ (relief, rivière ou manque de chemins).`)
@@ -412,6 +451,15 @@ function useForPlan() {
 .themes button { font: inherit; font-size: 0.85rem; font-weight: 600; padding: 6px 12px; background: var(--panel); color: var(--text-soft); border: none; cursor: pointer; }
 .themes button + button { border-left: 1px solid var(--border-strong); }
 .themes button.on { background: var(--forest); color: #fff; }
+.more { font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--forest); background: none; border: none; cursor: pointer; padding: 4px 2px; }
+.more:hover { text-decoration: underline; }
+.groups { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--panel-2); border-radius: var(--radius-sm); }
+.groups-hint { font-size: 0.82rem; color: var(--text-soft); }
+.group-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.group-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); min-width: 84px; }
+.chip { font: inherit; font-size: 0.84rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text); cursor: pointer; }
+.chip.on { background: var(--forest); border-color: var(--forest); color: #fff; }
+.clear { align-self: flex-start; font: inherit; font-size: 0.8rem; color: var(--text-soft); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; }
 .controls .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .notice { font-size: 0.9rem; color: var(--text-soft); }

@@ -12,9 +12,11 @@ const KINDS: Record<string, { icon: string, label: string }> = {
   memorial: { icon: '🎖️', label: 'Mémorial' },
   ruins: { icon: '🧱', label: 'Ruines' },
   archaeological_site: { icon: '🏺', label: 'Site archéologique' },
+  tomb: { icon: '⚱️', label: 'Tombeau' },
   tower: { icon: '🗼', label: 'Tour' },
   cathedral: { icon: '⛪', label: 'Cathédrale' },
   place_of_worship: { icon: '⛪', label: 'Édifice religieux' },
+  church: { icon: '⛪', label: 'Église' },
   museum: { icon: '🖼️', label: 'Musée' },
   gallery: { icon: '🖼️', label: 'Galerie' },
   artwork: { icon: '🎨', label: 'Œuvre d\'art' },
@@ -27,18 +29,42 @@ const KINDS: Record<string, { icon: string, label: string }> = {
   cave_entrance: { icon: '🕳️', label: 'Grotte' },
   peak: { icon: '⛰️', label: 'Sommet' },
   saddle: { icon: '⛰️', label: 'Col' },
-  arch: { icon: '🪨', label: 'Arche naturelle' },
+  arch: { icon: '🏞️', label: 'Arche naturelle' },
   gorge: { icon: '🏞️', label: 'Gorges' },
   volcano: { icon: '🌋', label: 'Volcan' },
   spring: { icon: '💧', label: 'Source' },
-  rock: { icon: '🪨', label: 'Rocher' },
-  stone: { icon: '🪨', label: 'Pierre remarquable' },
+  rock: { icon: '🏞️', label: 'Rocher' },
+  stone: { icon: '🏞️', label: 'Pierre remarquable' },
   cliff: { icon: '🧗', label: 'Falaise' },
   beach: { icon: '🏖️', label: 'Plage' },
   viewpoint: { icon: '👀', label: 'Point de vue' },
   park: { icon: '🌳', label: 'Parc' },
   garden: { icon: '🌷', label: 'Jardin' },
 }
+
+/** Familles proposées dans « Plus de choix » : quelques cases simples plutôt que 35 types */
+export interface KindGroup {
+  id: string
+  category: 'patrimoine' | 'nature'
+  label: string
+  kinds: string[]
+}
+
+export const KIND_GROUPS: KindGroup[] = [
+  { id: 'chateaux', category: 'patrimoine', label: '🏰 Châteaux et forts', kinds: ['castle', 'fort', 'manor', 'palace', 'city_gate'] },
+  { id: 'religieux', category: 'patrimoine', label: '⛪ Églises et chapelles', kinds: ['place_of_worship', 'cathedral', 'church'] },
+  { id: 'vestiges', category: 'patrimoine', label: '🧱 Ruines et vestiges', kinds: ['ruins', 'archaeological_site', 'tomb'] },
+  { id: 'monuments', category: 'patrimoine', label: '🗿 Monuments et tours', kinds: ['monument', 'memorial', 'tower', 'lighthouse', 'artwork'] },
+  { id: 'musees', category: 'patrimoine', label: '🖼️ Musées', kinds: ['museum', 'gallery'] },
+  { id: 'ponts', category: 'patrimoine', label: '🌉 Ponts et places', kinds: ['bridge', 'square'] },
+  { id: 'eau', category: 'nature', label: '💧 Cascades et sources', kinds: ['waterfall', 'spring'] },
+  { id: 'grottes', category: 'nature', label: '🕳️ Grottes', kinds: ['cave_entrance'] },
+  { id: 'sommets', category: 'nature', label: '⛰️ Sommets et cols', kinds: ['peak', 'saddle', 'volcano'] },
+  { id: 'roches', category: 'nature', label: '🏞️ Gorges et rochers', kinds: ['gorge', 'arch', 'cliff', 'rock', 'stone'] },
+  { id: 'vues', category: 'nature', label: '👀 Points de vue', kinds: ['viewpoint'] },
+  { id: 'parcs', category: 'nature', label: '🌳 Parcs et jardins', kinds: ['park', 'garden'] },
+  { id: 'plages', category: 'nature', label: '🏖️ Plages', kinds: ['beach'] },
+]
 
 export function kindOf(poi: Pick<Poi, 'kind' | 'category'>): { icon: string, label: string } {
   return KINDS[poi.kind] ?? (poi.category === 'nature' ? { icon: '🌿', label: 'Site naturel' } : { icon: '📍', label: 'Lieu à voir' })

@@ -17,8 +17,14 @@ export default class PoisController {
   /** Lieux remarquables autour d'un point (JSON), pour composer les boucles découverte */
   async around({ request, response }: HttpContext) {
     const { lat, lon, rayon, categorie } = await aroundValidator.validate(request.qs())
+    // Types précis (« waterfall,cave_entrance »), prioritaires sur la catégorie : la query string
+    // arrive en tableau quand il y a des virgules, en texte sinon
+    const raw = request.qs().types as unknown
+    const types = (Array.isArray(raw) ? raw : String(raw ?? '').split(','))
+      .filter((k): k is string => typeof k === 'string' && /^[a-z_]{2,30}$/.test(k))
+      .slice(0, 30)
     try {
-      return { lieux: await poisAround(lat, lon, rayon, categorie) }
+      return { lieux: await poisAround(lat, lon, rayon, categorie, types) }
     }
     catch {
       return response.serviceUnavailable({ message: 'Le service des lieux (OpenStreetMap) ne répond pas pour le moment.' })

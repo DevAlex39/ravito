@@ -94,7 +94,7 @@ type Bbox = [south: number, west: number, north: number, east: number]
  * Lieux remarquables autour d'un point. Les secteurs jamais vus (ou trop anciens) sont d'abord
  * demandés à OpenStreetMap puis enregistrés : les recherches suivantes ne touchent que la base.
  */
-export async function poisAround(lat: number, lon: number, radius: number, category?: PoiCategory): Promise<PoiDto[]> {
+export async function poisAround(lat: number, lon: number, radius: number, category?: PoiCategory, kinds?: string[]): Promise<PoiDto[]> {
   const dLat = radius / 111_320
   const dLon = radius / (111_320 * Math.cos(lat * Math.PI / 180))
   const bbox: Bbox = [lat - dLat, lon - dLon, lat + dLat, lon + dLon]
@@ -108,10 +108,18 @@ export async function poisAround(lat: number, lon: number, radius: number, categ
     .orderBy('score', 'desc')
     .limit(limit)
 
-  // Sans filtre, chaque catégorie a sa part : sinon le patrimoine, mieux noté sur Wikipédia, prendrait toute la place
-  const rows = category
-    ? await best(category, 400)
-    : (await Promise.all([best('patrimoine', 250), best('nature', 150)])).flat()
+  // Types choisis (« Plus de choix ») : seulement ceux-là ; sans filtre, chaque catégorie a sa part,
+  // sinon le patrimoine, mieux noté sur Wikipédia, prendrait toute la place
+  const rows = kinds?.length
+    ? await Poi.query()
+      .whereBetween('lat', [bbox[0], bbox[2]])
+      .whereBetween('lon', [bbox[1], bbox[3]])
+      .whereIn('kind', kinds)
+      .orderBy('score', 'desc')
+      .limit(400)
+    : category
+      ? await best(category, 400)
+      : (await Promise.all([best('patrimoine', 250), best('nature', 150)])).flat()
 
   return rows.map(p => ({
     id: p.id,
