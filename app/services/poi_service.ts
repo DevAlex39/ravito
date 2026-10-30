@@ -98,12 +98,17 @@ export async function poisAround(lat: number, lon: number, radius: number, categ
 
   await fillCells(bbox)
 
-  const rows = await Poi.query()
+  const best = (cat: PoiCategory, limit: number) => Poi.query()
     .whereBetween('lat', [bbox[0], bbox[2]])
     .whereBetween('lon', [bbox[1], bbox[3]])
-    .if(category, q => q.where('category', category!))
+    .where('category', cat)
     .orderBy('score', 'desc')
-    .limit(400)
+    .limit(limit)
+
+  // Sans filtre, chaque catégorie a sa part : sinon le patrimoine, mieux noté sur Wikipédia, prendrait toute la place
+  const rows = category
+    ? await best(category, 400)
+    : (await Promise.all([best('patrimoine', 250), best('nature', 150)])).flat()
 
   return rows.map(p => ({ id: p.id, name: p.name, lat: p.lat, lon: p.lon, kind: p.kind, category: p.category as PoiCategory, score: p.score }))
 }

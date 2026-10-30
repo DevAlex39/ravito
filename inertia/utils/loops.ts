@@ -5,7 +5,10 @@ export interface Poi extends LatLon {
   id: number
   name: string
   kind: string
+  category: 'patrimoine' | 'nature'
   score: number
+  /** Score rapporté au meilleur lieu de la même catégorie (0 à 1) : sert à mélanger patrimoine et nature */
+  weight?: number
 }
 
 export interface Loop {
@@ -98,7 +101,7 @@ function candidate(start: LatLon, pois: Poi[], target: number, direction: number
   })
 
   const chosen: { p: Poi, t: number }[] = []
-  for (const c of [...near].sort((a, b) => b.p.score - a.p.score)) {
+  for (const c of [...near].sort((a, b) => (b.p.weight ?? b.p.score) - (a.p.weight ?? a.p.score))) {
     if (chosen.length >= maxStops) break
     if (chosen.every(o => Math.abs(o.t - c.t) >= minGap)) chosen.push(c)
   }
@@ -123,7 +126,7 @@ function candidate(start: LatLon, pois: Poi[], target: number, direction: number
     radius,
     marks,
     stops: marks.flatMap(m => (m.poi ? [m.poi] : [])),
-    quality: chosen.reduce((acc, c) => acc + c.p.score, 0),
+    quality: chosen.reduce((acc, c) => acc + (c.p.weight ?? c.p.score), 0),
   }
 }
 
@@ -136,6 +139,22 @@ function fitCandidate(start: LatLon, pois: Poi[], target: number, direction: num
     c = candidate(start, pois, target, direction, c.radius * Math.min(1.6, Math.max(0.6, target / estimate)))
   }
   return c
+}
+
+/**
+ * Lieux retenus pour composer les boucles, catégorie par catégorie :
+ * - les lieux documentés (Wikidata) d'abord, les autres seulement là où la catégorie a peu de choix ;
+ * - chaque lieu est noté par rapport au meilleur de sa catégorie, pour qu'une belle cascade
+ *   pèse autant qu'un beau monument (le patrimoine a des scores Wikipédia bien plus élevés).
+ */
+function balance(allPois: Poi[]): Poi[] {
+  return (['patrimoine', 'nature'] as const).flatMap((category) => {
+    const all = allPois.filter(p => p.category === category)
+    const documented = all.filter(p => p.score >= 3)
+    const kept = documented.length >= 5 ? documented : all
+    const best = Math.max(...kept.map(p => p.score), 1)
+    return kept.map(p => ({ ...p, weight: p.score / best }))
+  })
 }
 
 function angleGap(a: number, b: number) {
@@ -220,9 +239,7 @@ async function routeCandidate(target: number, first: Candidate, pois: Poi[], opt
  * en passant par les lieux les plus remarquables, sur le terrain demandé (`opts.terrain`).
  */
 export async function generateLoops(start: LatLon, target: number, allPois: Poi[], count = 3, opts: RouteOptions = {}): Promise<Loop[]> {
-  // Les lieux documentés (Wikidata) d'abord ; les autres seulement là où il y a peu de choix
-  const documented = allPois.filter(p => p.score >= 3)
-  const pois = documented.length >= 8 ? documented : allPois
+  const pois = balance(allPois)
   const remaining = Array.from({ length: 12 }, (_, i) => fitCandidate(start, pois, target, (i * Math.PI) / 6))
     .sort((a, b) => b.quality - a.quality)
 
