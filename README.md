@@ -69,6 +69,20 @@ Le bouton « Définir un temps ciblé » active un plan objectif à côté de la
 
 Les allures fixées sont attachées aux bornes du tronçon : recouper le parcours les libère.
 
+## Itinéraires (BRouter)
+
+Les itinéraires sont calculés par l'instance BRouter du VPS avec le profil `brouter/alpas.brf` : une copie de
+`hiking-mountain` qui pénalise les routes à circulation (`road_avoidance`) et penche légèrement vers les chemins
+(`path_preference = 1`). Le terrain choisi dans la page des boucles ajuste ces réglages dans la requête
+(`profile:<variable>=<valeur>`, voir `TERRAIN_PARAMS` dans `inertia/utils/routing.ts`).
+
+En développement, le site appelle directement `https://alpas.alpastudio.fr/brouter` (le profil n'existe que là).
+Sur le VPS, le profil est un lien vers le fichier du dépôt, donc mis à jour à chaque `git pull` :
+
+```bash
+ln -sf /var/www/alpas/brouter/alpas.brf ~/alpas-data/brouter/app/brouter-1.7.10/profiles2/alpas.brf
+```
+
 ## Exemple
 
 `public/exemple.gpx` est une boucle fictive (~24 km, ~1 270 m D+) servant au bouton « Essayer avec un exemple ».

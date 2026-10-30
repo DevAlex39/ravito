@@ -24,6 +24,20 @@
           </select>
           <span>boucle{{ count > 1 ? 's' : '' }}</span>
         </label>
+        <div class="themes" role="radiogroup" aria-label="Terrain">
+          <button
+            v-for="t in TERRAINS"
+            :key="t.value"
+            type="button"
+            role="radio"
+            :title="t.hint"
+            :aria-checked="terrain === t.value"
+            :class="{ on: terrain === t.value }"
+            @click="terrain = t.value"
+          >
+            {{ t.label }}
+          </button>
+        </div>
         <div class="themes" role="radiogroup" aria-label="Lieux à voir">
           <button
             v-for="t in THEMES"
@@ -70,6 +84,7 @@
           >
             <span class="title">Boucle {{ i + 1 }}</span>
             <span class="meta num">{{ formatKm(loop.distance) }} km · +{{ Math.round(gains[i] ?? 0) }} m</span>
+            <span v-if="surfaceText(loop)" class="surface">{{ surfaceText(loop) }}</span>
             <span class="places">
               <template v-if="loop.stops.length">{{ loop.stops.length }} lieu{{ loop.stops.length > 1 ? 'x' : '' }} : {{ loop.stops.map(s => s.name).join(' · ') }}</template>
               <template v-else>Pas de lieu remarquable sur ce tour</template>
@@ -105,7 +120,7 @@ import ElevationProfile from '~/components/elevation_profile.vue'
 import { usePlan } from '~/composables/use_plan'
 import { useTracer } from '~/composables/use_tracer'
 import { generateLoops, loopTrack, searchRadius, type Loop, type Poi } from '~/utils/loops'
-import { searchPlace, type LatLon } from '~/utils/routing'
+import { searchPlace, type LatLon, type Terrain } from '~/utils/routing'
 import { buildProfile } from '~/utils/profile'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
 import { formatKm } from '~/utils/format'
@@ -130,6 +145,22 @@ const THEMES: { value: Theme, label: string }[] = [
 ]
 /** Lieux à voir sur les boucles : tous, ou seulement le patrimoine / la nature */
 const theme = ref<Theme>('tout')
+
+const TERRAINS: { value: Terrain, label: string, hint: string }[] = [
+  { value: 'route', label: 'Route', hint: 'Plutôt du bitume, pour une allure régulière' },
+  { value: 'mixte', label: 'Mixte', hint: 'Chemins et petites rues, sans les grandes routes' },
+  { value: 'sentiers', label: '🥾 Sentiers', hint: 'Le plus de sentiers possible, quitte à faire un détour' },
+]
+/** Type de chemins voulu ; toutes les options évitent les routes à circulation */
+const terrain = ref<Terrain>('mixte')
+
+/** « 65 % sentiers · 3 % grandes routes » (grandes routes masquées sous 1 %) */
+function surfaceText(loop: Loop): string {
+  const { total, trail, bigRoad } = loop.surface
+  if (!total) return ''
+  const pct = (x: number) => Math.round((100 * x) / total)
+  return [`${pct(trail)} % sentiers`, pct(bigRoad) >= 1 ? `${pct(bigRoad)} % grandes routes` : ''].filter(Boolean).join(' · ')
+}
 const loops = ref<Loop[]>([])
 const selected = ref(0)
 const hoverD = ref<number | null>(null)
@@ -231,7 +262,7 @@ async function propose() {
   }
   try {
     showInfo('Calcul des itinéraires…')
-    loops.value = await generateLoops(start.value, target, pois, count.value)
+    loops.value = await generateLoops(start.value, target, pois, count.value, { terrain: terrain.value })
     selected.value = 0
     // Les nouvelles boucles n'arrivent à la carte qu'au rendu suivant
     nextTick(() => mapRef.value?.fitLoops())
@@ -358,6 +389,7 @@ function useForPlan() {
 .result .title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.3rem; }
 .result.active .title { color: var(--accent); }
 .result .meta { font-weight: 600; }
+.result .surface { font-size: 0.82rem; font-weight: 600; color: var(--forest); }
 .result .places { font-size: 0.85rem; color: var(--text-soft); }
 
 .finish { display: flex; flex-direction: column; gap: 12px; }

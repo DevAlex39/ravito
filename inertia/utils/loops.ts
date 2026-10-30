@@ -1,5 +1,5 @@
 import { haversine, type Track } from '~/utils/gpx'
-import { routeVia, type Coord, type LatLon } from '~/utils/routing'
+import { routeVia, type Coord, type LatLon, type Route, type RouteOptions, type Surface } from '~/utils/routing'
 
 export interface Poi extends LatLon {
   id: number
@@ -16,6 +16,8 @@ export interface Loop {
   legs: Coord[][]
   coords: Coord[]
   distance: number
+  /** Part de sentiers et de grandes routes */
+  surface: Surface
 }
 
 /** Rapport moyen entre la distance à pied et la distance à vol d'oiseau en ville */
@@ -163,34 +165,35 @@ function splitLegs(coords: Coord[], waypoints: LatLon[]): Coord[][] {
   return legs
 }
 
-async function routeOnce(waypoints: LatLon[], stops: Poi[], signal?: AbortSignal): Promise<Loop> {
-  let coords: Coord[]
+async function routeOnce(waypoints: LatLon[], stops: Poi[], opts: RouteOptions): Promise<Loop> {
+  let route: Route
   try {
-    coords = await routeVia(waypoints, signal)
+    route = await routeVia(waypoints, opts)
   }
   catch {
-    // Le serveur public refuse parfois les rafales de requêtes : une seconde chance après une pause
+    // Une requête peut échouer ponctuellement (serveur chargé) : une seconde chance après une pause
     await new Promise(r => setTimeout(r, 1500))
-    coords = await routeVia(waypoints, signal)
+    route = await routeVia(waypoints, opts)
   }
+  const { coords, surface } = route
   let distance = 0
   for (let i = 1; i < coords.length; i++) {
     distance += haversine({ lon: coords[i - 1]![0], lat: coords[i - 1]![1] }, { lon: coords[i]![0], lat: coords[i]![1] })
   }
-  return { waypoints, stops, legs: splitLegs(coords, waypoints), coords, distance }
+  return { waypoints, stops, legs: splitLegs(coords, waypoints), coords, distance, surface }
 }
 
 /**
  * Calcule l'itinéraire réel puis règle sa longueur : les lieux ne bougent pas, seuls les points
  * de forme s'écartent ou se rapprochent du centre (méthode de la sécante, quelques essais).
  */
-async function routeCandidate(target: number, first: Candidate, pois: Poi[], signal?: AbortSignal): Promise<Loop> {
+async function routeCandidate(target: number, first: Candidate, pois: Poi[], opts: RouteOptions): Promise<Loop> {
   let c = first
   let best: Loop | null = null
   let tries: { rho: number, distance: number }[] = []
   let rho = 1
   for (let attempt = 0; attempt < 6; attempt++) {
-    const loop = await routeOnce(waypointsOf(c, rho), c.stops, signal)
+    const loop = await routeOnce(waypointsOf(c, rho), c.stops, opts)
     if (!best || Math.abs(loop.distance - target) < Math.abs(best.distance - target)) best = loop
     if (Math.abs(loop.distance - target) / target <= TOLERANCE * 0.8) break
     tries.push({ rho, distance: loop.distance })
@@ -214,9 +217,9 @@ async function routeCandidate(target: number, first: Candidate, pois: Poi[], sig
 
 /**
  * Propose jusqu'à `count` boucles différentes d'environ `target` mètres depuis `start`,
- * en passant par les lieux les plus remarquables.
+ * en passant par les lieux les plus remarquables, sur le terrain demandé (`opts.terrain`).
  */
-export async function generateLoops(start: LatLon, target: number, allPois: Poi[], count = 3, signal?: AbortSignal): Promise<Loop[]> {
+export async function generateLoops(start: LatLon, target: number, allPois: Poi[], count = 3, opts: RouteOptions = {}): Promise<Loop[]> {
   // Les lieux documentés (Wikidata) d'abord ; les autres seulement là où il y a peu de choix
   const documented = allPois.filter(p => p.score >= 3)
   const pois = documented.length >= 8 ? documented : allPois
@@ -242,7 +245,7 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
       }
     }
     if (!picked.length) break
-    const results = await Promise.allSettled(picked.map(c => routeCandidate(target, c, pois, signal)))
+    const results = await Promise.allSettled(picked.map(c => routeCandidate(target, c, pois, opts)))
     results.forEach((r, i) => {
       if (r.status === 'rejected') lastError = r.reason
       else if (Math.abs(r.value.distance - target) / target > TOLERANCE * 1.5) weak.push({ direction: picked[i]!.direction, loop: r.value })
