@@ -36,6 +36,8 @@ const TOLERANCE = 0.1
  */
 const MAX_SPUR_POI = 300
 const MIN_SPUR = 30
+/** Autour du départ (m) : lieux visités en début ou en fin de boucle, même loin du cercle */
+const START_ZONE = 600
 
 /** Projection locale en mètres autour du départ (suffisante à l'échelle d'une boucle) */
 function projector(origin: LatLon) {
@@ -98,21 +100,32 @@ function candidate(start: LatLon, pois: Poi[], target: number, direction: number
   const maxStops = Math.min(9, Math.max(3, Math.round(target / 1500)))
   const minGap = (2 * Math.PI) / (maxStops * 2.2)
 
-  // Position de chaque lieu sur le tour, s'il est assez près du cercle
+  // Position de chaque lieu sur le tour, s'il est assez près du cercle. Les lieux tout proches du départ
+  // (souvent le cœur historique quand on part du centre-ville) sont aussi gardés : on les traverse en
+  // début ou en fin de boucle
   const near = pois.flatMap((p) => {
     const { x, y } = toXY(p)
+    const fromStart = Math.hypot(x, y)
+    if (fromStart < 60) return []
     const dist = Math.hypot(x - cx, y - cy)
-    if (Math.abs(dist - radius) > 0.35 * radius) return []
+    if (Math.abs(dist - radius) > 0.35 * radius && fromStart > START_ZONE) return []
     let t = Math.atan2(y - cy, x - cx) - startAngle
     t = ((t % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
-    if (t < 0.25 || t > 2 * Math.PI - 0.25) return []
-    return [{ p, t }]
+    return [{ p, t, x, y, nearStart: fromStart <= START_ZONE }]
   })
 
-  const chosen: { p: Poi, t: number }[] = []
+  const chosen: typeof near = []
   for (const c of [...near].sort((a, b) => (b.p.weight ?? b.p.score) - (a.p.weight ?? a.p.score))) {
     if (chosen.length >= maxStops) break
-    if (chosen.every(o => Math.abs(o.t - c.t) >= minGap)) chosen.push(c)
+    // Près du départ : un seul lieu à l'aller et un seul au retour, sinon la boucle tourne en rond
+    // dans la vieille ville au lieu de partir explorer
+    if (c.nearStart) {
+      const outward = c.t < Math.PI
+      if (chosen.some(o => o.nearStart && (o.t < Math.PI) === outward)) continue
+      chosen.push(c)
+      continue
+    }
+    if (chosen.every(o => o.nearStart || Math.abs(o.t - c.t) >= minGap)) chosen.push(c)
   }
 
   // Points de forme dans les grands vides du tour (au moins un, pour pouvoir régler la longueur)

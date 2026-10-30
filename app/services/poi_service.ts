@@ -179,7 +179,7 @@ export async function savePois(candidates: NewPoi[], { onProgress, refreshWikida
   for (const [q, n] of fetched) sitelinks.set(q, n)
   for (const p of pois) {
     p.sitelinks = p.wikidata ? sitelinks.get(p.wikidata) ?? 0 : 0
-    p.score = score(p.kind, p.sitelinks, p.wikidata != null)
+    p.score = score(p.kind, p.sitelinks, p.wikidata != null, p.heritage)
   }
   const knex = db.connection().getWriteClient()
   const now = new Date()
@@ -226,6 +226,12 @@ async function fetchOverpass([s, w, n, e]: Bbox): Promise<OverpassElement[]> {
   nwr["natural"~"^(waterfall|cave_entrance|peak|arch|gorge|volcano)$"]["name"]${b};
   nwr["waterway"="waterfall"]["name"]${b};
   nwr["natural"~"^(spring|rock|stone|cliff|beach|saddle)$"]["name"]["wikidata"]${b};
+  nwr["heritage"~"^[123]$"]["name"]${b};
+  nwr["ref:mhs"]["name"]${b};
+  nwr["historic"]["name"]["wikidata"]${b};
+  nwr["historic"="lavoir"]["name"]${b};
+  nwr["amenity"~"^(lavoir|fountain)$"]["name"]${b};
+  nwr["place"="square"]["highway"="pedestrian"]["name"]${b};
 );
 out center tags;`
   let lastError: unknown
@@ -260,16 +266,42 @@ export interface NewPoi {
   lon: number
   kind: string
   wikidata: string | null
+  /** Bonus Monument historique : classé 2,5 ; inscrit 1,5 ; 0 sinon */
+  heritage: number
   sitelinks: number
   score: number
 }
 
+/** Monument historique (base Mérimée, reprise dans OpenStreetMap) : bonus de note */
+function heritageBonus(t: Record<string, string>): number {
+  if (/^[12]$/.test(t.heritage ?? '')) return 2.5
+  if (t.heritage === '3' || t['ref:mhs']) return 1.5
+  return 0
+}
+
+/** Bâtiments classés mais devenus école, clinique… : pas un but de balade (sauf s'ils sont signalés comme patrimoine) */
+const NOT_A_VISIT = /^(school|college|university|kindergarten|clinic|doctors|hospital|social_facility|police|prison|bank|pharmacy)$/
+
+/** Éléments historiques trop petits ou trop nombreux pour être un but de sortie */
+const MINOR_HISTORIC = /^(boundary_stone|milestone|marker|benchmark|cannon|tree_shrine)$/
+
+/** Noms qui ne disent rien du lieu (« Demeure », « Maison ») : rien à annoncer au promeneur */
+const GENERIC_NAME = /^(demeure|maison|immeuble|bâtiment|batiment|édifice|edifice|logis|hôtel|hotel|ferme|bâtisse|grange)$/i
+
 /** Mêmes critères que la requête Overpass : utilisés tels quels pour l'import d'un extrait OSM */
 function isWanted(t: Record<string, string>): boolean {
-  if (!t.name) return false
+  if (!t.name || GENERIC_NAME.test(t.name.trim())) return false
   if (/^(attraction|viewpoint|museum|gallery)$/.test(t.tourism ?? '')) return true
   if (NATURE_NAMED.test(t.natural ?? '') || t.waterway === 'waterfall') return true
+  // Lavoirs et places piétonnes : le charme des vieux centres et des villages, même sans fiche
+  if (t.historic === 'lavoir' || t.amenity === 'lavoir') return true
+  if (t.place === 'square' && t.highway === 'pedestrian') return true
+  const historic = t.historic && !MINOR_HISTORIC.test(t.historic) ? t.historic : null
+  // Monuments historiques : tous, sauf ceux devenus une école ou un établissement de santé
+  if (heritageBonus(t) && !t.highway && (historic || !NOT_A_VISIT.test(t.amenity ?? ''))) return true
   if (!/^Q\d+$/.test(t.wikidata ?? '')) return false
+  if (historic) return true
+  if (t.amenity === 'fountain') return true
   return /^(castle|monument|ruins|city_gate|fort|archaeological_site|manor|tower|church|cathedral|palace|building|memorial)$/.test(t.historic ?? '')
     || t.amenity === 'place_of_worship'
     || /^(park|garden)$/.test(t.leisure ?? '')
@@ -292,12 +324,19 @@ export function toPoi(el: OverpassElement): NewPoi | null {
   const lat = el.lat ?? el.center?.lat
   const lon = el.lon ?? el.center?.lon
   if (!t.name || lat == null || lon == null) return null
-  const kind = (t.historic && t.historic !== 'building' && t.historic !== 'church' ? t.historic : null)
+  const heritage = heritageBonus(t)
+  const kind = (t.historic && !/^(building|church|yes)$/.test(t.historic) ? t.historic : null)
     ?? naturalKind(t)
-    ?? (t.amenity === 'place_of_worship' ? (t.building === 'cathedral' ? 'cathedral' : 'place_of_worship') : null)
-    ?? t.tourism ?? t.leisure ?? t.man_made ?? t.place ?? t.historic
+    ?? (t.amenity === 'place_of_worship' || /^(church|chapel|cathedral)$/.test(t.building ?? '')
+      ? (t.building === 'cathedral' ? 'cathedral' : 'place_of_worship')
+      : null)
+    ?? (/^(fountain|lavoir|townhall|theatre)$/.test(t.amenity ?? '') ? t.amenity : null)
+    ?? t.tourism ?? t.leisure ?? t.man_made ?? t.place
+    // Bâtiment remarquable sans autre précision : « Monument historique » s'il est protégé
+    ?? (heritage ? 'heritage' : null)
   return {
-    kind: !kind || kind === 'yes' || kind === 'building' ? 'lieu' : kind,
+    kind: kind ?? 'lieu',
+    heritage,
     osmKey: `${el.type[0]}${el.id}`,
     name: t['name:fr'] ?? t.name,
     lat,
@@ -341,6 +380,6 @@ async function fetchSitelinks(ids: string[], onProgress?: (done: number, total: 
   return result
 }
 
-function score(kind: string, sitelinks: number, hasWikidata: boolean) {
-  return Math.round((1 + (hasWikidata ? 1 : 0) + 2 * Math.log2(1 + sitelinks) + (KIND_BONUS[kind] ?? 0)) * 10) / 10
+function score(kind: string, sitelinks: number, hasWikidata: boolean, heritage = 0) {
+  return Math.round((1 + (hasWikidata ? 1 : 0) + 2 * Math.log2(1 + sitelinks) + (KIND_BONUS[kind] ?? 0) + heritage) * 10) / 10
 }
