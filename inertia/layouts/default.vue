@@ -17,7 +17,7 @@
           <Link v-if="user" href="/mes-parcours" :class="{ on: page.url.startsWith('/mes-parcours') }">Mes parcours</Link>
         </nav>
         <nav class="account">
-          <Link v-if="user" href="/deconnexion" method="post" as="button" class="nav-link quiet" :title="user.email ?? user.fullName ?? ''">Se déconnecter</Link>
+          <AccountMenu v-if="user" :user="user" />
           <Link v-else href="/connexion" class="nav-link pill">Se connecter</Link>
         </nav>
       </div>
@@ -39,6 +39,7 @@ import { Link, usePage } from '@inertiajs/vue3'
 import { APP_NAME } from '~/brand'
 import { usePlan } from '~/composables/use_plan'
 import { useAccount } from '~/composables/use_account'
+import AccountMenu from '~/components/account_menu.vue'
 
 const page = usePage()
 const { restore, clearTrack } = usePlan()
@@ -59,7 +60,6 @@ const { user } = useAccount()
 .account { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .nav-link { font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--forest); text-decoration: none; background: none; border: none; padding: 0; cursor: pointer; white-space: nowrap; }
 .nav-link:hover { text-decoration: underline; }
-.nav-link.quiet { color: var(--text-dim); font-weight: 500; }
 .nav-link.pill { color: var(--text); border: 1px solid var(--border-strong); border-radius: 999px; padding: 7px 16px; }
 .nav-link.pill:hover { text-decoration: none; background: var(--panel); }
 main { flex: 1; padding: 28px 0 40px; }

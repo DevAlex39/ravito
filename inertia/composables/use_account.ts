@@ -2,6 +2,17 @@ import { computed, effectScope, ref, watch, type ComputedRef } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { usePlan } from '~/composables/use_plan'
 
+/** Utilisateur connecté, tel que transmis à toutes les pages */
+export interface AccountUser { id: number, email: string | null, fullName: string | null, createdAt?: string }
+
+/** Lettres de l'avatar : initiales du nom (Google, Strava), sinon première lettre de l'e-mail */
+export function userInitials(u: AccountUser | null): string {
+  if (!u) return '?'
+  const words = u.fullName?.trim().split(/\s+/).filter(Boolean) ?? []
+  if (words.length) return words.slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase()
+  return (u.email?.charAt(0) ?? '?').toUpperCase()
+}
+
 export type SyncState = 'idle' | 'saving' | 'saved' | 'error'
 
 /** Après connexion, le plan en cours est enregistré tout seul si l'utilisateur l'avait demandé */
@@ -12,7 +23,7 @@ const syncError = ref('')
 /** Dernière version envoyée : évite de renvoyer un plan identique */
 let lastSent = ''
 let timer: ReturnType<typeof setTimeout> | undefined
-let user: ComputedRef<{ id: number, email: string | null, fullName: string | null } | null> | null = null
+let user: ComputedRef<AccountUser | null> | null = null
 
 function xsrfToken() {
   const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
@@ -73,7 +84,7 @@ function setup() {
   const page = usePage()
   effectScope(true).run(() => {
     const plan = usePlan()
-    user = computed(() => (page.props.user as { id: number, email: string | null, fullName: string | null } | undefined) ?? null)
+    user = computed(() => (page.props.user as AccountUser | undefined) ?? null)
 
     // Un plan déjà enregistré suit ensuite chaque modification (regroupées)
     watch(() => [plan.planId.value, plan.serialize()], () => {
