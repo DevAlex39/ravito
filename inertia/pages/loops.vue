@@ -159,11 +159,15 @@
               <div class="stats">
                 <div><strong class="num">{{ formatKm(loop.distance) }} km</strong><span>distance</span></div>
                 <div><strong class="num">+{{ Math.round(gains[i] ?? 0) }} m</strong><span>dénivelé</span></div>
-                <template v-if="surfacePct(loop)">
-                  <div><strong class="num">{{ surfacePct(loop)!.trail }} %</strong><span>sentiers</span></div>
-                  <div><strong class="num">{{ surfacePct(loop)!.road }} %</strong><span>routes</span></div>
-                </template>
+                <label v-if="durations[i]" class="duration" title="Durée estimée selon ton allure sur le plat et le dénivelé : clique pour changer d'allure">
+                  <strong class="num">≈ {{ formatDuration(durations[i]!) }}</strong>
+                  <span>à {{ paceLabel }}/km <Icon name="chevron" :size="12" /></span>
+                  <select v-model="paceChoice" aria-label="Ton allure sur le plat (min/km)">
+                    <option v-for="p in PACES" :key="p" :value="p">{{ formatPace(p) }} min/km</option>
+                  </select>
+                </label>
               </div>
+              <p v-if="surfaceText(loop)" class="soft">{{ surfaceText(loop) }}</p>
               <button v-if="currentAmenities.length" type="button" class="amenities-line" :aria-pressed="showAmenities" @click="showAmenities = !showAmenities">
                 <span v-if="amenityCount.water"><Icon name="droplet" :size="16" />{{ amenityCount.water }} point{{ amenityCount.water > 1 ? 's' : '' }} d'eau</span>
                 <span v-if="amenityCount.toilets"><Icon name="toilets" :size="16" />{{ amenityCount.toilets }} toilettes</span>
@@ -200,7 +204,7 @@
             <button v-else type="button" class="loop card" @click="selected = i">
               <span class="loop-head">
                 <span class="title">Boucle {{ i + 1 }}</span>
-                <strong class="num">{{ formatKm(loop.distance) }} km · +{{ Math.round(gains[i] ?? 0) }} m</strong>
+                <strong class="num">{{ formatKm(loop.distance) }} km · +{{ Math.round(gains[i] ?? 0) }} m<template v-if="durations[i]"> · ≈ {{ formatDuration(durations[i]!) }}</template></strong>
               </span>
               <span class="preview">
                 <template v-if="loop.stops.length">{{ loop.stops.length }} lieu{{ loop.stops.length > 1 ? 'x' : '' }} · {{ loop.stops.slice(0, 3).map(s => s.name).join(', ') }}{{ loop.stops.length > 3 ? '…' : '' }}</template>
@@ -209,6 +213,9 @@
               <span v-if="surfaceText(loop)" class="soft">{{ surfaceText(loop) }}</span>
             </button>
           </template>
+          <button type="button" class="btn ghost more-loops" :disabled="busy" title="Nouvelles boucles avec les mêmes réglages, différentes de celles déjà vues" @click="proposeMore">
+            <Icon name="refresh" :size="18" />D'autres boucles
+          </button>
         </aside>
 
         <div class="main">
@@ -264,6 +271,7 @@
             </section>
             <div class="finish-actions">
               <button class="btn" type="button" @click="download"><Icon name="download" :size="18" />Télécharger le GPX</button>
+              <button class="btn ghost" type="button" @click="copyLink"><Icon name="link" :size="18" />{{ copied ? 'Lien copié ✓' : 'Copier le lien' }}</button>
               <button class="btn ghost" type="button" @click="adjust"><Icon name="pencil" :size="18" />Ajuster dans le traceur</button>
               <button class="btn ghost" type="button" @click="useForPlan">Préparer ma course avec cette boucle <Icon name="arrow" :size="18" /></button>
             </div>
@@ -302,13 +310,14 @@ import RunnerLoader from '~/components/runner_loader.vue'
 import { usePlan } from '~/composables/use_plan'
 import { useTracer } from '~/composables/use_tracer'
 import { readLoops, storeLoops } from '~/utils/loop_cache'
-import { amenitiesAlong, generateLoops, loopTrack, searchRadius, type Amenity, type Loop, type Poi } from '~/utils/loops'
+import { amenitiesAlong, generateLoops, loopFromWaypoints, loopTrack, searchRadius, type Amenity, type Loop, type Poi } from '~/utils/loops'
 import type { LatLon, Terrain } from '~/utils/routing'
 import { searchPlace, type PlaceSuggestion } from '~/utils/geocode'
 import PlaceInput from '~/components/place_input.vue'
 import { buildProfile } from '~/utils/profile'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
-import { formatKm } from '~/utils/format'
+import { formatDuration, formatKm, formatPace, parsePace } from '~/utils/format'
+import { cumulativeEffort, predictTime } from '~/utils/model'
 import { haversine, toGpx } from '~/utils/gpx'
 import { KIND_GROUPS, kindOf } from '~/utils/places'
 import Icon from '~/components/icon.vue'
@@ -382,11 +391,6 @@ function surfaceText(loop: Loop): string {
   const pct = (x: number) => Math.round((100 * x) / total)
   return [`${pct(trail)} % sentiers`, pct(bigRoad) >= 1 ? `${pct(bigRoad)} % grandes routes` : ''].filter(Boolean).join(' · ')
 }
-/** Part de sentiers et de grandes routes, en %, pour les chiffres de la boucle choisie */
-function surfacePct(loop: Loop): { trail: number, road: number } | null {
-  const { total, trail, bigRoad } = loop.surface
-  return total ? { trail: Math.round((100 * trail) / total), road: Math.round((100 * bigRoad) / total) } : null
-}
 
 const loops = ref<Loop[]>([])
 const selected = ref(0)
@@ -440,6 +444,31 @@ const loopName = computed(() => `Boucle découverte${placeName.value ? ` – ${p
 const tracks = computed(() => loops.value.map(l => loopTrack(l, loopName.value)))
 const profiles = computed(() => tracks.value.map(t => buildProfile(t)))
 const gains = computed(() => profiles.value.map(p => p.gain))
+
+// --- Durée estimée : même modèle que le plan de course (effort selon la pente, puis allure du coureur) ---
+/** Allures proposées (s/km), de 3:30 à 9:00 */
+const PACES = Array.from({ length: 23 }, (_, k) => 210 + 15 * k)
+/** Allure sur le plat du coureur : celle de son plan de course, 5:30 par défaut */
+const paceChoice = computed({
+  get: () => {
+    const p = plan.flatPace10k.value ?? 330
+    // Valeur la plus proche de la liste, pour que le menu l'affiche
+    return PACES.reduce((a, b) => (Math.abs(b - p) < Math.abs(a - p) ? b : a))
+  },
+  // Choisir une allure ici règle aussi le plan de course (même coureur)
+  set: (sec: number) => {
+    plan.settings.mode = 'allure'
+    plan.settings.pace = formatPace(sec)
+  },
+})
+const paceLabel = computed(() => formatPace(plan.flatPace10k.value ?? 330))
+const durations = computed(() => {
+  const ref = plan.reference.value ?? { distance: 10_000, time: (parsePace(plan.settings.pace) ?? 330) * 10 }
+  return profiles.value.map((p) => {
+    const effort = cumulativeEffort(p, plan.settings.descente, plan.settings.technicite)
+    return effort.length > 1 ? predictTime(effort[effort.length - 1]!, ref, plan.settings.endurance) : null
+  })
+})
 const track = computed(() => tracks.value[selected.value] ?? null)
 const profile = computed(() => profiles.value[selected.value] ?? null)
 const segments = computed(() => (profile.value ? computeSegments(profile.value, autoBoundaries(profile.value)) : []))
@@ -583,6 +612,17 @@ async function fetchPois(p: LatLon, target: number): Promise<Poi[]> {
 /** Réglage changé pendant un calcul : on relance une fois celui-ci terminé */
 let again = false
 
+// --- « D'autres boucles » : nouveaux tirages, sans reproposer ce qui a déjà été vu ---
+/** Boucles déjà montrées depuis le dernier changement de départ ou de réglage */
+let shownLoops: Loop[] = []
+let variant = 0
+let wantMore = false
+
+function proposeMore() {
+  wantMore = true
+  propose()
+}
+
 /** Facultatif : sans réponse, les boucles s'affichent sans points d'eau ni toilettes */
 async function fetchAmenities(p: LatLon, target: number): Promise<Amenity[]> {
   try {
@@ -615,10 +655,16 @@ async function propose() {
   if (!start.value) return
   const target = Math.min(40, Math.max(3, Math.round(km.value || 10))) * 1000
   km.value = target / 1000
+  const more = wantMore && loops.value.length > 0
+  wantMore = false
   // Même recherche que tout à l'heure : on réaffiche les boucles déjà calculées
   const cacheKey = JSON.stringify([start.value.lat.toFixed(5), start.value.lon.toFixed(5), target, theme.value, [...kinds.value].sort(), terrain.value, count.value])
-  const cached = readLoops(cacheKey)
-  if (cached) return showLoops(cached.loops, cached.amenities, cached.message, cached.messageBad)
+  const cached = more ? null : readLoops(cacheKey)
+  if (cached) {
+    shownLoops = [...cached.loops]
+    variant = 0
+    return showLoops(cached.loops, cached.amenities, cached.message, cached.messageBad)
+  }
   busy.value = true
   message.value = ''
   let pois: Poi[] = []
@@ -631,7 +677,22 @@ async function propose() {
     poisFailed = true
   }
   try {
-    showLoops(await generateLoops(start.value, target, pois, count.value, { terrain: terrain.value }), await amenityRequest)
+    if (more) {
+      variant++
+      const found = await generateLoops(start.value, target, pois, count.value, { terrain: terrain.value }, { variant, shown: shownLoops })
+      if (!found.length) {
+        showInfo('Pas d\'autre boucle vraiment différente autour de ce départ : essaie une autre distance, un autre style ou un départ un peu plus loin.')
+        return
+      }
+      shownLoops.push(...found)
+      showLoops(found, await amenityRequest)
+      if (found.length < count.value) showInfo(`${found.length === 1 ? 'Une seule nouvelle boucle' : `Seulement ${found.length} nouvelles boucles`} : les autres ressemblaient trop à celles déjà vues.`)
+      return
+    }
+    const found = await generateLoops(start.value, target, pois, count.value, { terrain: terrain.value })
+    shownLoops = [...found]
+    variant = 0
+    showLoops(found, await amenityRequest)
     if (poisFailed) showError('Les lieux à voir sont indisponibles pour le moment : voici des boucles sans étapes.')
     else if (!loops.value.some(l => l.stops.length)) {
       const what = kinds.value.length ? 'de lieux de ce type' : theme.value === 'nature' ? 'de lieux naturels' : theme.value === 'patrimoine' ? 'de patrimoine' : 'de lieux remarquables'
@@ -640,7 +701,7 @@ async function propose() {
     else if (loops.value.length < count.value) showInfo(`Seulement ${loops.value.length} boucle${loops.value.length > 1 ? 's' : ''} trouvée${loops.value.length > 1 ? 's' : ''} autour de ce départ (relief, rivière ou manque de chemins).`)
     else message.value = ''
     // Lieux indisponibles : ces boucles de secours ne sont pas gardées
-    if (!poisFailed && loops.value.length) storeLoops(cacheKey, { loops: loops.value, amenities: amenities.value, message: message.value, messageBad: messageBad.value })
+    if (!poisFailed && loops.value.length && !more) storeLoops(cacheKey, { loops: loops.value, amenities: amenities.value, message: message.value, messageBad: messageBad.value })
   }
   catch {
     loops.value = []
@@ -652,6 +713,73 @@ async function propose() {
       again = false
       propose()
     }
+  }
+}
+
+// --- Lien de partage : départ, réglages et points de passage de la boucle choisie ---
+const copied = ref(false)
+
+function shareUrl(): string {
+  const loop = current.value!
+  const p = new URLSearchParams({
+    lat: start.value!.lat.toFixed(5),
+    lon: start.value!.lon.toFixed(5),
+    km: String(km.value),
+    n: String(count.value),
+    chemins: terrain.value,
+  })
+  const name = placeName.value || query.value.trim()
+  if (name) p.set('nom', name)
+  if (theme.value !== 'tout') p.set('style', theme.value)
+  if (groups.value.length) p.set('types', groups.value.join(','))
+  // Points de passage : la même boucle est recalculée à l'identique à l'ouverture du lien
+  p.set('via', (loop.via ?? loop.waypoints).map(w => `${w.lat.toFixed(5)},${w.lon.toFixed(5)}`).join('_'))
+  if (loop.stops.length) p.set('lieux', loop.stops.map(s => s.id).join(','))
+  return `${window.location.origin}/boucles?${p}`
+}
+
+async function copyLink() {
+  const url = shareUrl()
+  try {
+    await navigator.clipboard.writeText(url)
+    copied.value = true
+    setTimeout(() => (copied.value = false), 2500)
+  }
+  catch {
+    // Presse-papiers refusé (ancien navigateur, page non sécurisée) : on montre le lien à copier
+    window.prompt('Copie ce lien :', url)
+  }
+}
+
+/** Ouverture d'un lien partagé : on recalcule la boucle par ses points de passage */
+async function openSharedLoop(via: string, stopIds: number[]) {
+  const waypoints = via.split('_').map((pair) => {
+    const [la, lo] = pair.split(',').map(Number)
+    return { lat: la!, lon: lo! }
+  }).filter(w => Math.abs(w.lat) <= 90 && Math.abs(w.lon) <= 180)
+  if (waypoints.length < 3 || waypoints.length > 40 || !start.value) return propose()
+  busy.value = true
+  let failed = false
+  try {
+    const target = km.value * 1000
+    const amenityRequest = fetchAmenities(start.value, target)
+    const pois = await fetchPois(start.value, target).catch(() => [] as Poi[])
+    const byId = new Map(pois.map(p => [p.id, p]))
+    const stops = stopIds.map(id => byId.get(id)).filter((p): p is Poi => !!p)
+    const loop = await loopFromWaypoints(waypoints, stops, { terrain: terrain.value })
+    shownLoops = [loop]
+    variant = 0
+    showLoops([loop], await amenityRequest, 'Boucle partagée par lien : change un réglage ou demande d\'autres boucles pour en voir d\'autres.')
+  }
+  catch {
+    failed = true
+  }
+  finally {
+    busy.value = false
+  }
+  if (failed) {
+    await propose()
+    showError('La boucle partagée n\'a pas pu être recalculée : voici d\'autres boucles autour du même départ.')
   }
 }
 
@@ -668,6 +796,12 @@ onMounted(async () => {
   if (wantedCount) count.value = Math.min(5, Math.max(1, Math.round(wantedCount)))
   const style = params.get('style')
   if (style === 'nature' || style === 'patrimoine') theme.value = style
+  const paths = params.get('chemins')
+  if (paths === 'route' || paths === 'mixte' || paths === 'sentiers') terrain.value = paths
+  const types = (params.get('types') ?? '').split(',').filter(id => KIND_GROUPS.some(g => g.id === id))
+  if (types.length) groups.value = types
+  const via = params.get('via')
+  const stopIds = (params.get('lieux') ?? '').split(',').map(Number).filter(n => Number.isInteger(n) && n > 0)
   // L'adresse redevient /boucles : recharger la page ne relance pas le calcul
   history.replaceState(history.state, '', '/boucles')
   if (params.has('position')) return onLocate(propose)
@@ -677,7 +811,7 @@ onMounted(async () => {
     // La carte se centre d'elle-même sur ce départ à sa création
     setStart({ lat, lon }, query.value)
     mapRef.value?.flyTo(lat, lon)
-    return propose()
+    return via ? openSharedLoop(via, stopIds) : propose()
   }
   query.value = params.get('depart') ?? ''
   await onSearch()
@@ -826,8 +960,13 @@ button.loop:hover { border-color: var(--border-strong); }
 .loop-head .title { font-family: 'Barlow Condensed', sans-serif; font-size: 1.45rem; font-weight: 700; }
 .soft { font-size: 0.84rem; color: var(--text-soft); }
 .preview { font-size: 0.9rem; color: var(--text-soft); }
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-.stats > div { display: flex; flex-direction: column; padding: 8px 9px; border-radius: 10px; background: var(--bg); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+/* Durée : la tuile entière ouvre la liste des allures (menu natif invisible posé dessus) */
+.duration { position: relative; cursor: pointer; }
+.duration:hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.duration span { display: inline-flex; align-items: center; gap: 2px; }
+.duration select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.stats > * { display: flex; flex-direction: column; padding: 8px 9px; border-radius: 10px; background: var(--bg); }
 .stats strong { font-size: 1.05rem; }
 .stats span { font-size: 0.75rem; color: var(--text-soft); }
 .amenities-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; border: 1px dashed var(--border-strong); border-radius: 10px; background: none; font: inherit; font-size: 0.88rem; color: var(--text); text-align: left; cursor: pointer; }
@@ -874,6 +1013,7 @@ button.loop:hover { border-color: var(--border-strong); }
   white-space: nowrap;
 }
 .profile { padding: 12px 14px; border-radius: 18px; }
+.more-loops { align-self: stretch; justify-content: center; border-radius: 14px; }
 .disclaimer { font-size: 0.8rem; color: var(--text-soft); line-height: 1.45; }
 .disclaimer a { color: inherit; }
 .finish-actions { display: flex; gap: 10px; flex-wrap: wrap; }

@@ -52,6 +52,8 @@ export interface Loop {
   distance: number
   /** Part de sentiers et de grandes routes */
   surface: Surface
+  /** Points de passage demandés au calcul (avant nettoyage) : les repasser redonne exactement cette boucle */
+  via?: LatLon[]
 }
 
 /** Rapport moyen entre la distance à pied et la distance à vol d'oiseau en ville */
@@ -387,7 +389,7 @@ async function routeOnce(waypoints: LatLon[], stops: Poi[], opts: RouteOptions):
   // Les parts de sentiers et de routes sont données pour tout l'itinéraire : on les ramène au tracé coupé
   const ratio = route.surface.total ? distance / route.surface.total : 1
   const surface = { total: distance, trail: route.surface.trail * ratio, bigRoad: route.surface.bigRoad * ratio }
-  return { ...cut, legs: splitLegs(coords, cut.waypoints), distance, surface }
+  return { ...cut, legs: splitLegs(coords, cut.waypoints), distance, surface, via: waypoints }
 }
 
 /**
@@ -422,13 +424,44 @@ async function routeCandidate(target: number, first: Candidate, pois: Poi[], opt
   return best!
 }
 
+/** Boucles déjà montrées : « D'autres boucles » doit proposer autre chose */
+export interface AvoidOptions {
+  /** Numéro du nouveau tirage (1, 2, 3…) : décale les directions de départ */
+  variant: number
+  /** Boucles déjà proposées depuis ce départ avec ces réglages */
+  shown: Loop[]
+}
+
+/** Poids gardé par un lieu déjà visité par une boucle montrée : on préfère en découvrir d'autres */
+const SEEN_STOP_WEIGHT = 0.3
+/** Part du tracé déjà parcourue par une boucle montrée au-delà de laquelle une boucle est jugée « la même » */
+const MAX_OVERLAP = 0.6
+
+/** Cases d'environ 50 m traversées par un tracé, pour comparer deux boucles */
+function cellsOf(coords: Coord[]): Set<string> {
+  return new Set(coords.map(c => `${Math.round(c[1] / 0.00045)}:${Math.round(c[0] / 0.00065)}`))
+}
+
+/** Part du tracé qui passe par des cases déjà connues */
+function overlap(loop: Loop, known: Set<string>): number {
+  const cells = cellsOf(loop.coords)
+  let seen = 0
+  for (const c of cells) if (known.has(c)) seen++
+  return cells.size ? seen / cells.size : 0
+}
+
 /**
  * Propose jusqu'à `count` boucles différentes d'environ `target` mètres depuis `start`,
  * en passant par les lieux les plus remarquables, sur le terrain demandé (`opts.terrain`).
+ * Avec `avoid`, les boucles trop proches de celles déjà montrées sont écartées (peut en rendre moins, voire aucune).
  */
-export async function generateLoops(start: LatLon, target: number, allPois: Poi[], count = 3, opts: RouteOptions = {}): Promise<Loop[]> {
-  const pois = balance(allPois)
-  const remaining = Array.from({ length: 12 }, (_, i) => fitCandidate(start, pois, target, (i * Math.PI) / 6))
+export async function generateLoops(start: LatLon, target: number, allPois: Poi[], count = 3, opts: RouteOptions = {}, avoid?: AvoidOptions): Promise<Loop[]> {
+  const seenStops = new Set(avoid?.shown.flatMap(l => l.stops.map(p => p.id)) ?? [])
+  const pois = balance(allPois).map(p => (seenStops.has(p.id) ? { ...p, weight: (p.weight ?? 0) * SEEN_STOP_WEIGHT } : p))
+  const known = avoid ? cellsOf(avoid.shown.flatMap(l => l.coords)) : null
+  // Nouveau tirage : directions décalées d'une fraction de 30° différente à chaque fois (nombre d'or)
+  const offset = avoid ? ((avoid.variant * 0.618034) % 1) * (Math.PI / 6) : 0
+  const remaining = Array.from({ length: 12 }, (_, i) => fitCandidate(start, pois, target, offset + (i * Math.PI) / 6))
     .sort((a, b) => b.quality - a.quality)
 
   // Écart minimal entre deux directions de départ : 75° pour 3 boucles, resserré quand on en demande plus
@@ -453,6 +486,8 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
     const results = await Promise.allSettled(picked.map(c => routeCandidate(target, c, pois, opts)))
     results.forEach((r, i) => {
       if (r.status === 'rejected') lastError = r.reason
+      // Trop semblable à une boucle déjà montrée : on n'en veut pas
+      else if (known && overlap(r.value, known) > MAX_OVERLAP) return
       else if (Math.abs(r.value.distance - target) / target > TOLERANCE * 1.5) weak.push({ direction: picked[i]!.direction, loop: r.value })
       else loops.push({ direction: picked[i]!.direction, loop: r.value })
     })
@@ -462,8 +497,19 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
     if (loops.length >= count) break
     if (loops.every(l => angleGap(l.direction, w.direction) >= minGap)) loops.push(w)
   }
-  if (!loops.length) throw lastError ?? new Error('Aucune boucle trouvée')
+  if (!loops.length && !avoid) throw lastError ?? new Error('Aucune boucle trouvée')
   return loops.map(l => l.loop)
+}
+
+/** Recalcule une boucle à partir de ses points de passage (lien partagé) */
+export function loopFromWaypoints(waypoints: LatLon[], stops: Poi[], opts: RouteOptions = {}): Promise<Loop> {
+  // Les lieux sont reconnus parmi les points de passage par identité (voir cutSpurs) :
+  // le point du lien qui tombe sur un lieu (coordonnées arrondies au mètre) est remplacé par ce lieu
+  const points = waypoints.map((w, i) => {
+    if (i === 0 || i === waypoints.length - 1) return w
+    return stops.find(s => haversine(s, w) < 15) ?? w
+  })
+  return routeOnce(points, stops, opts)
 }
 
 /** Rayon de recherche des lieux pour une boucle de `target` mètres */

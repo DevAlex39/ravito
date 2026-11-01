@@ -22,6 +22,10 @@
       </p>
       <p v-else-if="parcours.mine" class="notice">
         🌍 C'est ton parcours : il est proposé aux coureurs qui cherchent une boucle autour de son départ.
+        Les autres voient une trace allégée : sans heures ni données de montre, et sans les {{ PRIVACY_ZONE }} premiers et derniers mètres, pour ne pas dévoiler ton point de départ.
+      </p>
+      <p v-else-if="parcours.privacyZone" class="notice">
+        Pour protéger son auteur, les {{ parcours.privacyZone }} premiers et derniers mètres de la trace sont masqués.
       </p>
 
       <p v-if="!track" class="notice bad">La trace de ce parcours est illisible.</p>
@@ -68,7 +72,11 @@ type SharedPlan = {
   voted: boolean
   mine: boolean
   isPublic: boolean
+  privacyZone: number
 }
+
+/** Même valeur que le serveur (app/services/gpx_privacy.ts), pour l'expliquer au propriétaire */
+const PRIVACY_ZONE = 250
 
 const props = defineProps<{ parcours: SharedPlan }>()
 

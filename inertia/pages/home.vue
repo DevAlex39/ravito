@@ -2,6 +2,7 @@
   <DefaultLayout>
     <Head :title="track ? planName : undefined" />
     <section v-if="!track" class="container home screen-only">
+      <p v-if="flash" class="flash">{{ flash }}</p>
       <div class="hero">
         <div class="hero-text">
           <p class="kicker">Boucles découverte</p>
@@ -194,7 +195,7 @@
 
 <script setup lang='ts'>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Head, Link, router } from '@inertiajs/vue3'
+import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import { APP_NAME } from '~/brand'
 import { usePlan } from '~/composables/use_plan'
 import { formatClock, formatDuration, formatKm } from '~/utils/format'
@@ -221,6 +222,8 @@ import { useAccount } from '~/composables/use_account'
 
 /** `saved` : plan ouvert depuis « Mes parcours » (/parcours/:id) */
 const props = defineProps<{ saved?: { id: number, data: string } }>()
+/** Message de la page précédente (ex. compte supprimé) */
+const flash = computed(() => (usePage().flash as { success?: string } | undefined)?.success)
 
 const { track, profile, fileName, segments, markers, hoverD, totalRun, timeline, startSec, settings, error, clockAt: clockSecAt, loadGpx, loadSaved, clearTrack, enableObjective, planName, renamePlan } = usePlan()
 const { markSynced, resumePendingSave } = useAccount()
@@ -340,6 +343,7 @@ function clearPrint() {
 
 <style scoped>
 .home { display: flex; flex-direction: column; gap: 32px; padding-top: 28px; }
+.flash { margin-bottom: -16px; padding: 10px 14px; border-radius: 12px; background: var(--forest-soft); color: var(--forest); font-weight: 600; font-size: 0.92rem; }
 .hero { display: flex; align-items: center; gap: 48px; }
 .hero-text { flex: 1; min-width: 0; }
 .kicker { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--forest); margin-bottom: 12px; }

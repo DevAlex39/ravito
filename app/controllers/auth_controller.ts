@@ -199,4 +199,17 @@ export default class AuthController {
     await auth.use('web').logout()
     return response.redirect('/')
   }
+
+  /**
+   * Suppression définitive du compte (droit à l'effacement, RGPD) : ses parcours, partages et votes
+   * partent avec lui (clés étrangères en cascade).
+   */
+  async destroyAccount({ response, auth, session }: HttpContext) {
+    const user = auth.user!
+    await auth.use('web').logout()
+    await user.delete()
+    logger.info({ userId: user.id }, 'compte supprimé à la demande de son titulaire')
+    session.flash('success', 'Ton compte et tes parcours ont été supprimés. Merci d\'avoir essayé Alpast !')
+    return response.redirect('/')
+  }
 }

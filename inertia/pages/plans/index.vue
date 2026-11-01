@@ -40,6 +40,13 @@
           <button class="btn icon" type="button" :title="`Supprimer « ${p.name} »`" @click="remove(p)">✕</button>
         </li>
       </ul>
+
+      <section class="account card">
+        <h2>Mon compte</h2>
+        <p v-if="user?.email" class="hint">Connecté avec <strong>{{ user.email }}</strong></p>
+        <button type="button" class="danger" @click="deleteAccount">Supprimer mon compte</button>
+        <p class="hint">Tes parcours, tes partages et tes votes seront effacés définitivement.</p>
+      </section>
     </div>
   </DefaultLayout>
 </template>
@@ -49,6 +56,7 @@ import { computed } from 'vue'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import DefaultLayout from '~/layouts/default.vue'
 import { usePlan } from '~/composables/use_plan'
+import { useAccount } from '~/composables/use_account'
 import { formatDuration, formatKm } from '~/utils/format'
 
 type PlanItem = {
@@ -65,6 +73,15 @@ type PlanItem = {
 defineProps<{ plans: PlanItem[] }>()
 
 const { planId, clearTrack } = usePlan()
+const { user } = useAccount()
+
+function deleteAccount() {
+  if (!confirm('Supprimer définitivement ton compte ? Tous tes parcours, partages et votes seront effacés. Cette action ne peut pas être annulée.')) return
+  router.delete('/compte', {
+    // Le plan ouvert dans le navigateur n'est plus relié à aucun compte
+    onSuccess: () => (planId.value = null),
+  })
+}
 const page = usePage()
 const flash = computed(() => (page.flash as { success?: string } | undefined)?.success)
 
@@ -75,7 +92,7 @@ function formatDate(iso: string) {
 }
 
 function toggleShare(p: PlanItem) {
-  if (!p.isPublic && !confirm(`Partager « ${p.name} » ? Sa trace (pas tes allures ni tes ravitos) sera visible de tous et proposée aux coureurs qui cherchent autour de son départ.`)) return
+  if (!p.isPublic && !confirm(`Partager « ${p.name} » ? Sa trace (pas tes allures ni tes ravitos) sera visible de tous et proposée aux coureurs qui cherchent autour de son départ. Les heures, les données de montre et les 250 premiers et derniers mètres sont retirés de la version publique.`)) return
   router.patch(`/parcours/${p.id}/partage`, { public: !p.isPublic }, { preserveScroll: true })
 }
 
@@ -111,6 +128,11 @@ function remove(p: PlanItem) {
 .share { font: inherit; font-size: 0.82rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text-soft); cursor: pointer; white-space: nowrap; }
 .share.on { background: var(--forest); border-color: var(--forest); color: #fff; }
 .public-link { font-size: 0.78rem; font-weight: 600; color: var(--forest); white-space: nowrap; }
+.account { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px 20px; margin-top: 16px; }
+.account h2 { font-size: 1.3rem; margin: 0; }
+.account .hint { font-size: 0.85rem; color: var(--text-soft); }
+.danger { font: inherit; font-size: 0.9rem; font-weight: 600; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--bad); background: none; color: var(--bad); cursor: pointer; }
+.danger:hover { background: var(--bad); color: #fff; }
 @media (max-width: 640px) {
   .open { grid-template-columns: minmax(0, 1fr); }
   .item { flex-wrap: wrap; }

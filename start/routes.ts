@@ -45,6 +45,7 @@ router.get('/connexion/:provider/retour', [AuthController, 'providerCallback']).
 router
   .group(() => {
     router.post('/deconnexion', [AuthController, 'logout']).as('logout')
+    router.delete('/compte', [AuthController, 'destroyAccount']).as('account.destroy')
     router.get('/mes-parcours', [PlansController, 'index']).as('plans.index')
     router.get('/parcours/:id', [PlansController, 'show']).as('plans.show').where('id', router.matchers.number())
     router.post('/parcours', [PlansController, 'store']).as('plans.store')

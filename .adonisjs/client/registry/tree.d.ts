@@ -32,6 +32,9 @@ export interface ApiDefinition {
     callback: typeof routes['sso.callback']
   }
   logout: typeof routes['logout']
+  account: {
+    destroy: typeof routes['account.destroy']
+  }
   plans: {
     index: typeof routes['plans.index']
     show: typeof routes['plans.show']

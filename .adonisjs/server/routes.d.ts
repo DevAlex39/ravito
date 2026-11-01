@@ -23,6 +23,7 @@ export type ScannedRoutes = {
     'sso.redirect': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
     'sso.callback': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
     'logout': { paramsTuple?: []; params?: {} }
+    'account.destroy': { paramsTuple?: []; params?: {} }
     'plans.index': { paramsTuple?: []; params?: {} }
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'plans.store': { paramsTuple?: []; params?: {} }
@@ -76,14 +77,15 @@ export type ScannedRoutes = {
     'plans.store': { paramsTuple?: []; params?: {} }
     'shared.vote': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
+  DELETE: {
+    'account.destroy': { paramsTuple?: []; params?: {} }
+    'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+  }
   PUT: {
     'plans.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   PATCH: {
     'plans.share': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-  }
-  DELETE: {
-    'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

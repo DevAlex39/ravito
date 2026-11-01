@@ -122,6 +122,12 @@ const routes = {
     tokens: [[0,"deconnexion"]],
     types: placeholder as Registry['logout']['types'],
   },
+  'account.destroy': {
+    methods: ["DELETE"],
+    pattern: '/compte',
+    tokens: [[0,"compte"]],
+    types: placeholder as Registry['account.destroy']['types'],
+  },
   'plans.index': {
     methods: ["GET","HEAD"],
     pattern: '/mes-parcours',

@@ -3,6 +3,7 @@ import db from '@adonisjs/lucid/services/db'
 import vine from '@vinejs/vine'
 import Plan from '#models/plan'
 import { startOfPlan } from '#services/plan_start'
+import { PRIVACY_ZONE, publicGpx } from '#services/gpx_privacy'
 
 /** Rayon autour du départ choisi dans lequel on propose les parcours partagés */
 const AROUND_M = 15_000
@@ -62,8 +63,11 @@ export default class SharedPlansController {
       ? !!(await db.from('plan_votes').where({ plan_id: plan.id, user_id: auth.user.id }).first())
       : false
     let gpxText = ''
+    let trimmed = false
     try {
       gpxText = JSON.parse(plan.data).gpxText
+      // Les autres coureurs reçoivent une trace nettoyée (heures, cardio, auteur, abords du départ)
+      if (!mine && gpxText) ({ gpx: gpxText, trimmed } = publicGpx(gpxText, plan.name))
     }
     catch {
       // Plan illisible : la page l'indique
@@ -79,6 +83,8 @@ export default class SharedPlansController {
         voted,
         mine,
         isPublic: !!plan.isPublic,
+        // Mètres masqués au départ et à l'arrivée (0 : trace entière)
+        privacyZone: trimmed ? PRIVACY_ZONE : 0,
       },
     })
   }
