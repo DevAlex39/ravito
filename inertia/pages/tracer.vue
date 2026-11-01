@@ -1,6 +1,6 @@
 <template>
   <DefaultLayout>
-    <Head title="Tracer un parcours" />
+    <Head title="Créer une trace" />
     <div class="container tracer">
       <div class="head">
         <div>

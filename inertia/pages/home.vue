@@ -114,7 +114,7 @@
           <h2>Tu as ton tracé en tête ?</h2>
           <p class="grow">Dessine-le sur la carte : il suit les sentiers, avec la distance et le dénivelé en direct.</p>
           <div class="buttons">
-            <Link href="/tracer" class="btn">Tracer mon parcours <Icon name="arrow" :size="18" /></Link>
+            <Link href="/tracer" class="btn">Créer ma trace <Icon name="arrow" :size="18" /></Link>
           </div>
           <p class="hint">Export GPX pour ta montre</p>
         </section>

@@ -13,7 +13,7 @@
         </Link>
         <nav class="menu" aria-label="Rubriques">
           <Link href="/boucles" :class="{ on: page.url.startsWith('/boucles') }">Boucles</Link>
-          <Link href="/tracer" :class="{ on: page.url.startsWith('/tracer') }">Tracer</Link>
+          <Link href="/tracer" :class="{ on: page.url.startsWith('/tracer') }">Créer une trace</Link>
           <Link v-if="user" href="/mes-parcours" :class="{ on: page.url.startsWith('/mes-parcours') }">Mes parcours</Link>
         </nav>
         <nav class="account">
@@ -69,7 +69,11 @@ footer a { color: inherit; }
   .bar { gap: 14px; }
   .logo { font-size: 1.5rem; }
   .beta { display: none; }
-  .menu { gap: 14px; }
+  /* Rubriques trop longues pour la largeur : elles défilent, le bouton de compte reste visible */
+  .menu { gap: 14px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; mask-image: linear-gradient(90deg, #000 85%, transparent); }
+  .menu::-webkit-scrollbar { display: none; }
+  .menu a { white-space: nowrap; }
+  .account { margin-left: 0; }
   .nav-link.pill { padding: 6px 12px; }
 }
 /* Très petits écrans : le logo et le compte d'abord, les rubriques restent accessibles depuis l'accueil */
