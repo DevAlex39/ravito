@@ -15,14 +15,18 @@ const BROUTER_URL = import.meta.env.VITE_BROUTER_URL || 'https://alpas.alpastudi
 /** Type de chemins recherché */
 export type Terrain = 'route' | 'mixte' | 'sentiers'
 
-/** Réglages du profil BRouter « alpas » (brouter/alpas.brf) selon le terrain : tous évitent les routes à circulation */
+/**
+ * Réglages du profil BRouter « alpas » (brouter/alpas.brf) selon le terrain : tous évitent les routes à circulation.
+ * hiking_routes_preference : surcoût des chemins hors itinéraires balisés (GR, PR, boucles locales d'OpenStreetMap),
+ * à défaut de savoir où courent les autres, les sentiers balisés sont entretenus et passent par les beaux coins.
+ */
 const TERRAIN_PARAMS: Record<Terrain, string> = {
   // Bitume privilégié (allure régulière), chemins de terre pénalisés
   route: '&profile:path_preference=0&profile:Offroad_factor=-0.5',
-  // Réglages par défaut du profil : léger penchant pour les chemins
-  mixte: '',
+  // Léger penchant pour les chemins, sentiers balisés nettement préférés
+  mixte: '&profile:hiking_routes_preference=0.6',
   // Rues et pistes goudronnées fortement pénalisées : la boucle cherche les sentiers, quitte à s'allonger
-  sentiers: '&profile:road_avoidance=3.5&profile:path_preference=4',
+  sentiers: '&profile:road_avoidance=3.5&profile:path_preference=4&profile:hiking_routes_preference=1',
 }
 
 export interface RouteOptions {
