@@ -70,5 +70,7 @@ footer { border-top: 1px solid var(--border); padding: 16px 0; font-size: 0.8rem
   .menu { gap: 14px; }
   .nav-link.pill { padding: 6px 12px; }
 }
+/* Très petits écrans : le logo et le compte d'abord, les rubriques restent accessibles depuis l'accueil */
+@media (max-width: 359px) { .menu { display: none; } }
 @media print { main { padding: 0; } }
 </style>
