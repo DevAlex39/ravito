@@ -7,13 +7,38 @@
         <p class="hint">Choisis un départ et une distance : on te propose des boucles qui passent par les lieux à voir.</p>
       </div>
 
-      <div v-if="loops.length && !formOpen" class="summary card">
-        <span class="pill strong"><Icon name="pin" :size="18" />{{ placeName || query || 'Point choisi sur la carte' }}</span>
-        <span class="pill">{{ km }} km</span>
-        <span class="pill tone"><Icon :name="themeInfo.icon" :size="16" />{{ themeInfo.label }}</span>
-        <span class="pill">{{ terrainInfo.label }}</span>
-        <span class="pill">{{ count }} boucle{{ count > 1 ? 's' : '' }}</span>
-        <button class="btn" type="button" @click="formOpen = true"><Icon name="sliders" :size="18" />Modifier</button>
+      <div v-if="!formOpen" class="summary card">
+        <div class="pill strong">
+          <Icon name="pin" :size="18" />
+          <PlaceInput v-model="query" class="place" placeholder="Point choisi sur la carte" aria-label="Lieu de départ" @pick="pickAndRun" @enter="propose" />
+        </div>
+        <div class="pill step">
+          <button type="button" aria-label="Un kilomètre de moins" :disabled="km <= 3" @click="stepAndRun(-1)">−</button>
+          <span class="num">{{ km }} km</span>
+          <button type="button" aria-label="Un kilomètre de plus" :disabled="km >= 40" @click="stepAndRun(1)">+</button>
+        </div>
+        <label class="pill pick tone" :title="themeInfo.hint">
+          <Icon :name="themeInfo.icon" :size="16" />
+          <select v-model="theme" aria-label="Style de boucle" @change="propose">
+            <option v-for="t in THEMES" :key="t.value" :value="t.value">{{ t.label }}</option>
+          </select>
+          <Icon name="chevron" :size="14" class="caret" />
+        </label>
+        <label class="pill pick" :title="terrainInfo.hint">
+          <select v-model="terrain" aria-label="Type de chemins" @change="propose">
+            <option v-for="t in TERRAINS" :key="t.value" :value="t.value">{{ t.label }}</option>
+          </select>
+          <Icon name="chevron" :size="14" class="caret" />
+        </label>
+        <label class="pill pick">
+          <select v-model="count" aria-label="Nombre de boucles" @change="propose">
+            <option v-for="n in 5" :key="n" :value="n">{{ n }} boucle{{ n > 1 ? 's' : '' }}</option>
+          </select>
+          <Icon name="chevron" :size="14" class="caret" />
+        </label>
+        <button class="btn ghost" type="button" @click="formOpen = true">
+          <Icon name="sliders" :size="18" />Types de lieux<span v-if="groups.length" class="badge">{{ groups.length }}</span>
+        </button>
       </div>
 
       <form v-else class="controls card" @submit.prevent="propose">
@@ -258,8 +283,16 @@ function stepKm(delta: number) {
   km.value = Math.min(40, Math.max(3, Math.round(km.value || 10) + delta))
 }
 
-/** Formulaire déplié ; il se replie en résumé une fois les boucles calculées */
+/** Formulaire déplié ; il se replie en bandeau une fois les boucles calculées */
 const formOpen = ref(true)
+
+/** Bandeau : la distance se règle par petits pas, on attend que l'on s'arrête de cliquer pour relancer */
+let stepTimer: ReturnType<typeof setTimeout> | undefined
+function stepAndRun(delta: number) {
+  stepKm(delta)
+  clearTimeout(stepTimer)
+  stepTimer = setTimeout(propose, 600)
+}
 
 type Theme = 'tout' | 'patrimoine' | 'nature'
 const THEMES: { value: Theme, label: string, icon: IconName, hint: string }[] = [
@@ -442,6 +475,12 @@ function onPick(place: PlaceSuggestion) {
   mapRef.value?.flyTo(place.lat, place.lon)
 }
 
+/** Depuis le bandeau : nouveau départ, nouvelles boucles aussitôt */
+function pickAndRun(place: PlaceSuggestion) {
+  onPick(place)
+  propose()
+}
+
 function onLocate(then?: () => void) {
   message.value = ''
   if (!navigator.geolocation) return showError('Position indisponible sur cet appareil.')
@@ -483,15 +522,20 @@ async function fetchPois(p: LatLon, target: number): Promise<Poi[]> {
   }
 }
 
+/** Réglage changé pendant un calcul : on relance une fois celui-ci terminé */
+let again = false
+
 async function propose() {
-  if (busy.value) return
+  if (busy.value) {
+    again = true
+    return
+  }
   // Ville changée dans le champ sans cliquer sur « Rechercher » : on cherche d'abord la nouvelle ville
   if (query.value.trim() && query.value.trim() !== usedQuery.value && !(await onSearch())) return
   if (!start.value) return
   const target = Math.min(40, Math.max(3, Math.round(km.value || 10))) * 1000
   km.value = target / 1000
   busy.value = true
-  loops.value = []
   message.value = ''
   let pois: Poi[] = []
   let poisFailed = false
@@ -516,10 +560,15 @@ async function propose() {
     else message.value = ''
   }
   catch {
+    loops.value = []
     showError('Le calcul des itinéraires a échoué. Réessaie dans un instant, ou déplace le point de départ.')
   }
   finally {
     busy.value = false
+    if (again) {
+      again = false
+      propose()
+    }
   }
 }
 
@@ -633,10 +682,27 @@ function useForPlan() {
 /* --- Résumé de la recherche, une fois les boucles affichées --- */
 .summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border-radius: 16px; }
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); font-weight: 600; }
-.pill.strong { flex: 1 1 200px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.pill.strong .icon { color: var(--forest); }
+.pill.strong { flex: 1 1 200px; min-width: 0; }
+.pill.strong:focus-within { border-color: var(--forest); }
+.pill.strong .icon { flex: none; color: var(--forest); }
+.pill.strong .place { flex: 1; }
+.pill.strong .place :deep(input) { border: none; background: transparent; padding: 0; font: inherit; font-weight: 600; color: var(--text); outline: none; text-overflow: ellipsis; }
 .pill.tone { background: var(--forest-soft); border-color: var(--forest-soft); color: var(--forest); }
+/* Distance : − 10 km + */
+.pill.step { gap: 2px; padding: 0 4px; }
+.pill.step button { width: 30px; height: 30px; border: none; border-radius: 8px; background: none; font: inherit; font-size: 1.2rem; line-height: 1; color: var(--forest); cursor: pointer; }
+.pill.step button:hover:not(:disabled) { background: var(--forest-soft); }
+.pill.step button:disabled { opacity: 0.35; cursor: not-allowed; }
+.pill.step .num { min-width: 4.2ch; text-align: center; }
+/* Listes déroulantes habillées en pastille : le clic ouvre la liste, le choix relance */
+.pill.pick { position: relative; padding: 0 10px 0 14px; cursor: pointer; }
+.pill.pick:hover { border-color: var(--border-strong); }
+.pill.pick.tone:hover { border-color: var(--forest); }
+.pill.pick:focus-within { border-color: var(--forest); }
+.pill.pick select { appearance: none; -webkit-appearance: none; border: none; background: transparent; padding: 0 18px 0 0; margin-right: -18px; font: inherit; color: inherit; cursor: pointer; outline: none; }
+.pill.pick .caret { pointer-events: none; opacity: 0.6; }
 .summary .btn { height: 40px; padding: 0 16px; border-radius: 10px; }
+.badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--forest); color: #fff; font-size: 0.75rem; }
 
 .notice { font-size: 0.9rem; color: var(--text-soft); }
 .notice.bad { color: var(--bad); }
