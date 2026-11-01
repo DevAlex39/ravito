@@ -13,7 +13,7 @@
     </div>
 
     <div class="table-wrap">
-      <table>
+      <table class="stack" style="--cols: 3">
         <thead>
           <tr>
             <th>#</th>
@@ -30,14 +30,14 @@
         </thead>
         <tbody>
           <tr v-for="(s, i) in segmentRows" :key="`${s.start}-${s.end}`" @mouseenter="hoverD = (s.start + s.end) / 2" @mouseleave="hoverD = null">
-            <td class="muted num">{{ i + 1 }}</td>
-            <td><span class="badge" :class="s.type">{{ SEG_LABELS[s.type] }}</span></td>
-            <td class="r num">{{ formatKm(s.start) }} → {{ formatKm(s.end) }}</td>
+            <td class="muted num no-stack">{{ i + 1 }}</td>
+            <td class="full"><span class="badge" :class="s.type">{{ SEG_LABELS[s.type] }}</span></td>
+            <td class="r num" data-label="Km">{{ formatKm(s.start) }} → {{ formatKm(s.end) }}</td>
             <td class="r num opt">{{ formatKm(s.length) }} km</td>
-            <td class="r num">+{{ Math.round(s.gain) }} / −{{ Math.round(s.loss) }}</td>
+            <td class="r num" data-label="D+ / D−">+{{ Math.round(s.gain) }} / −{{ Math.round(s.loss) }}</td>
             <td class="r num opt">{{ s.grade > 0 ? '+' : '' }}{{ (s.grade * 100).toFixed(1).replace('.', ',') }} %</td>
-            <td class="r num">{{ hasModel ? formatDuration(s.time) : '–' }}</td>
-            <td v-if="settings.objectiveOn && hasModel" class="r">
+            <td class="r num" data-label="Temps">{{ hasModel ? formatDuration(s.time) : '–' }}</td>
+            <td v-if="settings.objectiveOn && hasModel" class="r" data-label="Allure">
               <span class="pace-edit">
                 <button
                   v-if="s.fixed"
@@ -45,7 +45,7 @@
                   type="button"
                   title="Allure fixée à la main — cliquer pour la libérer"
                   @click="setSegmentPace(i, null)"
-                >🔒</button>
+                ><Icon name="lock" :size="14" /></button>
                 <input
                   :value="formatPace(s.pace)"
                   type="text"
@@ -58,9 +58,9 @@
                 >
               </span>
             </td>
-            <td v-else class="r num">{{ hasModel ? formatPace(s.pace) : '–' }}</td>
-            <td class="r num">{{ hasModel ? formatClock(s.endClock) : '–' }}</td>
-            <td class="r">
+            <td v-else class="r num" data-label="Allure">{{ hasModel ? formatPace(s.pace) : '–' }}</td>
+            <td class="r num" data-label="Fin vers">{{ hasModel ? formatClock(s.endClock) : '–' }}</td>
+            <td class="r merge-cell">
               <button v-if="i < segmentRows.length - 1" class="btn ghost small merge" type="button" title="Fusionner avec le tronçon suivant" @click="mergeWithNext(i)">
                 Fusionner ↓
               </button>
@@ -75,6 +75,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { usePlan } from '~/composables/use_plan'
+import Icon from '~/components/icon.vue'
 import { SEG_LABELS } from '~/utils/segments'
 import { formatClock, formatDuration, formatKm, formatPace, parsePace } from '~/utils/format'
 const { segmentRows, totalRun, hoverD, settings, resetSegments, mergeWithNext, splitAt, setSegmentPace } = usePlan()
@@ -106,9 +107,15 @@ td { white-space: nowrap; }
 .pace-edit { display: inline-flex; align-items: center; gap: 4px; }
 .pace { width: 64px; text-align: right; padding: 4px 8px; font-variant-numeric: tabular-nums; }
 .pace.fixed { border-color: var(--accent); background: #fff6f0; font-weight: 600; }
-.lock { background: none; border: none; cursor: pointer; font-size: 0.8rem; padding: 2px; border-radius: 4px; }
+.lock { display: grid; place-items: center; background: none; border: none; cursor: pointer; color: var(--accent); padding: 2px; border-radius: 4px; }
 .lock:hover { background: var(--panel-2); }
 .merge { opacity: 0; transition: opacity 0.15s; }
 tr:hover .merge, .merge:focus { opacity: 1; }
 @media (hover: none) { .merge { opacity: 1; } }
+@media (max-width: 640px) {
+  .merge-cell { grid-column: 1 / -1; }
+  .merge { opacity: 1; }
+  .merge-cell:not(:has(.merge)) { display: none; }
+  .tools { width: 100%; }
+}
 </style>

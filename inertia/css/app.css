@@ -152,6 +152,20 @@ td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: m
 tr:last-child td { border-bottom: none; }
 td.r, th.r { text-align: right; }
 
+/* Tableaux « stack » : sur mobile, une carte par ligne (libellé de colonne au-dessus de chaque valeur) au lieu d'un tableau coupé */
+@media (max-width: 640px) {
+  .table-wrap:has(> table.stack) { overflow: visible; margin: 0; }
+  table.stack thead { display: none; }
+  table.stack, table.stack tbody, table.stack tfoot { display: block; }
+  table.stack tr { position: relative; display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); gap: 10px 12px; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+  table.stack td { display: block; min-width: 0; padding: 0; border: none; text-align: left; white-space: normal; background: none !important; }
+  table.stack td.r { text-align: left; }
+  table.stack td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 3px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-dim); }
+  table.stack td.full { grid-column: 1 / -1; }
+  table.stack td.corner { position: absolute; top: 8px; right: 8px; }
+  table.stack td:empty, table.stack td.no-stack { display: none; }
+}
+
 /* ---------- Badges ---------- */
 
 .badge {

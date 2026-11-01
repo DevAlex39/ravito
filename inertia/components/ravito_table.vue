@@ -2,11 +2,11 @@
   <section class="card">
     <div class="card-head">
       <h2>Ravitos et barrières</h2>
-      <button class="btn small" type="button" @click="addRavito">+ Ajouter un ravito</button>
+      <button class="btn small add" type="button" @click="addRavito"><Icon name="plus" :size="15" />Ajouter un ravito</button>
     </div>
 
     <div class="table-wrap">
-      <table>
+      <table class="stack" style="--cols: 2">
         <thead>
           <tr>
             <th>Point</th>
@@ -20,30 +20,30 @@
         </thead>
         <tbody>
           <tr class="fixed">
-            <td><strong>Départ</strong></td>
-            <td class="r num">0</td>
+            <td class="full"><strong>Départ</strong></td>
+            <td class="r num" data-label="Km">0</td>
             <td />
             <td />
-            <td class="r num">{{ formatClock(startSec) }}</td>
+            <td class="r num" data-label="Passage">{{ formatClock(startSec) }}</td>
             <td />
             <td />
           </tr>
           <tr v-for="r in rows" :key="r.id" :class="{ out: !point(r.id) }" @mouseenter="hoverD = r.km * 1000" @mouseleave="hoverD = null">
-            <td><input v-model="r.name" type="text" class="name" aria-label="Nom du ravito"></td>
-            <td class="r"><input v-model.number="r.km" type="number" min="0" step="0.1" class="km" aria-label="Kilomètre"></td>
-            <td><input v-model.number="r.stop" type="number" min="0" step="1" class="stop" aria-label="Arrêt en minutes"> <span class="muted">min</span></td>
-            <td><input v-model="r.barrier" type="time" class="barrier" aria-label="Barrière horaire"></td>
-            <td class="r num">{{ point(r.id) ? formatClock(point(r.id)!.arrival) : 'hors parcours' }}</td>
-            <td class="r"><MarginBadge :margin="point(r.id)?.margin ?? null" /></td>
-            <td><button class="btn icon" type="button" title="Supprimer" @click="removeRavito(r.id)">✕</button></td>
+            <td class="full"><input v-model="r.name" type="text" class="name" aria-label="Nom du ravito"></td>
+            <td class="r" data-label="Km"><input v-model.number="r.km" type="number" min="0" step="0.1" class="km" aria-label="Kilomètre"></td>
+            <td data-label="Arrêt"><input v-model.number="r.stop" type="number" min="0" step="1" class="stop" aria-label="Arrêt en minutes"> <span class="muted">min</span></td>
+            <td data-label="Barrière"><input v-model="r.barrier" type="time" class="barrier" aria-label="Barrière horaire"></td>
+            <td class="r num" data-label="Passage">{{ point(r.id) ? formatClock(point(r.id)!.arrival) : 'hors parcours' }}</td>
+            <td class="r" data-label="Marge"><MarginBadge :margin="point(r.id)?.margin ?? null" /></td>
+            <td class="corner"><button class="btn icon" type="button" title="Supprimer ce ravito" aria-label="Supprimer ce ravito" @click="removeRavito(r.id)"><Icon name="trash" :size="16" /></button></td>
           </tr>
           <tr v-if="finish" class="fixed">
-            <td><strong>Arrivée</strong></td>
-            <td class="r num">{{ formatKm(finish.d) }}</td>
+            <td class="full"><strong>Arrivée</strong></td>
+            <td class="r num" data-label="Km">{{ formatKm(finish.d) }}</td>
             <td />
-            <td><input v-model="settings.finishBarrier" type="time" class="barrier" aria-label="Barrière à l'arrivée"></td>
-            <td class="r num"><strong>{{ formatClock(finish.arrival) }}</strong></td>
-            <td class="r"><MarginBadge :margin="finish.margin" /></td>
+            <td data-label="Barrière"><input v-model="settings.finishBarrier" type="time" class="barrier" aria-label="Barrière à l'arrivée"></td>
+            <td class="r num" data-label="Passage"><strong>{{ formatClock(finish.arrival) }}</strong></td>
+            <td class="r" data-label="Marge"><MarginBadge :margin="finish.margin" /></td>
             <td />
           </tr>
         </tbody>
@@ -58,6 +58,7 @@ import { computed } from 'vue'
 import { usePlan } from '~/composables/use_plan'
 import { formatClock, formatKm } from '~/utils/format'
 import MarginBadge from '~/components/margin_badge.vue'
+import Icon from '~/components/icon.vue'
 const { ravitos, settings, timeline, startSec, hoverD, addRavito, removeRavito } = usePlan()
 
 // Ordre de création : on ne réordonne pas les lignes pendant la saisie d'un km
@@ -73,5 +74,12 @@ const finish = computed(() => timeline.value.find(t => t.kind === 'finish'))
 .barrier { width: 104px; }
 tr.fixed td { background: var(--panel-2); }
 tr.out td { opacity: 0.6; }
+.add { display: inline-flex; align-items: center; gap: 5px; }
+@media (max-width: 640px) {
+  tr.fixed { background: var(--panel-2) !important; }
+  .name { width: calc(100% - 40px); }
+  .km, .barrier { width: 100%; }
+  .km { text-align: left; }
+}
 .empty { margin-top: 10px; }
 </style>

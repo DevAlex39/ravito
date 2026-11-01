@@ -3,29 +3,35 @@
     <Head title="Mes parcours" />
     <div class="container plans">
       <div class="head">
-        <h1>Mes parcours</h1>
-        <Link href="/" class="btn" @click="clearTrack">+ Nouveau plan</Link>
+        <div>
+          <h1>Mes parcours</h1>
+          <p v-if="plans.length" class="count">{{ plans.length }} parcours enregistré{{ plans.length > 1 ? 's' : '' }}</p>
+        </div>
+        <Link v-if="plans.length" href="/" class="btn" @click="clearTrack"><Icon name="plus" :size="16" />Nouveau plan</Link>
       </div>
       <p v-if="flash" class="flash">{{ flash }}</p>
 
       <div v-if="!plans.length" class="card empty">
-        <p>Tu n'as encore aucun parcours enregistré.</p>
-        <p class="hint">
-          Importe un GPX ou <Link href="/tracer">trace ton parcours sur la carte</Link>,
-          puis clique sur <strong>Enregistrer</strong> : il apparaîtra ici.
-        </p>
+        <span class="empty-icon"><Icon name="route" :size="28" /></span>
+        <h2>Aucun parcours pour l'instant</h2>
+        <p class="hint">Importe le GPX de ta course ou dessine ton parcours sur la carte, puis clique sur <strong>Enregistrer</strong> : il apparaîtra ici, sur tous tes appareils.</p>
+        <div class="empty-actions">
+          <Link href="/" class="btn" @click="clearTrack"><Icon name="upload" :size="16" />Importer un GPX</Link>
+          <Link href="/tracer" class="btn ghost"><Icon name="pencil" :size="16" />Créer une trace</Link>
+        </div>
       </div>
 
       <ul v-else class="list">
         <li v-for="p in plans" :key="p.id" class="card item">
           <Link :href="`/parcours/${p.id}`" class="open">
             <strong class="name">{{ p.name }}</strong>
-            <span class="meta num">
-              {{ formatKm(p.distance) }} km · +{{ p.gain }} m<template v-if="p.duration != null"> · {{ formatDuration(p.duration) }}</template>
+            <span class="stats">
+              <span class="stat"><Icon name="route" :size="15" /><span class="num">{{ formatKm(p.distance) }} km</span></span>
+              <span class="stat"><Icon name="mountain" :size="15" /><span class="num">+{{ p.gain }} m</span></span>
+              <span v-if="p.duration != null" class="stat"><Icon name="clock" :size="15" /><span class="num">{{ formatDuration(p.duration) }}</span></span>
             </span>
-            <span class="date">Modifié {{ formatDate(p.updatedAt) }}</span>
           </Link>
-          <div class="sharing">
+          <div class="foot">
             <button
               type="button"
               class="share"
@@ -33,11 +39,14 @@
               :title="p.isPublic ? 'Visible de tous : clique pour le rendre privé' : 'Toi seul le vois : clique pour le partager avec les autres coureurs'"
               @click="toggleShare(p)"
             >
-              {{ p.isPublic ? '🌍 Public' : '🔒 Privé' }}
+              <Icon :name="p.isPublic ? 'globe' : 'lock'" :size="14" />{{ p.isPublic ? 'Partagé' : 'Privé' }}
             </button>
-            <Link v-if="p.isPublic" :href="`/partages/${p.id}`" class="public-link">👍 {{ p.votes }} · voir la page</Link>
+            <Link v-if="p.isPublic" :href="`/partages/${p.id}`" class="public-link"><Icon name="thumb" :size="14" />{{ p.votes }} · voir la page</Link>
+            <span class="date">Modifié {{ formatDate(p.updatedAt) }}</span>
+            <button class="remove" type="button" :title="`Supprimer « ${p.name} »`" :aria-label="`Supprimer « ${p.name} »`" @click="remove(p)">
+              <Icon name="trash" :size="17" />
+            </button>
           </div>
-          <button class="btn icon" type="button" :title="`Supprimer « ${p.name} »`" @click="remove(p)">✕</button>
         </li>
       </ul>
     </div>
@@ -48,6 +57,7 @@
 import { computed } from 'vue'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import DefaultLayout from '~/layouts/default.vue'
+import Icon from '~/components/icon.vue'
 import { usePlan } from '~/composables/use_plan'
 import { formatDuration, formatKm } from '~/utils/format'
 
@@ -94,28 +104,42 @@ function remove(p: PlanItem) {
 
 <style scoped>
 .plans { max-width: 820px; display: flex; flex-direction: column; gap: 16px; }
-.head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.head h1 { font-size: 2.2rem; }
-.head .btn { text-decoration: none; }
-.flash { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.9rem; }
-.empty { text-align: center; display: flex; flex-direction: column; gap: 6px; padding: 32px 20px; }
-.empty a { color: var(--accent); font-weight: 600; }
-.list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
-.item { display: flex; align-items: center; gap: 12px; padding: 0; }
-.open { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px; padding: 14px 16px; color: var(--text); text-decoration: none; }
+.head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.head h1 { font-size: 2.2rem; margin: 0; }
+.count { margin: 2px 0 0; color: var(--text-soft); font-size: 0.92rem; }
+.btn { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; }
+.flash { background: var(--forest-soft); color: var(--forest); border-radius: 10px; padding: 10px 12px; font-size: 0.9rem; margin: 0; }
+
+.empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 40px 24px; }
+.empty-icon { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 18px; background: var(--forest-soft); color: var(--forest); }
+.empty h2 { font-size: 1.5rem; margin: 4px 0 0; }
+.empty .hint { max-width: 460px; color: var(--text-soft); font-size: 0.93rem; line-height: 1.5; margin: 0; }
+.empty-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.empty-actions .btn { padding: 10px 16px; }
+
+.list { list-style: none; display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; }
+.item { padding: 0; overflow: hidden; transition: box-shadow 0.15s, border-color 0.15s; }
+.item:hover { border-color: var(--border-strong); }
+.open { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px 12px; color: var(--text); text-decoration: none; }
+.name { font-family: 'Barlow Condensed', sans-serif; font-size: 1.4rem; line-height: 1.15; overflow-wrap: anywhere; }
 .open:hover .name { color: var(--accent); }
-.name { font-family: 'Barlow Condensed', sans-serif; font-size: 1.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.meta { color: var(--text-soft); font-size: 0.92rem; align-self: center; white-space: nowrap; }
-.date { grid-column: 1 / -1; color: var(--text-dim); font-size: 0.8rem; }
-.item .btn.icon { margin-right: 12px; }
-.sharing { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.share { font: inherit; font-size: 0.82rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text-soft); cursor: pointer; white-space: nowrap; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.stat { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; background: var(--panel-2); color: var(--text); font-size: 0.86rem; font-weight: 600; }
+.stat .icon { color: var(--forest); }
+
+.foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px 10px 18px; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--panel-2) 50%, transparent); }
+.share { display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text-soft); cursor: pointer; white-space: nowrap; }
+.share:hover { border-color: var(--forest); color: var(--forest); }
 .share.on { background: var(--forest); border-color: var(--forest); color: #fff; }
-.public-link { font-size: 0.78rem; font-weight: 600; color: var(--forest); white-space: nowrap; }
-@media (max-width: 640px) {
-  .open { grid-template-columns: minmax(0, 1fr); }
-  .item { flex-wrap: wrap; }
-  .sharing { flex-direction: row; align-items: center; padding: 0 0 12px 16px; flex: 1; }
-  .item .btn.icon { margin-bottom: 12px; }
+.public-link { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: 600; color: var(--forest); text-decoration: none; white-space: nowrap; }
+.public-link:hover { text-decoration: underline; }
+.date { color: var(--text-dim); font-size: 0.8rem; margin-left: auto; white-space: nowrap; }
+.remove { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: none; border-radius: 8px; background: none; color: var(--text-dim); cursor: pointer; }
+.remove:hover { color: var(--bad); background: var(--bad-bg); }
+
+@media (max-width: 520px) {
+  .head h1 { font-size: 2rem; }
+  .date { margin-left: 0; order: 3; flex-basis: 100%; }
+  .remove { margin-left: auto; }
 }
 </style>

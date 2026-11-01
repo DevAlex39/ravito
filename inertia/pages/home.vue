@@ -141,28 +141,30 @@
           </form>
           <h1 v-else>
             {{ planName }}
-            <button class="rename-btn" type="button" title="Renommer ce plan" @click="startRename">✎</button>
+            <button class="rename-btn" type="button" title="Renommer ce plan" aria-label="Renommer ce plan" @click="startRename"><Icon name="pencil" :size="18" /></button>
           </h1>
-          <p class="hint">{{ fileName }}</p>
+          <p class="meta">
+            <span class="file"><Icon name="route" :size="15" />{{ fileName }}</span>
+            <span class="save"><SaveButton /></span>
+          </p>
         </div>
         <div class="actions">
-          <SaveButton />
-          <button class="btn ghost" type="button" @click="changeGpx">Changer de GPX</button>
-          <button v-if="!settings.objectiveOn" class="btn ghost target-btn" type="button" @click="enableObjective">◎ Définir un temps ciblé</button>
-          <button class="btn" type="button" :disabled="totalRun == null" @click="print('fiche')">Imprimer la fiche</button>
-          <button class="btn" type="button" :disabled="totalRun == null" @click="print('bracelet')">Imprimer le bracelet</button>
+          <button class="btn ghost" type="button" @click="changeGpx"><Icon name="upload" :size="16" />Changer de GPX</button>
+          <button v-if="!settings.objectiveOn" class="btn ghost" type="button" @click="enableObjective"><Icon name="target" :size="16" />Temps ciblé</button>
+          <DropMenu :items="printItems" :disabled="totalRun == null"><Icon name="printer" :size="17" />Imprimer</DropMenu>
         </div>
       </div>
 
       <div class="stats">
-        <div class="stat"><span>Distance</span><strong>{{ formatKm(profile.distance) }} km</strong></div>
-        <div class="stat"><span>Dénivelé</span><strong>+{{ Math.round(profile.gain) }} / −{{ Math.round(profile.loss) }} m</strong></div>
-        <div class="stat"><span>Altitude</span><strong>{{ Math.round(profile.minEle) }} → {{ Math.round(profile.maxEle) }} m</strong></div>
+        <div class="stat"><span><Icon name="route" :size="14" />Distance</span><strong>{{ formatKm(profile.distance) }} km</strong></div>
+        <div class="stat"><span><Icon name="mountain" :size="14" />Dénivelé +</span><strong>+{{ Math.round(profile.gain) }} m</strong></div>
+        <div class="stat"><span><Icon name="mountain" :size="14" class="down" />Dénivelé −</span><strong>−{{ Math.round(profile.loss) }} m</strong></div>
+        <div class="stat"><span><Icon name="arrow" :size="14" class="up" />Altitude</span><strong>{{ Math.round(profile.minEle) }} → {{ Math.round(profile.maxEle) }} m</strong></div>
         <template v-if="totalRun != null && finish">
-          <div class="stat main"><span>{{ settings.objectiveOn ? 'Temps du plan objectif' : 'Temps estimé' }}</span><strong>{{ formatDuration(finish.arrival - startSec) }}</strong></div>
-          <div class="stat main"><span>Arrivée prévue</span><strong>{{ formatClock(finish.arrival) }}</strong></div>
+          <div class="stat main"><span><Icon name="clock" :size="14" />{{ settings.objectiveOn ? 'Temps objectif' : 'Temps estimé' }}</span><strong>{{ formatDuration(finish.arrival - startSec) }}</strong></div>
+          <div class="stat main"><span><Icon name="star" :size="14" />Arrivée prévue</span><strong>{{ formatClock(finish.arrival) }}</strong></div>
         </template>
-        <div v-else class="stat warn"><span>Temps estimé</span><strong>Renseigne ton niveau</strong></div>
+        <div v-else class="stat warn wide"><span><Icon name="clock" :size="14" />Temps estimé</span><strong>Renseigne ton niveau</strong></div>
       </div>
 
       <ObjectivePanel v-if="settings.objectiveOn" />
@@ -211,6 +213,7 @@ import ObjectivePanel from '~/components/objective_panel.vue'
 import PrintSheet from '~/components/print_sheet.vue'
 import PrintBand from '~/components/print_band.vue'
 import SaveButton from '~/components/save_button.vue'
+import DropMenu, { type DropMenuItem } from '~/components/drop_menu.vue'
 import LoopMap from '~/components/loop_map.vue'
 import PlaceInput from '~/components/place_input.vue'
 import Icon from '~/components/icon.vue'
@@ -334,6 +337,11 @@ function print(mode: 'fiche' | 'bracelet') {
   nextTick(() => window.print())
 }
 
+const printItems: DropMenuItem[] = [
+  { label: 'Fiche de course', hint: 'Une page A4 : temps de passage, ravitos, profil', icon: 'sheet', action: () => print('fiche') },
+  { label: 'Bracelet', hint: 'Une bande à découper et à porter au poignet', icon: 'band', action: () => print('bracelet') },
+]
+
 onMounted(() => window.addEventListener('afterprint', clearPrint))
 onBeforeUnmount(() => window.removeEventListener('afterprint', clearPrint))
 function clearPrint() {
@@ -405,24 +413,32 @@ function clearPrint() {
 
 .plan { display: flex; flex-direction: column; gap: 18px; }
 .course-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
-.course-head h1 { font-size: 2.2rem; }
-.title { min-width: 0; }
-.rename-btn { font: inherit; font-size: 1.1rem; vertical-align: 0.35em; background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.course-head h1 { font-size: 2.2rem; margin: 0; overflow-wrap: anywhere; }
+.title { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rename-btn { display: inline-grid; place-items: center; width: 32px; height: 32px; vertical-align: 0.2em; padding: 0; background: none; border: none; color: var(--text-dim); cursor: pointer; border-radius: 8px; }
 .rename-btn:hover { color: var(--accent); background: var(--panel-2); }
 .rename input { font-family: 'Barlow Condensed', sans-serif; font-size: 2rem; font-weight: 700; width: min(560px, 100%); padding: 2px 8px; }
+.meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; margin: 0; font-size: 0.86rem; color: var(--text-soft); }
+.file { display: inline-flex; align-items: center; gap: 5px; }
+.file .icon { color: var(--text-dim); }
+.save { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.save :deep(.btn) { padding: 4px 12px; font-size: 0.84rem; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.actions .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.actions .target-btn { color: var(--accent); border-color: var(--accent); }
-.actions .target-btn:hover { background: #fff6f0; }
+.actions > .btn { display: inline-flex; align-items: center; gap: 7px; }
 
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
-@media (max-width: 640px) { .stats { grid-template-columns: 1fr 1fr; } .stat strong { font-size: 1.3rem; } }
-.stat { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; flex-direction: column; }
-.stat span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); font-weight: 600; }
-.stat strong { font-family: 'Barlow Condensed', sans-serif; font-size: 1.55rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 1100px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .stat strong { font-size: 1.3rem; } }
+.stat { min-width: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+.stat span { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat span .icon { flex: none; color: var(--forest); }
+.stat span .icon.down { transform: scaleY(-1); }
+.stat span .icon.up { transform: rotate(-90deg); }
+.stat strong { font-family: 'Barlow Condensed', sans-serif; font-size: 1.55rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stat.main { background: var(--forest); border-color: var(--forest); color: #fff; }
-.stat.main span { color: #b9d2c3; }
-.stat.warn strong { color: var(--accent); font-size: 1.2rem; }
+.stat.main span, .stat.main span .icon { color: #b9d2c3; }
+.stat.warn strong { color: var(--accent); font-size: 1.2rem; white-space: normal; }
+.stat.wide { grid-column: span 2; }
 
 .viz { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
 .viz .map { height: 380px; }
