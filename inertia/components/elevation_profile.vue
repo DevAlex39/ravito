@@ -22,10 +22,17 @@
     </svg>
 
     <div v-if="hoverInfo && !compact" class="tip" :style="tipStyle">
-      <strong>km {{ formatKm(hoverInfo.d, 2) }}</strong>
-      <span>{{ Math.round(hoverInfo.ele) }} m</span>
-      <span :class="hoverInfo.grade > 0 ? 'up' : 'down'">{{ hoverInfo.grade > 0 ? '+' : '' }}{{ Math.round(hoverInfo.grade * 100) }} %</span>
-      <span v-if="hoverInfo.clock">{{ hoverInfo.clock }}</span>
+      <div v-if="nearMarker?.name" class="tip-place">
+        <span class="n">{{ nearMarker.label }}</span>
+        <Icon v-if="nearMarker.icon" :name="nearMarker.icon" :size="15" />
+        <span>{{ nearMarker.name }}</span>
+      </div>
+      <div class="tip-row">
+        <strong>km {{ formatKm(hoverInfo.d, 2) }}</strong>
+        <span>{{ Math.round(hoverInfo.ele) }} m</span>
+        <span :class="hoverInfo.grade > 0 ? 'up' : 'down'">{{ hoverInfo.grade > 0 ? '+' : '' }}{{ Math.round(hoverInfo.grade * 100) }} %</span>
+        <span v-if="hoverInfo.clock">{{ hoverInfo.clock }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -34,13 +41,16 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { eleAt, indexAt } from '~/utils/profile'
 import { formatKm } from '~/utils/format'
+import Icon from '~/components/icon.vue'
+import type { IconName } from '~/utils/icons'
 import type { Profile } from '~/utils/profile'
 import type { Segment } from '~/utils/segments'
 
 const props = withDefaults(defineProps<{
   profile: Profile
   segments: Segment[]
-  markers?: { d: number, label: string }[]
+  /** Repères verticaux ; avec un nom, le lieu s'affiche dans l'infobulle quand on passe dessus */
+  markers?: { d: number, label: string, name?: string, icon?: IconName }[]
   hover?: number | null
   height?: number
   /** Largeur fixe (impression) ; sinon on suit le conteneur */
@@ -139,6 +149,22 @@ const hoverInfo = computed(() => {
   return { d, ele: eleAt(p, d), grade: p.grade[i]!, clock: props.clockAt?.(d) ?? '' }
 })
 
+/** Repère sous le curseur (à moins de 10 px), le plus proche */
+const nearMarker = computed(() => {
+  if (!hoverInfo.value) return null
+  const px = x(hoverInfo.value.d)
+  let best: (typeof props.markers)[number] | null = null
+  let bestGap = 10
+  for (const m of props.markers) {
+    const gap = Math.abs(x(m.d) - px)
+    if (gap <= bestGap) {
+      best = m
+      bestGap = gap
+    }
+  }
+  return best
+})
+
 const tipStyle = computed(() => {
   if (!hoverInfo.value) return {}
   const px = x(hoverInfo.value.d)
@@ -176,8 +202,8 @@ svg { display: block; overflow: visible; }
   position: absolute;
   top: 6px;
   display: flex;
-  gap: 8px;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 4px;
   background: rgba(29, 39, 33, 0.92);
   color: #fff;
   font-size: 0.78rem;
@@ -187,6 +213,9 @@ svg { display: block; overflow: visible; }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+.tip-row { display: flex; gap: 8px; align-items: baseline; }
+.tip-place { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; }
+.tip-place .n { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; background: var(--accent); font-size: 0.7rem; }
 .tip .up { color: #ffb08a; }
 .tip .down { color: #9cccff; }
 </style>

@@ -409,7 +409,7 @@ const stopMarkers = computed(() => {
     }
     if (best < 0) return []
     from = best
-    return [{ d: points[best]!.d, label: String(k + 1) }]
+    return [{ d: points[best]!.d, label: String(k + 1), name: stop.name, icon: kindOf(stop).icon }]
   })
 })
 
