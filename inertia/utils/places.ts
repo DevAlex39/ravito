@@ -95,7 +95,7 @@ export interface PlaceDetails {
   /** Le texte vient du résumé Wikipédia (licence CC BY-SA, à citer) */
   fromWikipedia: boolean
   wikipedia: string | null
-  /** Lien vers l'objet OpenStreetMap ; null pour un lieu venu de l'IGN */
+  /** Lien vers l'objet OpenStreetMap ; null pour un lieu venu de l'IGN ou de Wikidata */
   osm: string | null
   /** Lieu venu de la BD TOPO de l'IGN (à créditer) */
   fromIgn: boolean
@@ -147,7 +147,8 @@ export function placeDetails(poi: Pick<Poi, 'wikidata' | 'osmKey'>): Promise<Pla
 }
 
 function osmUrl(osmKey: string) {
-  if (osmKey.startsWith('ign:')) return null
+  // « ign:… », « wd:… » : lieux venus d'ailleurs, pas d'objet OpenStreetMap à montrer
+  if (osmKey.includes(':')) return null
   const type = { n: 'node', w: 'way', r: 'relation' }[osmKey[0]!] ?? 'node'
   return `https://www.openstreetmap.org/${type}/${osmKey.slice(1)}`
 }

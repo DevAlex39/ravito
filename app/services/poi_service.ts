@@ -164,6 +164,8 @@ export interface SaveOptions {
   onProgress?: (done: number, total: number) => void
   /** Redemande la notoriété de tous les lieux, même ceux déjà connus en base */
   refreshWikidata?: boolean
+  /** Notoriété déjà connue par l'appelant (import Wikidata) : pas besoin de la redemander */
+  sitelinks?: Map<string, number>
 }
 
 /**
@@ -171,10 +173,10 @@ export interface SaveOptions {
  * puis insertion ou mise à jour par identifiant OSM. Renvoie le nombre de lieux gardés.
  * La notoriété déjà connue en base est réutilisée (elle bouge peu) : seuls les nouveaux lieux interrogent Wikidata.
  */
-export async function savePois(candidates: NewPoi[], { onProgress, refreshWikidata = false }: SaveOptions = {}): Promise<number> {
+export async function savePois(candidates: NewPoi[], { onProgress, refreshWikidata = false, sitelinks: given }: SaveOptions = {}): Promise<number> {
   const pois = dedupe(candidates)
   const ids = [...new Set(pois.map(p => p.wikidata).filter(q => q != null))]
-  const sitelinks = refreshWikidata ? new Map<string, number>() : await knownSitelinks(ids)
+  const sitelinks = given ?? (refreshWikidata ? new Map<string, number>() : await knownSitelinks(ids))
   const fetched = await fetchSitelinks(ids.filter(q => !sitelinks.has(q)), onProgress)
   for (const [q, n] of fetched) sitelinks.set(q, n)
   for (const p of pois) {
