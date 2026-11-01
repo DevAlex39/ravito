@@ -3,7 +3,7 @@ import app from '@adonisjs/core/services/app'
 import logger from '@adonisjs/core/services/logger'
 import env from '#start/env'
 
-const APP_NAME = 'AlpaS'
+const APP_NAME = 'Alpast'
 
 export function canSendMail() {
   return !!(env.get('SMTP_HOST') && env.get('SMTP_USER') && env.get('SMTP_PASS'))

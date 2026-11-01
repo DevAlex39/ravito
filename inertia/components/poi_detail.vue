@@ -3,7 +3,7 @@
     <img v-if="details?.image" :src="details.image" :alt="poi.name" class="photo" loading="lazy" @error="details.image = null">
     <div class="body">
       <header>
-        <span class="kind">{{ kind.icon }} {{ kind.label }}</span>
+        <span class="kind"><Icon :name="kind.icon" :size="16" /> {{ kind.label }}</span>
         <button type="button" class="close" title="Fermer" @click="emit('close')">✕</button>
       </header>
       <h3>{{ poi.name }}</h3>
@@ -22,6 +22,7 @@
 import { computed, ref, watch } from 'vue'
 import type { Poi } from '~/utils/loops'
 import { kindOf, placeDetails, type PlaceDetails } from '~/utils/places'
+import Icon from '~/components/icon.vue'
 
 const props = defineProps<{ poi: Poi }>()
 const emit = defineEmits<{ close: [] }>()
@@ -51,7 +52,7 @@ watch(() => props.poi, async (poi) => {
 .photo { width: 180px; height: 135px; object-fit: cover; border-radius: var(--radius-sm); flex-shrink: 0; }
 .body { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.kind { font-size: 0.82rem; font-weight: 600; color: var(--text-soft); }
+.kind { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: var(--text-soft); }
 .close { font: inherit; border: none; background: none; cursor: pointer; color: var(--text-soft); font-size: 1rem; padding: 2px 6px; }
 .close:hover { color: var(--text); }
 h3 { font-size: 1.15rem; }

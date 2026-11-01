@@ -9,16 +9,16 @@ type ExtractProps<T> = Omit<
 
 declare module '@adonisjs/inertia/types' {
   export interface InertiaPages {
+    'auth/forgot': ExtractProps<(typeof import('../../inertia/pages/auth/forgot.vue'))['default']>
     'auth/login': ExtractProps<(typeof import('../../inertia/pages/auth/login.vue'))['default']>
+    'auth/reset': ExtractProps<(typeof import('../../inertia/pages/auth/reset.vue'))['default']>
     'auth/signup': ExtractProps<(typeof import('../../inertia/pages/auth/signup.vue'))['default']>
     'errors/not_found': ExtractProps<(typeof import('../../inertia/pages/errors/not_found.vue'))['default']>
     'errors/server_error': ExtractProps<(typeof import('../../inertia/pages/errors/server_error.vue'))['default']>
     'home': ExtractProps<(typeof import('../../inertia/pages/home.vue'))['default']>
     'loops': ExtractProps<(typeof import('../../inertia/pages/loops.vue'))['default']>
     'plans/index': ExtractProps<(typeof import('../../inertia/pages/plans/index.vue'))['default']>
-    'tracer': ExtractProps<(typeof import('../../inertia/pages/tracer.vue'))['default']>
     'shared': ExtractProps<(typeof import('../../inertia/pages/shared.vue'))['default']>
-    'auth/forgot': ExtractProps<(typeof import('../../inertia/pages/auth/forgot.vue'))['default']>
-    'auth/reset': ExtractProps<(typeof import('../../inertia/pages/auth/reset.vue'))['default']>
+    'tracer': ExtractProps<(typeof import('../../inertia/pages/tracer.vue'))['default']>
   }
 }

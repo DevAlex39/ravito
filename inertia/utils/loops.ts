@@ -205,6 +205,12 @@ function fitCandidate(start: LatLon, pois: Poi[], target: number, direction: num
 }
 
 /**
+ * Buts de sortie naturels (belvédère, sommet, cascade…) : rarement sur Wikipédia, leur note reste basse,
+ * mais pour un coureur ils valent le détour autant qu'un monument connu. Leur poids part donc de 0,55.
+ */
+const GOAL_KINDS = new Set(['viewpoint', 'peak', 'saddle', 'waterfall', 'cave_entrance', 'arch', 'gorge', 'volcano'])
+
+/**
  * Lieux retenus pour composer les boucles, catégorie par catégorie :
  * - patrimoine : les lieux documentés (Wikidata) d'abord, les autres seulement là où il y a peu de choix
  *   (écarte les petites chapelles anonymes) ;
@@ -218,7 +224,7 @@ function balance(allPois: Poi[]): Poi[] {
     const documented = all.filter(p => p.score >= 3)
     const kept = category === 'nature' || documented.length < 5 ? all : documented
     const best = Math.max(...kept.map(p => p.score), 1)
-    return kept.map(p => ({ ...p, weight: p.score / best }))
+    return kept.map(p => ({ ...p, weight: GOAL_KINDS.has(p.kind) ? 0.55 + (0.45 * p.score) / best : p.score / best }))
   })
 }
 

@@ -6,24 +6,24 @@
     @dragleave.prevent="over = false"
     @drop.prevent="onDrop"
   >
-    <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true">
-      <path d="M4 38 L16 20 L24 30 L32 14 L44 38 Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" />
-      <circle cx="32" cy="10" r="3" fill="currentColor" />
-    </svg>
-    <p class="title">Glisse ton fichier GPX ici</p>
-    <p class="hint">ou</p>
+    <slot />
     <div class="buttons">
       <label class="btn">
-        Choisir un fichier
+        <Icon name="upload" :size="18" />
+        Importer un GPX
         <input type="file" accept=".gpx,application/gpx+xml" hidden @change="onPick">
       </label>
-      <button class="btn ghost" type="button" @click="emit('example')">Essayer avec un exemple</button>
+      <button class="btn ghost" type="button" @click="emit('example')">Voir un exemple</button>
     </div>
+    <p class="hint">{{ over ? 'Lâche ton fichier ici' : 'ou glisse ton fichier GPX sur ce cadre' }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import Icon from '~/components/icon.vue'
+
+/** Cadre qui accepte un GPX glissé dessus, avec le bouton d'import et l'exemple ; le contenu (titre, texte) vient du slot */
 const emit = defineEmits<{ file: [File], example: [] }>()
 const over = ref(false)
 
@@ -42,20 +42,9 @@ function onPick(e: Event) {
 </script>
 
 <style scoped>
-.drop {
-  border: 2px dashed var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--panel);
-  padding: 36px 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  text-align: center;
-  color: var(--forest);
-  transition: border-color 0.15s, background 0.15s;
-}
-.drop.over { border-color: var(--accent); background: #fff6f0; }
-.title { font-weight: 600; color: var(--text); font-size: 1.05rem; }
-.buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.drop { display: flex; flex-direction: column; gap: 14px; transition: background 0.15s; }
+.drop.over { outline: 2px dashed var(--accent); outline-offset: -8px; background: #fff6f0; }
+.buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+.buttons .btn { padding: 11px 18px; font-size: 0.95rem; border-radius: 12px; }
+.hint { font-size: 0.82rem; color: var(--text-soft); }
 </style>

@@ -1,5 +1,5 @@
 /* ============================================================
-   AlpaS · Plan de course
+   Alpast · Plan de course
    Thème clair « carnet de course » : papier, vert forêt, orange balise
    ============================================================ */
 
@@ -19,7 +19,9 @@
   --forest: #24503c;
   --forest-soft: #e3ece6;
   --accent: #e2672b;
-  --accent-hover: #c9561f;
+  /* Fond des boutons : l'orange balise un ton plus sombre, pour que le texte blanc reste lisible */
+  --accent-strong: #c9561f;
+  --accent-hover: #ad4718;
 
   /* Tronçons */
   --up: #d9572b;
@@ -94,7 +96,7 @@ a { color: var(--forest); }
   align-items: center;
   gap: 6px;
   border: 1px solid transparent;
-  background: var(--accent);
+  background: var(--accent-strong);
   color: #fff;
   font: inherit;
   font-weight: 600;
@@ -187,3 +189,9 @@ td.r, th.r { text-align: right; }
   .container { padding: 0 16px; }
   .card { padding: 16px; }
 }
+
+/* ---------- Infobulles de la carte (lieux) ---------- */
+
+.leaflet-tooltip .tip-name { display: flex; align-items: center; gap: 5px; font-weight: 600; }
+.leaflet-tooltip .tip-name svg { flex: none; }
+.leaflet-tooltip small { display: block; color: var(--text-soft); }

@@ -11,6 +11,7 @@ import { pointAt } from '~/utils/gpx'
 import type { LatLon } from '~/utils/routing'
 import type { Loop, Poi } from '~/utils/loops'
 import { kindOf } from '~/utils/places'
+import { iconSvg } from '~/utils/icons'
 
 const props = defineProps<{
   start: LatLon | null
@@ -32,6 +33,15 @@ let map: Leaflet.Map | null = null
 let loopLayer: Leaflet.LayerGroup | null = null
 let startMarker: Leaflet.Marker | null = null
 let hoverMarker: Leaflet.CircleMarker | null = null
+/**
+ * La page change la taille de la carte (colonne des boucles qui apparaît) : Leaflet doit recalculer ses
+ * tuiles, et un cadrage demandé juste avant est refait à la nouvelle taille.
+ */
+let refitUntil = 0
+const resize = new ResizeObserver(() => {
+  map?.invalidateSize()
+  if (Date.now() < refitUntil) fitAll()
+})
 
 onMounted(async () => {
   const mod = await import('leaflet')
@@ -56,9 +66,13 @@ onMounted(async () => {
   map.on('click', (e: Leaflet.LeafletMouseEvent) => emit('pick', { lat: e.latlng.lat, lon: e.latlng.lng }))
   drawStart()
   drawLoops()
+  resize.observe(el.value!)
 })
 
-onBeforeUnmount(() => map?.remove())
+onBeforeUnmount(() => {
+  resize.disconnect()
+  map?.remove()
+})
 
 function drawStart() {
   if (!L || !map) return
@@ -108,7 +122,7 @@ function drawLoops() {
       icon: L!.divIcon({ className: `stop stop-${s.category}`, html: String(k + 1), iconSize: [22, 22], iconAnchor: [11, 11] }),
       keyboard: false,
     })
-      .bindTooltip(`${kind.icon} ${s.name}<br><small>${kind.label} · clique pour en savoir plus</small>`, { direction: 'top', offset: [0, -10] })
+      .bindTooltip(`<span class="tip-name">${iconSvg(kind.icon, 15)} ${s.name}</span><small>${kind.label} · clique pour en savoir plus</small>`, { direction: 'top', offset: [0, -10] })
       .on('click', (e) => {
         L!.DomEvent.stopPropagation(e)
         emit('stop', s)
@@ -119,9 +133,15 @@ function drawLoops() {
 
 /** Cadre toutes les propositions */
 function fitLoops() {
+  refitUntil = Date.now() + 1500
+  map?.invalidateSize()
+  fitAll()
+}
+
+function fitAll() {
   if (!L || !map || !props.loops.length) return
   const pts = props.loops.flatMap(l => l.coords.map(c => [c[1], c[0]] as [number, number]))
-  map.fitBounds(L.latLngBounds(pts), { padding: [30, 30] })
+  map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], animate: false })
 }
 
 function drawHover() {

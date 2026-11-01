@@ -1,86 +1,88 @@
 import type { Poi } from '~/utils/loops'
+import type { IconName } from '~/utils/icons'
 
-/** Icône et nom français de chaque type de lieu (valeurs « kind » de la base) */
-const KINDS: Record<string, { icon: string, label: string }> = {
+/** Pictogramme (utils/icons.ts) et nom français de chaque type de lieu (valeurs « kind » de la base) */
+const KINDS: Record<string, { icon: IconName, label: string }> = {
   // Patrimoine
-  castle: { icon: '🏰', label: 'Château' },
-  fort: { icon: '🏰', label: 'Fort' },
-  manor: { icon: '🏰', label: 'Manoir' },
-  palace: { icon: '🏰', label: 'Palais' },
-  city_gate: { icon: '🏛️', label: 'Porte de ville' },
-  monument: { icon: '🗿', label: 'Monument' },
-  memorial: { icon: '🎖️', label: 'Mémorial' },
-  ruins: { icon: '🧱', label: 'Ruines' },
-  archaeological_site: { icon: '🏺', label: 'Site archéologique' },
-  tomb: { icon: '⚱️', label: 'Tombeau' },
-  tower: { icon: '🗼', label: 'Tour' },
-  cathedral: { icon: '⛪', label: 'Cathédrale' },
-  place_of_worship: { icon: '⛪', label: 'Édifice religieux' },
-  church: { icon: '⛪', label: 'Église' },
-  museum: { icon: '🖼️', label: 'Musée' },
-  gallery: { icon: '🖼️', label: 'Galerie' },
-  artwork: { icon: '🎨', label: 'Œuvre d\'art' },
-  attraction: { icon: '⭐', label: 'Curiosité' },
-  lighthouse: { icon: '🗼', label: 'Phare' },
-  bridge: { icon: '🌉', label: 'Pont' },
-  square: { icon: '🏙️', label: 'Place' },
-  heritage: { icon: '🏛️', label: 'Monument historique' },
-  fountain: { icon: '⛲', label: 'Fontaine' },
-  lavoir: { icon: '🚰', label: 'Lavoir' },
-  townhall: { icon: '🏛️', label: 'Hôtel de ville' },
-  theatre: { icon: '🎭', label: 'Théâtre' },
-  hospital: { icon: '🏛️', label: 'Ancien hôpital' },
-  citywalls: { icon: '🏰', label: 'Remparts' },
-  wayside_cross: { icon: '✝️', label: 'Croix' },
-  wayside_shrine: { icon: '⛪', label: 'Oratoire' },
-  mill: { icon: '🌾', label: 'Moulin' },
-  watermill: { icon: '🌾', label: 'Moulin à eau' },
-  windmill: { icon: '🌾', label: 'Moulin à vent' },
+  castle: { icon: 'castle', label: 'Château' },
+  fort: { icon: 'castle', label: 'Fort' },
+  manor: { icon: 'house', label: 'Manoir' },
+  palace: { icon: 'castle', label: 'Palais' },
+  city_gate: { icon: 'landmark', label: 'Porte de ville' },
+  monument: { icon: 'monument', label: 'Monument' },
+  memorial: { icon: 'monument', label: 'Mémorial' },
+  ruins: { icon: 'ruins', label: 'Ruines' },
+  archaeological_site: { icon: 'ruins', label: 'Site archéologique' },
+  tomb: { icon: 'monument', label: 'Tombeau' },
+  tower: { icon: 'tower', label: 'Tour' },
+  cathedral: { icon: 'church', label: 'Cathédrale' },
+  place_of_worship: { icon: 'church', label: 'Édifice religieux' },
+  church: { icon: 'church', label: 'Église' },
+  museum: { icon: 'museum', label: 'Musée' },
+  gallery: { icon: 'museum', label: 'Galerie' },
+  artwork: { icon: 'artwork', label: 'Œuvre d\'art' },
+  attraction: { icon: 'star', label: 'Curiosité' },
+  lighthouse: { icon: 'tower', label: 'Phare' },
+  bridge: { icon: 'bridge', label: 'Pont' },
+  square: { icon: 'square', label: 'Place' },
+  heritage: { icon: 'landmark', label: 'Monument historique' },
+  fountain: { icon: 'fountain', label: 'Fontaine' },
+  lavoir: { icon: 'droplet', label: 'Lavoir' },
+  townhall: { icon: 'landmark', label: 'Hôtel de ville' },
+  theatre: { icon: 'theatre', label: 'Théâtre' },
+  hospital: { icon: 'landmark', label: 'Ancien hôpital' },
+  citywalls: { icon: 'castle', label: 'Remparts' },
+  wayside_cross: { icon: 'cross', label: 'Croix' },
+  wayside_shrine: { icon: 'church', label: 'Oratoire' },
+  mill: { icon: 'mill', label: 'Moulin' },
+  watermill: { icon: 'mill', label: 'Moulin à eau' },
+  windmill: { icon: 'mill', label: 'Moulin à vent' },
   // Nature
-  waterfall: { icon: '💧', label: 'Cascade' },
-  cave_entrance: { icon: '🕳️', label: 'Grotte' },
-  peak: { icon: '⛰️', label: 'Sommet' },
-  saddle: { icon: '⛰️', label: 'Col' },
-  arch: { icon: '🏞️', label: 'Arche naturelle' },
-  gorge: { icon: '🏞️', label: 'Gorges' },
-  volcano: { icon: '🌋', label: 'Volcan' },
-  spring: { icon: '💧', label: 'Source' },
-  rock: { icon: '🏞️', label: 'Rocher' },
-  stone: { icon: '🏞️', label: 'Pierre remarquable' },
-  cliff: { icon: '🧗', label: 'Falaise' },
-  beach: { icon: '🏖️', label: 'Plage' },
-  viewpoint: { icon: '👀', label: 'Point de vue' },
-  park: { icon: '🌳', label: 'Parc' },
-  garden: { icon: '🌷', label: 'Jardin' },
+  waterfall: { icon: 'waterfall', label: 'Cascade' },
+  cave_entrance: { icon: 'cave', label: 'Grotte' },
+  peak: { icon: 'mountain', label: 'Sommet' },
+  saddle: { icon: 'mountain', label: 'Col' },
+  arch: { icon: 'rock', label: 'Arche naturelle' },
+  gorge: { icon: 'rock', label: 'Gorges' },
+  volcano: { icon: 'mountain', label: 'Volcan' },
+  spring: { icon: 'droplet', label: 'Source' },
+  rock: { icon: 'rock', label: 'Rocher' },
+  stone: { icon: 'rock', label: 'Pierre remarquable' },
+  cliff: { icon: 'rock', label: 'Falaise' },
+  beach: { icon: 'beach', label: 'Plage' },
+  viewpoint: { icon: 'viewpoint', label: 'Point de vue' },
+  park: { icon: 'tree', label: 'Parc' },
+  garden: { icon: 'flower', label: 'Jardin' },
 }
 
 /** Familles proposées dans « Plus de choix » : quelques cases simples plutôt que 35 types */
 export interface KindGroup {
   id: string
   category: 'patrimoine' | 'nature'
+  icon: IconName
   label: string
   kinds: string[]
 }
 
 export const KIND_GROUPS: KindGroup[] = [
-  { id: 'chateaux', category: 'patrimoine', label: '🏰 Châteaux et forts', kinds: ['castle', 'fort', 'manor', 'palace', 'city_gate'] },
-  { id: 'religieux', category: 'patrimoine', label: '⛪ Églises et chapelles', kinds: ['place_of_worship', 'cathedral', 'church'] },
-  { id: 'vestiges', category: 'patrimoine', label: '🧱 Ruines et vestiges', kinds: ['ruins', 'archaeological_site', 'tomb'] },
-  { id: 'monuments', category: 'patrimoine', label: '🗿 Monuments et bâtiments', kinds: ['monument', 'memorial', 'tower', 'lighthouse', 'artwork', 'heritage', 'townhall', 'theatre', 'hospital', 'citywalls', 'mill', 'watermill', 'windmill'] },
-  { id: 'fontaines', category: 'patrimoine', label: '⛲ Fontaines et lavoirs', kinds: ['fountain', 'lavoir'] },
-  { id: 'musees', category: 'patrimoine', label: '🖼️ Musées', kinds: ['museum', 'gallery'] },
-  { id: 'ponts', category: 'patrimoine', label: '🌉 Ponts et places', kinds: ['bridge', 'square'] },
-  { id: 'eau', category: 'nature', label: '💧 Cascades et sources', kinds: ['waterfall', 'spring'] },
-  { id: 'grottes', category: 'nature', label: '🕳️ Grottes', kinds: ['cave_entrance'] },
-  { id: 'sommets', category: 'nature', label: '⛰️ Sommets et cols', kinds: ['peak', 'saddle', 'volcano'] },
-  { id: 'roches', category: 'nature', label: '🏞️ Gorges et rochers', kinds: ['gorge', 'arch', 'cliff', 'rock', 'stone'] },
-  { id: 'vues', category: 'nature', label: '👀 Points de vue', kinds: ['viewpoint'] },
-  { id: 'parcs', category: 'nature', label: '🌳 Parcs et jardins', kinds: ['park', 'garden'] },
-  { id: 'plages', category: 'nature', label: '🏖️ Plages', kinds: ['beach'] },
+  { id: 'chateaux', category: 'patrimoine', icon: 'castle', label: 'Châteaux et forts', kinds: ['castle', 'fort', 'manor', 'palace', 'city_gate'] },
+  { id: 'religieux', category: 'patrimoine', icon: 'church', label: 'Églises et chapelles', kinds: ['place_of_worship', 'cathedral', 'church'] },
+  { id: 'vestiges', category: 'patrimoine', icon: 'ruins', label: 'Ruines et vestiges', kinds: ['ruins', 'archaeological_site', 'tomb'] },
+  { id: 'monuments', category: 'patrimoine', icon: 'monument', label: 'Monuments et bâtiments', kinds: ['monument', 'memorial', 'tower', 'lighthouse', 'artwork', 'heritage', 'townhall', 'theatre', 'hospital', 'citywalls', 'mill', 'watermill', 'windmill'] },
+  { id: 'fontaines', category: 'patrimoine', icon: 'fountain', label: 'Fontaines et lavoirs', kinds: ['fountain', 'lavoir'] },
+  { id: 'musees', category: 'patrimoine', icon: 'museum', label: 'Musées', kinds: ['museum', 'gallery'] },
+  { id: 'ponts', category: 'patrimoine', icon: 'bridge', label: 'Ponts et places', kinds: ['bridge', 'square'] },
+  { id: 'eau', category: 'nature', icon: 'waterfall', label: 'Cascades et sources', kinds: ['waterfall', 'spring'] },
+  { id: 'grottes', category: 'nature', icon: 'cave', label: 'Grottes', kinds: ['cave_entrance'] },
+  { id: 'sommets', category: 'nature', icon: 'mountain', label: 'Sommets et cols', kinds: ['peak', 'saddle', 'volcano'] },
+  { id: 'roches', category: 'nature', icon: 'rock', label: 'Gorges et rochers', kinds: ['gorge', 'arch', 'cliff', 'rock', 'stone'] },
+  { id: 'vues', category: 'nature', icon: 'viewpoint', label: 'Points de vue', kinds: ['viewpoint'] },
+  { id: 'parcs', category: 'nature', icon: 'tree', label: 'Parcs et jardins', kinds: ['park', 'garden'] },
+  { id: 'plages', category: 'nature', icon: 'beach', label: 'Plages', kinds: ['beach'] },
 ]
 
-export function kindOf(poi: Pick<Poi, 'kind' | 'category'>): { icon: string, label: string } {
-  return KINDS[poi.kind] ?? (poi.category === 'nature' ? { icon: '🌿', label: 'Site naturel' } : { icon: '📍', label: 'Lieu à voir' })
+export function kindOf(poi: Pick<Poi, 'kind' | 'category'>): { icon: IconName, label: string } {
+  return KINDS[poi.kind] ?? (poi.category === 'nature' ? { icon: 'leaf', label: 'Site naturel' } : { icon: 'pin', label: 'Lieu à voir' })
 }
 
 /** Fiche d'un lieu, complétée par Wikipédia (résumé, photo) ou à défaut Wikidata */

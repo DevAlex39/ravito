@@ -2,60 +2,101 @@
   <DefaultLayout>
     <Head title="Boucle découverte" />
     <div class="container loops">
-      <div class="head">
-        <h1>Boucle découverte</h1>
+      <div v-if="!loops.length" class="head">
+        <h1>Boucles découverte</h1>
         <p class="hint">Choisis un départ et une distance : on te propose des boucles qui passent par les lieux à voir.</p>
       </div>
 
-      <form class="controls card" @submit.prevent="propose">
-        <div class="search">
-          <PlaceInput v-model="query" class="place" placeholder="Ville, adresse ou code postal…" aria-label="Rechercher un lieu de départ" @pick="onPick" @enter="onSearch" />
-          <button class="btn ghost" type="button" :disabled="!query.trim() || searching" @click="onSearch">Rechercher</button>
-          <button class="btn ghost" type="button" title="Partir de ma position" @click="onLocate()">📍</button>
+      <div v-if="loops.length && !formOpen" class="summary card">
+        <span class="pill strong"><Icon name="pin" :size="18" />{{ placeName || query || 'Point choisi sur la carte' }}</span>
+        <span class="pill">{{ km }} km</span>
+        <span class="pill tone"><Icon :name="themeInfo.icon" :size="16" />{{ themeInfo.label }}</span>
+        <span class="pill">{{ terrainInfo.label }}</span>
+        <span class="pill">{{ count }} boucle{{ count > 1 ? 's' : '' }}</span>
+        <button class="btn" type="button" @click="formOpen = true"><Icon name="sliders" :size="18" />Modifier</button>
+      </div>
+
+      <form v-else class="controls card" @submit.prevent="propose">
+        <div class="row">
+          <div class="field start">
+            <span>Départ</span>
+            <div class="box">
+              <Icon name="pin" class="box-icon" />
+              <PlaceInput v-model="query" class="place" placeholder="Ville, adresse ou code postal (ex. Annecy)" aria-label="Lieu de départ" @pick="onPick" @enter="onSearch" />
+              <button class="square" type="button" title="Partir de ma position" aria-label="Partir de ma position" @click="onLocate()"><Icon name="locate" /></button>
+            </div>
+          </div>
+          <div class="field distance">
+            <span>Distance</span>
+            <div class="box stepper">
+              <button class="square" type="button" aria-label="Un kilomètre de moins" :disabled="km <= 3" @click="stepKm(-1)">−</button>
+              <label class="km">
+                <input v-model.number="km" type="number" min="3" max="40" step="1" inputmode="numeric" aria-label="Distance en kilomètres">
+                <span>km</span>
+              </label>
+              <button class="square" type="button" aria-label="Un kilomètre de plus" :disabled="km >= 40" @click="stepKm(1)">+</button>
+            </div>
+          </div>
         </div>
-        <label class="distance">
-          <span>Distance</span>
-          <input v-model.number="km" type="number" min="3" max="40" step="1" inputmode="numeric" aria-label="Distance en kilomètres">
-          <span>km</span>
-        </label>
-        <label class="distance">
-          <select v-model.number="count" aria-label="Nombre de boucles proposées">
-            <option v-for="n in 6" :key="n" :value="n">{{ n }}</option>
-          </select>
-          <span>boucle{{ count > 1 ? 's' : '' }}</span>
-        </label>
-        <div class="themes" role="radiogroup" aria-label="Terrain">
-          <button
-            v-for="t in TERRAINS"
-            :key="t.value"
-            type="button"
-            role="radio"
-            :title="t.hint"
-            :aria-checked="terrain === t.value"
-            :class="{ on: terrain === t.value }"
-            @click="terrain = t.value"
-          >
-            {{ t.label }}
-          </button>
-        </div>
-        <div class="themes" role="radiogroup" aria-label="Lieux à voir">
-          <button
-            v-for="t in THEMES"
-            :key="t.value"
-            type="button"
-            role="radio"
-            :aria-checked="theme === t.value"
-            :class="{ on: theme === t.value }"
-            @click="theme = t.value"
-          >
-            {{ t.label }}
-          </button>
+        <div class="row">
+          <div class="field">
+            <span>Style de boucle</span>
+            <div class="chips" role="radiogroup" aria-label="Style de boucle">
+              <button
+                v-for="t in THEMES"
+                :key="t.value"
+                type="button"
+                role="radio"
+                :title="t.hint"
+                :aria-checked="theme === t.value"
+                :class="{ on: theme === t.value }"
+                @click="theme = t.value"
+              >
+                <Icon :name="t.icon" :size="18" />{{ t.label }}
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <span>Chemins</span>
+            <div class="count" role="radiogroup" aria-label="Type de chemins">
+              <button
+                v-for="t in TERRAINS"
+                :key="t.value"
+                type="button"
+                role="radio"
+                class="wide"
+                :title="t.hint"
+                :aria-checked="terrain === t.value"
+                :class="{ on: terrain === t.value }"
+                @click="terrain = t.value"
+              >
+                {{ t.label }}
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <span>Nombre de boucles</span>
+            <div class="count" role="radiogroup" aria-label="Nombre de boucles">
+              <button
+                v-for="n in 5"
+                :key="n"
+                type="button"
+                role="radio"
+                :aria-checked="count === n"
+                :class="{ on: count === n }"
+                @click="count = n"
+              >
+                {{ n }}
+              </button>
+            </div>
+          </div>
         </div>
         <button type="button" class="more" :aria-expanded="moreOpen" @click="moreOpen = !moreOpen">
-          {{ groups.length ? `${groups.length} type${groups.length > 1 ? 's' : ''} choisi${groups.length > 1 ? 's' : ''}` : 'Plus de choix' }} {{ moreOpen ? '▴' : '▾' }}
+          {{ groups.length ? `${groups.length} type${groups.length > 1 ? 's' : ''} de lieux choisi${groups.length > 1 ? 's' : ''}` : 'Choisir les types de lieux' }}
+          <Icon name="chevron" :size="16" :class="{ flip: moreOpen }" />
         </button>
         <div v-if="moreOpen" class="groups">
-          <p class="groups-hint">Coche ce que tu veux voir en chemin (rien de coché : tous les lieux du thème).</p>
+          <p class="groups-hint">Coche ce que tu veux voir en chemin (rien de coché : tous les lieux du style choisi).</p>
           <div v-for="cat in visibleCategories" :key="cat" class="group-row">
             <span v-if="visibleCategories.length > 1" class="group-title">{{ cat === 'patrimoine' ? 'Patrimoine' : 'Nature' }}</span>
             <button
@@ -67,97 +108,115 @@
               :aria-pressed="groups.includes(g.id)"
               @click="toggleGroup(g.id)"
             >
-              {{ g.label }}
+              <Icon :name="g.icon" :size="16" />{{ g.label }}
             </button>
           </div>
           <button v-if="groups.length" type="button" class="clear" @click="groups = []">Tout décocher</button>
         </div>
-        <button class="btn" type="submit" :disabled="(!start && !query.trim()) || busy">{{ busy ? 'Recherche…' : 'Proposer des boucles' }}</button>
+        <div class="submit-row">
+          <button v-if="loops.length" class="btn ghost" type="button" @click="formOpen = false">Annuler</button>
+          <button class="btn go" type="submit" :disabled="(!start && !query.trim()) || busy">
+            {{ busy ? 'Recherche…' : loops.length ? 'Relancer' : 'Proposer des boucles' }} <Icon name="arrow" />
+          </button>
+        </div>
       </form>
 
       <p v-if="message" class="notice" :class="{ bad: messageBad }">{{ message }}</p>
 
-      <section class="card map-card">
-        <div class="map-wrap">
-          <LoopMap
-            ref="mapRef"
-            :start="start"
-            :loops="loops"
-            :selected="selected"
-            :track="track"
-            :hover="hoverD"
-            @pick="setStart"
-            @select="selected = $event"
-            @stop="openStop"
-          />
-          <div v-if="!start" class="overlay">Clique sur la carte pour choisir ton départ</div>
-          <div v-if="busy" class="loading"><RunnerLoader /></div>
-        </div>
-      </section>
-
-      <section v-if="shared.length" class="card shared">
-        <h2>👍 Parcours partagés près d'ici</h2>
-        <ul>
-          <li v-for="p in shared" :key="p.id">
-            <Link :href="`/partages/${p.id}`" class="shared-item">
-              <strong>{{ p.name }}</strong>
-              <span class="num">{{ formatKm(p.distance) }} km · +{{ p.gain }} m · {{ p.away < 1000 ? 'départ tout près' : `départ à ${formatKm(p.away)} km` }}</span>
-              <span class="votes num">👍 {{ p.votes }}</span>
-            </Link>
-          </li>
-        </ul>
-      </section>
-
-      <template v-if="loops.length">
-        <div class="results">
-          <button
-            v-for="(loop, i) in loops"
-            :key="i"
-            type="button"
-            class="result card"
-            :class="{ active: i === selected }"
-            @click="selected = i"
-          >
-            <span class="title">Boucle {{ i + 1 }}</span>
-            <span class="meta num">{{ formatKm(loop.distance) }} km · +{{ Math.round(gains[i] ?? 0) }} m</span>
-            <span v-if="surfaceText(loop)" class="surface">{{ surfaceText(loop) }}</span>
-            <span class="places">
-              <template v-if="loop.stops.length">{{ loop.stops.length }} lieu{{ loop.stops.length > 1 ? 'x' : '' }} : {{ loop.stops.map(s => `${kindOf(s).icon} ${s.name}`).join(' · ') }}</template>
-              <template v-else>Pas de lieu remarquable sur ce tour</template>
-            </span>
-          </button>
-        </div>
-
-        <section v-if="current?.stops.length" class="card finish">
-          <template v-if="current?.stops.length">
-            <p class="stops-hint">Les lieux du parcours, dans l'ordre (clique pour en savoir plus) :</p>
-            <ol class="stops">
-              <li v-for="(s, k) in current.stops" :key="s.id">
-                <button type="button" class="stop" :class="[s.category, { on: selectedStop?.id === s.id }]" @click="toggleStop(s)">
-                  <span class="num">{{ k + 1 }}</span>
-                  {{ kindOf(s).icon }} {{ s.name }}
-                  <small>{{ kindOf(s).label }}</small>
+      <div class="layout" :class="{ split: loops.length }">
+        <aside v-if="loops.length" class="side">
+          <template v-for="(loop, i) in loops" :key="i">
+            <article v-if="i === selected" class="loop card active">
+              <header class="loop-head">
+                <h2>Boucle {{ i + 1 }}</h2>
+                <span class="soft">{{ loop.stops.length ? `${loop.stops.length} lieu${loop.stops.length > 1 ? 'x' : ''}` : 'sans lieu remarquable' }}</span>
+              </header>
+              <div class="stats">
+                <div><strong class="num">{{ formatKm(loop.distance) }} km</strong><span>distance</span></div>
+                <div><strong class="num">+{{ Math.round(gains[i] ?? 0) }} m</strong><span>dénivelé</span></div>
+                <template v-if="surfacePct(loop)">
+                  <div><strong class="num">{{ surfacePct(loop)!.trail }} %</strong><span>sentiers</span></div>
+                  <div><strong class="num">{{ surfacePct(loop)!.road }} %</strong><span>routes</span></div>
+                </template>
+              </div>
+              <template v-if="loop.stops.length">
+                <ol class="stops">
+                  <li v-for="(s, k) in visibleStops" :key="s.id">
+                    <button type="button" class="stop" :class="[s.category, { on: selectedStop?.id === s.id }]" :aria-expanded="selectedStop?.id === s.id" @click="toggleStop(s)">
+                      <span class="n">{{ k + 1 }}</span>
+                      <Icon :name="kindOf(s).icon" class="kind-icon" />
+                      <span class="name">{{ s.name }}</span>
+                      <span class="kind">{{ kindOf(s).label }}</span>
+                    </button>
+                  </li>
+                </ol>
+                <button v-if="loop.stops.length > STOPS_SHOWN" type="button" class="more" @click="allStops = !allStops">
+                  {{ allStops ? 'Voir moins de lieux' : `Voir les ${loop.stops.length - STOPS_SHOWN} autres lieux` }}
+                  <Icon name="chevron" :size="16" :class="{ flip: allStops }" />
                 </button>
-              </li>
-            </ol>
-            <div ref="detailRef">
-              <PoiDetail v-if="selectedStop" :poi="selectedStop" @close="selectedStop = null" />
+                <div class="detail-anchor">
+                  <PoiDetail v-if="selectedStop" :poi="selectedStop" @close="selectedStop = null" />
+                </div>
+              </template>
+            </article>
+            <button v-else type="button" class="loop card" @click="selected = i">
+              <span class="loop-head">
+                <span class="title">Boucle {{ i + 1 }}</span>
+                <strong class="num">{{ formatKm(loop.distance) }} km · +{{ Math.round(gains[i] ?? 0) }} m</strong>
+              </span>
+              <span class="preview">
+                <template v-if="loop.stops.length">{{ loop.stops.length }} lieu{{ loop.stops.length > 1 ? 'x' : '' }} · {{ loop.stops.slice(0, 3).map(s => s.name).join(', ') }}{{ loop.stops.length > 3 ? '…' : '' }}</template>
+                <template v-else>Pas de lieu remarquable sur ce tour</template>
+              </span>
+              <span v-if="surfaceText(loop)" class="soft">{{ surfaceText(loop) }}</span>
+            </button>
+          </template>
+        </aside>
+
+        <div class="main">
+          <section class="map-card">
+            <div class="map-wrap">
+              <LoopMap
+                ref="mapRef"
+                :start="start"
+                :loops="loops"
+                :selected="selected"
+                :track="track"
+                :hover="hoverD"
+                @pick="setStart"
+                @select="selected = $event"
+                @stop="openStop"
+              />
+              <div v-if="!start" class="overlay">Clique sur la carte pour choisir ton départ</div>
+              <div v-if="busy" class="loading"><RunnerLoader /></div>
+            </div>
+          </section>
+
+          <template v-if="loops.length">
+            <section v-if="profile" class="card profile">
+              <ElevationProfile v-model:hover="hoverD" :profile="profile" :segments="segments" :markers="stopMarkers" :height="150" />
+            </section>
+            <div class="finish-actions">
+              <button class="btn" type="button" @click="download"><Icon name="download" :size="18" />Télécharger le GPX</button>
+              <button class="btn ghost" type="button" @click="adjust"><Icon name="pencil" :size="18" />Ajuster dans le traceur</button>
+              <button class="btn ghost" type="button" @click="useForPlan">Préparer ma course avec cette boucle <Icon name="arrow" :size="18" /></button>
             </div>
           </template>
-        </section>
 
-        <section v-if="profile" class="card">
-          <ElevationProfile v-model:hover="hoverD" :profile="profile" :segments="segments" :markers="stopMarkers" :height="150" />
-        </section>
-
-        <section class="card finish">
-          <div class="finish-actions">
-            <button class="btn ghost" type="button" @click="download">Télécharger le GPX</button>
-            <button class="btn ghost" type="button" @click="adjust">Ajuster dans le traceur</button>
-            <button class="btn" type="button" @click="useForPlan">Préparer ma course avec cette boucle →</button>
-          </div>
-        </section>
-      </template>
+          <section v-if="shared.length" class="card shared">
+            <h2><Icon name="thumb" />Parcours partagés près d'ici</h2>
+            <ul>
+              <li v-for="p in shared" :key="p.id">
+                <Link :href="`/partages/${p.id}`" class="shared-item">
+                  <strong>{{ p.name }}</strong>
+                  <span class="num">{{ formatKm(p.distance) }} km · +{{ p.gain }} m · {{ p.away < 1000 ? 'départ tout près' : `départ à ${formatKm(p.away)} km` }}</span>
+                  <span class="votes num"><Icon name="thumb" :size="16" />{{ p.votes }}</span>
+                </Link>
+              </li>
+            </ul>
+          </section>
+        </div>
+      </div>
     </div>
   </DefaultLayout>
 </template>
@@ -181,6 +240,8 @@ import { autoBoundaries, computeSegments } from '~/utils/segments'
 import { formatKm } from '~/utils/format'
 import { haversine, toGpx } from '~/utils/gpx'
 import { KIND_GROUPS, kindOf } from '~/utils/places'
+import Icon from '~/components/icon.vue'
+import type { IconName } from '~/utils/icons'
 
 const plan = usePlan()
 const tracer = useTracer()
@@ -190,17 +251,25 @@ const start = ref<LatLon | null>(null)
 /** Nom court du lieu de départ, pour nommer la boucle */
 const placeName = ref('')
 const km = ref(10)
-/** Nombre de boucles demandées (3 par défaut, de 1 à 6) */
+/** Nombre de boucles demandées (3 par défaut, de 1 à 5) */
 const count = ref(3)
 
+function stepKm(delta: number) {
+  km.value = Math.min(40, Math.max(3, Math.round(km.value || 10) + delta))
+}
+
+/** Formulaire déplié ; il se replie en résumé une fois les boucles calculées */
+const formOpen = ref(true)
+
 type Theme = 'tout' | 'patrimoine' | 'nature'
-const THEMES: { value: Theme, label: string }[] = [
-  { value: 'tout', label: 'Tout' },
-  { value: 'patrimoine', label: '🏛️ Patrimoine' },
-  { value: 'nature', label: '🌿 Nature' },
+const THEMES: { value: Theme, label: string, icon: IconName, hint: string }[] = [
+  { value: 'tout', label: 'Équilibrée', icon: 'route', hint: 'Monuments et nature : le plus beau du coin' },
+  { value: 'nature', label: 'Nature', icon: 'leaf', hint: 'Cascades, sommets, points de vue, parcs…' },
+  { value: 'patrimoine', label: 'Patrimoine', icon: 'landmark', hint: 'Châteaux, églises, musées, vieilles rues…' },
 ]
 /** Lieux à voir sur les boucles : tous, ou seulement le patrimoine / la nature */
 const theme = ref<Theme>('tout')
+const themeInfo = computed(() => THEMES.find(t => t.value === theme.value)!)
 
 // --- « Plus de choix » : familles de lieux précises (cascades, grottes, châteaux…) ---
 const moreOpen = ref(false)
@@ -221,10 +290,11 @@ const kinds = computed(() => KIND_GROUPS.filter(g => groups.value.includes(g.id)
 const TERRAINS: { value: Terrain, label: string, hint: string }[] = [
   { value: 'route', label: 'Route', hint: 'Plutôt du bitume, pour une allure régulière' },
   { value: 'mixte', label: 'Mixte', hint: 'Chemins et petites rues, sans les grandes routes' },
-  { value: 'sentiers', label: '🥾 Sentiers', hint: 'Le plus de sentiers possible, quitte à faire un détour' },
+  { value: 'sentiers', label: 'Sentiers', hint: 'Le plus de sentiers possible, quitte à faire un détour' },
 ]
 /** Type de chemins voulu ; toutes les options évitent les routes à circulation */
 const terrain = ref<Terrain>('mixte')
+const terrainInfo = computed(() => TERRAINS.find(t => t.value === terrain.value)!)
 
 /** « 65 % sentiers · 3 % grandes routes » (grandes routes masquées sous 1 %) */
 function surfaceText(loop: Loop): string {
@@ -233,6 +303,12 @@ function surfaceText(loop: Loop): string {
   const pct = (x: number) => Math.round((100 * x) / total)
   return [`${pct(trail)} % sentiers`, pct(bigRoad) >= 1 ? `${pct(bigRoad)} % grandes routes` : ''].filter(Boolean).join(' · ')
 }
+/** Part de sentiers et de grandes routes, en %, pour les chiffres de la boucle choisie */
+function surfacePct(loop: Loop): { trail: number, road: number } | null {
+  const { total, trail, bigRoad } = loop.surface
+  return total ? { trail: Math.round((100 * trail) / total), road: Math.round((100 * bigRoad) / total) } : null
+}
+
 const loops = ref<Loop[]>([])
 const selected = ref(0)
 const hoverD = ref<number | null>(null)
@@ -244,9 +320,18 @@ const current = computed(() => loops.value[selected.value] ?? null)
 
 // --- Fiche d'un lieu ---
 const selectedStop = ref<Poi | null>(null)
-const detailRef = ref<HTMLElement>()
-// Une autre boucle n'a pas les mêmes lieux : on referme la fiche
-watch([loops, selected], () => (selectedStop.value = null))
+/** Au-delà, les lieux de la boucle se déplient sur demande */
+const STOPS_SHOWN = 6
+const allStops = ref(false)
+const visibleStops = computed(() => {
+  const stops = current.value?.stops ?? []
+  return allStops.value ? stops : stops.slice(0, STOPS_SHOWN)
+})
+// Une autre boucle n'a pas les mêmes lieux : on referme la fiche et la liste
+watch([loops, selected], () => {
+  selectedStop.value = null
+  allStops.value = false
+})
 
 function toggleStop(poi: Poi) {
   selectedStop.value = selectedStop.value?.id === poi.id ? null : poi
@@ -255,8 +340,10 @@ function toggleStop(poi: Poi) {
 /** Clic sur un lieu de la carte : ouvre sa fiche sous la liste */
 async function openStop(poi: Poi) {
   selectedStop.value = poi
+  // Lieu caché dans la liste repliée : on la déplie pour qu'il soit visible au-dessus de sa fiche
+  if (!visibleStops.value.some(s => s.id === poi.id)) allStops.value = true
   await nextTick()
-  detailRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  document.querySelector('.detail-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
 }
 const loopName = computed(() => `Boucle découverte${placeName.value ? ` – ${placeName.value}` : ''} (${Math.round(km.value)} km)`)
 const tracks = computed(() => loops.value.map(l => loopTrack(l, loopName.value)))
@@ -289,7 +376,7 @@ const stopMarkers = computed(() => {
     }
     if (best < 0) return []
     from = best
-    return [{ d: points[best]!.d, label: `${k + 1} ${kindOf(stop).icon}` }]
+    return [{ d: points[best]!.d, label: String(k + 1) }]
   })
 })
 
@@ -417,6 +504,7 @@ async function propose() {
   try {
     loops.value = await generateLoops(start.value, target, pois, count.value, { terrain: terrain.value })
     selected.value = 0
+    if (loops.value.length) formOpen.value = false
     // Les nouvelles boucles n'arrivent à la carte qu'au rendu suivant
     nextTick(() => mapRef.value?.fitLoops())
     if (poisFailed) showError('Les lieux à voir sont indisponibles pour le moment : voici des boucles sans étapes.')
@@ -435,7 +523,7 @@ async function propose() {
   }
 }
 
-// --- Arrivée depuis l'accueil (?depart=Dole, ?position=1 ou ?lat=…&lon=…, avec &km=10) : on enchaîne tout seul ---
+// --- Arrivée depuis l'accueil (?depart=Dole, ?position=1 ou ?lat=…&lon=…, avec &km=10, &n=3, &style=nature) : on enchaîne tout seul ---
 onMounted(async () => {
   const params = new URLSearchParams(window.location.search)
   const lat = Number(params.get('lat'))
@@ -444,6 +532,10 @@ onMounted(async () => {
   if (!params.has('depart') && !params.has('position') && !fromPoint) return
   const wanted = Number(params.get('km'))
   if (wanted) km.value = Math.min(40, Math.max(3, Math.round(wanted)))
+  const wantedCount = Number(params.get('n'))
+  if (wantedCount) count.value = Math.min(5, Math.max(1, Math.round(wantedCount)))
+  const style = params.get('style')
+  if (style === 'nature' || style === 'patrimoine') theme.value = style
   // L'adresse redevient /boucles : recharger la page ne relance pas le calcul
   history.replaceState(history.state, '', '/boucles')
   if (params.has('position')) return onLocate(propose)
@@ -492,36 +584,103 @@ function useForPlan() {
 </script>
 
 <style scoped>
-.loops { display: flex; flex-direction: column; gap: 16px; }
-.head h1 { font-size: 2.2rem; }
+.loops { display: flex; flex-direction: column; gap: 18px; }
+.head h1 { font-size: 2.6rem; font-weight: 700; }
 .head .hint { color: var(--text-soft); }
 
-.controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px; }
-.search { display: flex; gap: 6px; flex: 1 1 360px; min-width: 0; }
-.search .place { flex: 1; }
-.distance { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; color: var(--text-soft); }
-.distance input { width: 70px; text-align: center; }
-.distance select { font: inherit; padding: 6px 8px; }
-.themes { display: flex; border: 1px solid var(--border-strong); border-radius: 999px; overflow: hidden; }
-.themes button { font: inherit; font-size: 0.85rem; font-weight: 600; padding: 6px 12px; background: var(--panel); color: var(--text-soft); border: none; cursor: pointer; }
-.themes button + button { border-left: 1px solid var(--border-strong); }
-.themes button.on { background: var(--forest); color: #fff; }
-.more { font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--forest); background: none; border: none; cursor: pointer; padding: 4px 2px; }
+/* --- Formulaire (mêmes champs que l'accueil) --- */
+.controls { display: flex; flex-direction: column; gap: 16px; padding: 20px; border-radius: 20px; }
+.row { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > span { font-size: 0.82rem; font-weight: 600; color: var(--text-soft); }
+.field.start { flex: 999 1 340px; min-width: 0; }
+.field.distance { flex: 1 1 200px; }
+.box { display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 6px 0 14px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--panel-2); }
+.box:focus-within { border-color: var(--forest); }
+.box-icon { color: var(--forest); }
+.box .place { flex: 1; }
+.box .place :deep(input) { border: none; background: transparent; font-size: 1rem; padding: 12px 0; outline: none; width: 100%; }
+.square { flex: none; width: 38px; height: 38px; display: grid; place-items: center; border: none; border-radius: 10px; background: var(--forest-soft); color: var(--forest); font: inherit; font-size: 1.35rem; line-height: 1; cursor: pointer; }
+.square:hover { background: #d3e2d8; }
+.square:disabled { opacity: 0.4; cursor: not-allowed; }
+.stepper { justify-content: space-between; padding: 0 6px; }
+.km { display: flex; align-items: baseline; gap: 4px; font-weight: 500; color: var(--text-soft); }
+.km input { width: 3ch; border: none; background: transparent; padding: 0; text-align: right; font-size: 1.25rem; font-weight: 600; color: var(--text); outline: none; -moz-appearance: textfield; appearance: textfield; }
+.km input::-webkit-inner-spin-button, .km input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 15px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel); font: inherit; font-size: 0.93rem; color: var(--text); cursor: pointer; }
+.chips button:hover { border-color: var(--forest); }
+.chips button.on { background: var(--forest); border-color: var(--forest); color: #fff; font-weight: 600; }
+.count { display: flex; padding: 3px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel-2); }
+.count button { min-width: 40px; height: 36px; padding: 0 4px; border: none; border-radius: 999px; background: transparent; font: inherit; font-size: 0.93rem; color: var(--text); cursor: pointer; }
+.count button.wide { padding: 0 14px; }
+.count button.on { background: var(--forest); color: #fff; font-weight: 600; }
+.more { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--forest); background: none; border: none; cursor: pointer; padding: 2px; }
 .more:hover { text-decoration: underline; }
-.groups { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--panel-2); border-radius: var(--radius-sm); }
+.flip { transform: rotate(180deg); }
+.groups { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--panel-2); border-radius: 12px; }
 .groups-hint { font-size: 0.82rem; color: var(--text-soft); }
 .group-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.group-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); min-width: 84px; }
-.chip { font: inherit; font-size: 0.84rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text); cursor: pointer; }
+.group-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); min-width: 84px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 0.85rem; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text); cursor: pointer; }
 .chip.on { background: var(--forest); border-color: var(--forest); color: #fff; }
 .clear { align-self: flex-start; font: inherit; font-size: 0.8rem; color: var(--text-soft); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; }
-.controls .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.submit-row { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.go { height: 50px; padding: 0 24px; font-size: 1.02rem; border-radius: 12px; gap: 10px; }
+.go:disabled { opacity: 0.5; cursor: not-allowed; }
+.submit-row .ghost { height: 50px; padding: 0 20px; border-radius: 12px; }
+
+/* --- Résumé de la recherche, une fois les boucles affichées --- */
+.summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border-radius: 16px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); font-weight: 600; }
+.pill.strong { flex: 1 1 200px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pill.strong .icon { color: var(--forest); }
+.pill.tone { background: var(--forest-soft); border-color: var(--forest-soft); color: var(--forest); }
+.summary .btn { height: 40px; padding: 0 16px; border-radius: 10px; }
 
 .notice { font-size: 0.9rem; color: var(--text-soft); }
 .notice.bad { color: var(--bad); }
 
-.map-card { padding: 12px; }
+/* --- Boucles à gauche, carte à droite --- */
+.layout { display: flex; flex-direction: column; gap: 14px; }
+.layout.split { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 20px; }
+.side { flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.main { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 920px) { .layout.split .main { order: -1; } }
+
+.loop { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; border-radius: 18px; font: inherit; text-align: left; color: var(--text); }
+button.loop { cursor: pointer; }
+button.loop:hover { border-color: var(--border-strong); }
+.loop.active { gap: 14px; border: 2px solid var(--accent); }
+.loop-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.loop-head h2 { margin: 0; font-size: 1.7rem; font-weight: 700; color: var(--accent-strong); }
+.loop-head .title { font-family: 'Barlow Condensed', sans-serif; font-size: 1.45rem; font-weight: 700; }
+.soft { font-size: 0.84rem; color: var(--text-soft); }
+.preview { font-size: 0.9rem; color: var(--text-soft); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.stats > div { display: flex; flex-direction: column; padding: 8px 9px; border-radius: 10px; background: var(--bg); }
+.stats strong { font-size: 1.05rem; }
+.stats span { font-size: 0.75rem; color: var(--text-soft); }
+.stops { list-style: none; display: flex; flex-direction: column; }
+.stops li + li { border-top: 1px solid var(--border); }
+.stop { width: 100%; display: flex; align-items: center; gap: 11px; padding: 9px 4px; border: none; border-radius: 8px; background: none; font: inherit; text-align: left; color: var(--text); cursor: pointer; }
+.stop:hover, .stop.on { background: var(--panel-2); }
+.stop .n { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--accent); color: var(--accent-strong); font-size: 0.75rem; font-weight: 700; }
+.stop.nature .n { border-color: #2f7d4f; color: #2f7d4f; }
+.kind-icon { color: var(--forest); }
+/* Fiche du lieu dans la colonne des boucles : la photo passe au-dessus du texte */
+.detail-anchor :deep(.detail) { flex-direction: column; margin-top: 4px; }
+.detail-anchor :deep(.photo) { width: 100%; height: 170px; }
+.stop .name { flex: 1; min-width: 0; font-weight: 500; }
+.stop .kind { flex: none; font-size: 0.76rem; color: var(--text-soft); }
+@media (max-width: 480px) {
+  .stop .kind { display: none; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.map-card { border-radius: 18px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow); background: var(--panel); }
 .map-wrap { position: relative; height: 58vh; min-height: 380px; }
+.layout.split .map-wrap { height: 540px; }
 .loading { position: absolute; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.35); pointer-events: none; }
 .overlay {
   position: absolute;
@@ -538,27 +697,12 @@ function useForPlan() {
   pointer-events: none;
   white-space: nowrap;
 }
+.profile { padding: 12px 14px; border-radius: 18px; }
+.finish-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.finish-actions .btn { padding: 11px 18px; border-radius: 12px; font-size: 0.93rem; }
 
-.results { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
-.result {
-  font: inherit;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  cursor: pointer;
-  border: 2px solid transparent;
-  color: var(--text);
-}
-.result.active { border-color: var(--accent); }
-.result .title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.3rem; }
-.result.active .title { color: var(--accent); }
-.result .meta { font-weight: 600; }
-.result .surface { font-size: 0.82rem; font-weight: 600; color: var(--forest); }
-.result .places { font-size: 0.85rem; color: var(--text-soft); }
-
-.shared { display: flex; flex-direction: column; gap: 8px; }
-.shared h2 { font-size: 1.25rem; }
+.shared { display: flex; flex-direction: column; gap: 8px; border-radius: 18px; }
+.shared h2 { display: flex; align-items: center; gap: 8px; font-size: 1.35rem; margin: 0; }
 .shared ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .shared-item {
   display: grid;
@@ -573,45 +717,11 @@ function useForPlan() {
 .shared-item:hover { border-color: var(--accent); }
 .shared-item strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shared-item span { font-size: 0.85rem; color: var(--text-soft); }
-.shared-item .votes { grid-row: 1 / 3; grid-column: 2; align-self: center; font-weight: 700; color: var(--forest); font-size: 0.95rem; }
-
-.finish { display: flex; flex-direction: column; gap: 12px; }
-.stops-hint { font-size: 0.85rem; color: var(--text-soft); }
-.stops { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
-.stop {
-  font: inherit;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px 5px 5px;
-  text-align: left;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: var(--panel);
-  color: var(--text);
-  cursor: pointer;
-}
-.stop:hover, .stop.on { border-color: var(--accent); }
-.stop.nature:hover, .stop.nature.on { border-color: var(--forest); }
-.stop .num {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid #e2672b;
-  color: #e2672b;
-  font-size: 0.72rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.stop.nature .num { border-color: #2f7d4f; color: #2f7d4f; }
-.stop small { color: var(--text-soft); font-size: 0.78rem; }
-.finish-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.shared-item .votes { grid-row: 1 / 3; grid-column: 2; align-self: center; display: flex; align-items: center; gap: 5px; font-weight: 700; color: var(--forest); font-size: 0.95rem; }
 
 @media (max-width: 640px) {
-  .map-wrap { height: 50vh; min-height: 300px; }
-  .controls > .btn { flex: 1 1 100%; }
+  .controls { padding: 16px; }
+  .go { flex: 1 1 100%; justify-content: center; }
+  .map-wrap, .layout.split .map-wrap { height: 50vh; min-height: 300px; }
 }
 </style>

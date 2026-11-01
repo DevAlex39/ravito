@@ -8,7 +8,7 @@ import PoiCell from '#models/poi_cell'
 export const CELL = 0.05
 /** Un secteur est redemandé à OpenStreetMap au bout de ce délai */
 const CELL_TTL_DAYS = 30
-const USER_AGENT = 'AlpaS/0.1 (https://alpastudio.fr)'
+const USER_AGENT = 'Alpast/0.1 (https://alpastudio.fr)'
 // Serveurs publics essayés dans l'ordre (à remplacer par une instance sur le VPS si le volume augmente)
 const OVERPASS = [
   'https://overpass-api.de/api/interpreter',
@@ -217,6 +217,7 @@ async function fetchOverpass([s, w, n, e]: Bbox): Promise<OverpassElement[]> {
   const query = `[out:json][timeout:45];
 (
   nwr["tourism"~"^(attraction|viewpoint|museum|gallery)$"]["name"]${b};
+  nwr["tourism"="viewpoint"]${b};
   nwr["historic"~"^(castle|monument|ruins|city_gate|fort|archaeological_site|manor|tower|church|cathedral|palace|building|memorial)$"]["name"]["wikidata"]${b};
   nwr["amenity"="place_of_worship"]["name"]["wikidata"]${b};
   nwr["leisure"~"^(park|garden)$"]["name"]["wikidata"]${b};
@@ -290,6 +291,8 @@ const GENERIC_NAME = /^(demeure|maison|immeuble|bâtiment|batiment|édifice|edif
 
 /** Mêmes critères que la requête Overpass : utilisés tels quels pour l'import d'un extrait OSM */
 function isWanted(t: Record<string, string>): boolean {
+  // Belvédères : la plupart n'ont pas de nom dans OpenStreetMap (surtout hors des Alpes), ils restent un vrai but
+  if (t.tourism === 'viewpoint' && !t.name) return true
   if (!t.name || GENERIC_NAME.test(t.name.trim())) return false
   if (/^(attraction|viewpoint|museum|gallery)$/.test(t.tourism ?? '')) return true
   if (NATURE_NAMED.test(t.natural ?? '') || t.waterway === 'waterfall') return true
@@ -323,7 +326,9 @@ export function toPoi(el: OverpassElement): NewPoi | null {
   if (!isWanted(t)) return null
   const lat = el.lat ?? el.center?.lat
   const lon = el.lon ?? el.center?.lon
-  if (!t.name || lat == null || lon == null) return null
+  // Seul un belvédère peut être sans nom (voir isWanted)
+  const name = t['name:fr'] ?? t.name ?? (t.tourism === 'viewpoint' ? 'Point de vue' : null)
+  if (!name || lat == null || lon == null) return null
   const heritage = heritageBonus(t)
   const kind = (t.historic && !/^(building|church|yes)$/.test(t.historic) ? t.historic : null)
     ?? naturalKind(t)
@@ -338,7 +343,7 @@ export function toPoi(el: OverpassElement): NewPoi | null {
     kind: kind ?? 'lieu',
     heritage,
     osmKey: `${el.type[0]}${el.id}`,
-    name: t['name:fr'] ?? t.name,
+    name,
     lat,
     lon,
     wikidata: /^Q\d+$/.test(t.wikidata ?? '') ? t.wikidata! : null,

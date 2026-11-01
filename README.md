@@ -1,4 +1,4 @@
-# AlpaS
+# Alpast
 
 > Le nom est défini à un seul endroit : `inertia/brand.ts`.
 
