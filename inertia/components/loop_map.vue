@@ -57,7 +57,7 @@ onMounted(async () => {
   map = L.map(el.value!, { doubleClickZoom: false })
   const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | lieux <a href="https://www.wikidata.org">Wikidata</a> | itinéraires <a href="https://brouter.de">BRouter</a>',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | lieux <a href="https://www.wikidata.org">Wikidata</a>, <a href="https://geoservices.ign.fr/bdtopo">IGN</a> | itinéraires <a href="https://brouter.de">BRouter</a>',
   })
   const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
     maxZoom: 17,

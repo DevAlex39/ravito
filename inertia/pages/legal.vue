@@ -63,6 +63,7 @@
           <li>Fond topographique : © <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a>, CC BY-SA.</li>
           <li>Itinéraires : <a href="https://brouter.de" target="_blank" rel="noopener">BRouter</a> (logiciel libre, licence MIT), hébergé par nos soins.</li>
           <li>Notoriété des lieux : <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a> (CC0). Résumés : Wikipédia (CC BY-SA). Photos : Wikimedia Commons, auteur et licence indiqués sous chaque photo.</li>
+          <li>Lieux complémentaires (belvédères, mégalithes, grottes, cascades, lavoirs… absents d'OpenStreetMap) : <a href="https://geoservices.ign.fr/bdtopo" target="_blank" rel="noopener">IGN, BD TOPO</a>, Licence Ouverte 2.0.</li>
           <li>Adresses : <a href="https://adresse.data.gouv.fr" target="_blank" rel="noopener">Base Adresse Nationale</a> et Géoplateforme IGN, Licence Ouverte 2.0.</li>
           <li>Carte interactive : <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a> (licence BSD).</li>
         </ul>

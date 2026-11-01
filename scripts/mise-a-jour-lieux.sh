@@ -3,6 +3,7 @@
 #   1. retélécharge la carte de France si Geofabrik en a une plus récente
 #   2. en extrait les lieux candidats (patrimoine + nature) et les points d'eau / toilettes ; le tri fin est fait par l'import
 #   3. les importe en base : notoriété Wikidata des seuls nouveaux lieux, suppression des lieux disparus
+#   4. complète avec les lieux de la BD TOPO de l'IGN qu'OpenStreetMap n'a pas (belvédères, mégalithes, lavoirs…)
 # Sur le serveur, ~/alpas-data/mise-a-jour.sh est un lien vers ce fichier.
 set -euo pipefail
 cd ~/alpas-data
@@ -33,4 +34,6 @@ nvm use 24 >/dev/null
 set -u
 cd /var/www/alpas/build
 nice node ace import:lieux ~/alpas-data/lieux.geojsonseq ~/alpas-data/france.poly "$@"
+# Lieux de l'IGN absents d'OpenStreetMap (après l'import OSM : les doublons sont écartés par rapport à lui)
+nice node ace import:ign
 echo "=== $(date "+%Y-%m-%d %H:%M") fin"

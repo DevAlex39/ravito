@@ -73,7 +73,8 @@ export default class ImportLieux extends BaseCommand {
    */
   private async deleteStale(startedAt: Date, imported: number) {
     const knex = db.connection().getWriteClient()
-    const [{ total }] = await knex.from('pois').count({ total: '*' }) as { total: number }[]
+    // Lieux OpenStreetMap seulement : ceux de l'IGN ont leur propre import (import:ign)
+    const [{ total }] = await knex.from('pois').whereNot('osm_key', 'like', 'ign:%').count({ total: '*' }) as { total: number }[]
     if (imported < Number(total) * 0.7) {
       this.logger.warning(`Seulement ${imported} lieux importés pour ${total} en base : suppression des anciens lieux annulée par prudence`)
       return
@@ -81,7 +82,7 @@ export default class ImportLieux extends BaseCommand {
     const [result] = await knex.raw(
       `DELETE p FROM pois p
        JOIN poi_cells c ON c.cell = CONCAT(FLOOR(p.lat / ?), ':', FLOOR(p.lon / ?))
-       WHERE c.source = 'import' AND p.updated_at < ?`,
+       WHERE c.source = 'import' AND p.updated_at < ? AND p.osm_key NOT LIKE 'ign:%'`,
       [CELL, CELL, startedAt],
     ) as [{ affectedRows: number }]
     this.logger.success(`${result.affectedRows} lieux disparus de la carte supprimés`)

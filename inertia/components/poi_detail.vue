@@ -20,8 +20,9 @@
       <p v-else class="soft">Pas de description disponible pour ce lieu.</p>
       <div v-if="details" class="links">
         <a v-if="details.wikipedia" :href="details.wikipedia" target="_blank" rel="noopener">Lire sur Wikipédia ↗</a>
-        <a :href="details.osm" target="_blank" rel="noopener">Voir sur OpenStreetMap ↗</a>
+        <a v-if="details.osm" :href="details.osm" target="_blank" rel="noopener">Voir sur OpenStreetMap ↗</a>
       </div>
+      <p v-if="details?.fromIgn" class="source">Lieu : IGN, BD TOPO, Licence Ouverte 2.0</p>
     </div>
   </article>
 </template>

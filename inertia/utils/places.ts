@@ -95,7 +95,10 @@ export interface PlaceDetails {
   /** Le texte vient du résumé Wikipédia (licence CC BY-SA, à citer) */
   fromWikipedia: boolean
   wikipedia: string | null
-  osm: string
+  /** Lien vers l'objet OpenStreetMap ; null pour un lieu venu de l'IGN */
+  osm: string | null
+  /** Lieu venu de la BD TOPO de l'IGN (à créditer) */
+  fromIgn: boolean
 }
 
 export interface PhotoCredit {
@@ -144,12 +147,13 @@ export function placeDetails(poi: Pick<Poi, 'wikidata' | 'osmKey'>): Promise<Pla
 }
 
 function osmUrl(osmKey: string) {
+  if (osmKey.startsWith('ign:')) return null
   const type = { n: 'node', w: 'way', r: 'relation' }[osmKey[0]!] ?? 'node'
   return `https://www.openstreetmap.org/${type}/${osmKey.slice(1)}`
 }
 
 async function loadDetails({ wikidata, osmKey }: Pick<Poi, 'wikidata' | 'osmKey'>): Promise<PlaceDetails> {
-  const details: PlaceDetails = { description: null, image: null, credit: null, fromWikipedia: false, wikipedia: null, osm: osmUrl(osmKey) }
+  const details: PlaceDetails = { description: null, image: null, credit: null, fromWikipedia: false, wikipedia: null, osm: osmUrl(osmKey), fromIgn: osmKey.startsWith('ign:') }
   if (!wikidata) return details
   try {
     // origin=* : autorise l'appel depuis le navigateur
