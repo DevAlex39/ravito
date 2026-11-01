@@ -78,8 +78,12 @@ const FAMILY: Record<string, string> = {
 const SAME_PLACE = 150
 /** Les sommets sont placés moins précisément d'une source à l'autre */
 const SAME_PEAK = 250
-/** Même nom à moins de 500 m : même lieu, quel que soit le type */
-const SAME_NAME = 500
+/** Même nom à moins d'1 km : même lieu, quel que soit le type */
+const SAME_NAME = 1000
+/** Un sommet IGN nomme souvent toute la colline : son point peut être loin de celui d'OpenStreetMap */
+const SAME_PEAK_NAME = 2000
+/** Noms donnés faute de mieux : deux « Lavoir » voisins sont bien deux lavoirs */
+const GENERIC = new Set(['lavoir', 'point de vue', 'belvedere', 'table d orientation', 'megalithe'])
 
 /**
  * Complète les lieux OpenStreetMap avec la BD TOPO de l'IGN (Licence Ouverte 2.0) : belvédères, mégalithes,
@@ -226,18 +230,20 @@ class Grid {
     else this.cells.set(key, [p])
   }
 
-  /** Un lieu déjà là : même famille tout près, ou même nom à moins de 500 m */
+  /** Un lieu déjà là : même famille tout près, ou même nom (pas générique) dans les environs */
   hasTwin(c: Place): boolean {
     const family = FAMILY[c.kind]
     const name = normalize(c.name)
+    const sameName = GENERIC.has(name) ? 0 : family === 'sommet' ? SAME_PEAK_NAME : SAME_NAME
     const i = Math.floor(c.lat * 100)
     const j = Math.floor(c.lon * 100)
-    for (let di = -1; di <= 1; di++) {
-      for (let dj = -1; dj <= 1; dj++) {
+    // Cases de ~1 km : 3 de chaque côté couvrent les 2 km du cas le plus large
+    for (let di = -3; di <= 3; di++) {
+      for (let dj = -3; dj <= 3; dj++) {
         for (const p of this.cells.get(`${i + di}:${j + dj}`) ?? []) {
           const d = distance(c, p)
           if (family && FAMILY[p.kind] === family && d < (family === 'sommet' ? SAME_PEAK : SAME_PLACE)) return true
-          if (d < SAME_NAME && normalize(p.name) === name) return true
+          if (d < sameName && normalize(p.name) === name) return true
         }
       }
     }
@@ -246,7 +252,7 @@ class Grid {
 }
 
 function normalize(name: string): string {
-  return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  return name.normalize('NFD').replace(/[\u0300-\u036F]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
 function distance(a: { lat: number, lon: number }, b: { lat: number, lon: number }): number {
