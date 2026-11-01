@@ -1,6 +1,13 @@
 <template>
   <article class="detail" :class="poi.category">
-    <img v-if="details?.image" :src="details.image" :alt="poi.name" class="photo" loading="lazy" @error="details.image = null">
+    <figure v-if="details?.image" class="figure">
+      <img :src="details.image" :alt="poi.name" class="photo" loading="lazy" @error="details.image = null">
+      <figcaption v-if="details.credit">
+        <a :href="details.credit.page" target="_blank" rel="noopener" :title="'Photo : ' + [details.credit.author, details.credit.license].filter(Boolean).join(' · ')">
+          Photo{{ details.credit.author ? ` : ${details.credit.author}` : '' }}{{ details.credit.license ? ` · ${details.credit.license}` : ' · Wikimedia Commons' }}
+        </a>
+      </figcaption>
+    </figure>
     <div class="body">
       <header>
         <span class="kind"><Icon :name="kind.icon" :size="16" /> {{ kind.label }}</span>
@@ -9,6 +16,7 @@
       <h3>{{ poi.name }}</h3>
       <p v-if="!details" class="soft">Chargement…</p>
       <p v-else-if="details.description" class="text">{{ details.description }}</p>
+      <p v-if="details?.description && details.fromWikipedia" class="source">Texte : Wikipédia, licence CC BY-SA</p>
       <p v-else class="soft">Pas de description disponible pour ce lieu.</p>
       <div v-if="details" class="links">
         <a v-if="details.wikipedia" :href="details.wikipedia" target="_blank" rel="noopener">Lire sur Wikipédia ↗</a>
@@ -49,7 +57,12 @@ watch(() => props.poi, async (poi) => {
   background: var(--panel);
 }
 .detail.nature { border-left-color: var(--forest); }
-.photo { width: 180px; height: 135px; object-fit: cover; border-radius: var(--radius-sm); flex-shrink: 0; }
+.figure { flex-shrink: 0; width: 180px; margin: 0; display: flex; flex-direction: column; gap: 3px; }
+.photo { width: 180px; height: 135px; object-fit: cover; border-radius: var(--radius-sm); }
+figcaption { font-size: 0.68rem; line-height: 1.3; color: var(--text-dim); }
+figcaption a { color: inherit; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+figcaption a:hover { text-decoration: underline; }
+.source { font-size: 0.72rem; color: var(--text-dim); }
 .body { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .kind { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: var(--text-soft); }
@@ -62,6 +75,7 @@ h3 { font-size: 1.15rem; }
 
 @media (max-width: 640px) {
   .detail { flex-direction: column; }
-  .photo { width: 100%; height: 180px; }
+  .figure, .photo { width: 100%; }
+  .photo { height: 180px; }
 }
 </style>

@@ -5,6 +5,7 @@ export interface ApiDefinition {
   home: typeof routes['home']
   tracer: typeof routes['tracer']
   loops: typeof routes['loops']
+  legal: typeof routes['legal']
   pois: {
     around: typeof routes['pois.around']
     amenities: typeof routes['pois.amenities']

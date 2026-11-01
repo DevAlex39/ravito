@@ -90,8 +90,48 @@ export interface PlaceDetails {
   description: string | null
   /** Miniature (Wikimedia Commons) */
   image: string | null
+  /** Auteur et licence de la photo, à afficher avec elle (obligation des licences Creative Commons) */
+  credit: PhotoCredit | null
+  /** Le texte vient du résumé Wikipédia (licence CC BY-SA, à citer) */
+  fromWikipedia: boolean
   wikipedia: string | null
   osm: string
+}
+
+export interface PhotoCredit {
+  author: string | null
+  license: string | null
+  /** Page du fichier sur Wikimedia Commons (auteur complet, licence, original) */
+  page: string
+}
+
+/** Nom du fichier Commons d'une miniature (« …/thumb/a/ab/Pont.jpg/320px-Pont.jpg » → « Pont.jpg ») */
+function commonsFile(url: string): string | null {
+  const m = url.match(/\/commons\/(?:thumb\/)?[0-9a-f]\/[0-9a-f]{2}\/([^/]+)/)
+  return m ? decodeURIComponent(m[1]!) : null
+}
+
+/** Auteur et licence d'un fichier Commons ; sans réponse, le lien vers sa page suffit à créditer */
+async function photoCredit(file: string): Promise<PhotoCredit> {
+  const title = `File:${file.replace(/ /g, '_')}`
+  const credit: PhotoCredit = { author: null, license: null, page: `https://commons.wikimedia.org/wiki/${encodeURIComponent(title)}` }
+  try {
+    const json = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=imageinfo&iiprop=extmetadata&format=json&origin=*`)
+      .then(r => r.json()) as { query?: { pages?: Record<string, { imageinfo?: { extmetadata?: Record<string, { value?: string }> }[] }> } }
+    const meta = Object.values(json.query?.pages ?? {})[0]?.imageinfo?.[0]?.extmetadata
+    // L'auteur est souvent un lien HTML : on n'en garde que le texte
+    const text = (html?: string) => {
+      if (!html) return null
+      const doc = new DOMParser().parseFromString(html, 'text/html')
+      return doc.body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 80) || null
+    }
+    credit.author = text(meta?.Artist?.value)
+    credit.license = text(meta?.LicenseShortName?.value)
+  }
+  catch {
+    // Commons injoignable : on garde le lien vers la page du fichier
+  }
+  return credit
 }
 
 const cache = new Map<string, Promise<PlaceDetails>>()
@@ -109,7 +149,7 @@ function osmUrl(osmKey: string) {
 }
 
 async function loadDetails({ wikidata, osmKey }: Pick<Poi, 'wikidata' | 'osmKey'>): Promise<PlaceDetails> {
-  const details: PlaceDetails = { description: null, image: null, wikipedia: null, osm: osmUrl(osmKey) }
+  const details: PlaceDetails = { description: null, image: null, credit: null, fromWikipedia: false, wikipedia: null, osm: osmUrl(osmKey) }
   if (!wikidata) return details
   try {
     // origin=* : autorise l'appel depuis le navigateur
@@ -124,6 +164,7 @@ async function loadDetails({ wikidata, osmKey }: Pick<Poi, 'wikidata' | 'osmKey'
     const entity = json.entities?.[wikidata]
     details.description = entity?.descriptions?.fr?.value ?? null
     const file = entity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value
+    let photoFile: string | null = file ?? null
     if (file) details.image = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file)}?width=480`
 
     const article = entity?.sitelinks?.frwiki
@@ -132,9 +173,18 @@ async function loadDetails({ wikidata, osmKey }: Pick<Poi, 'wikidata' | 'osmKey'
       // Le résumé de l'article est plus parlant que la courte description Wikidata
       const summary = await fetch(`https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(article.title)}`)
         .then(r => (r.ok ? r.json() : null)) as { extract?: string, thumbnail?: { source: string } } | null
-      if (summary?.extract) details.description = summary.extract
-      details.image ??= summary?.thumbnail?.source ?? null
+      if (summary?.extract) {
+        details.description = summary.extract
+        details.fromWikipedia = true
+      }
+      if (!details.image && summary?.thumbnail?.source) {
+        details.image = summary.thumbnail.source
+        photoFile = commonsFile(summary.thumbnail.source)
+      }
     }
+    // Photo sans fichier Commons identifiable (rare) : on ne l'affiche pas faute de pouvoir la créditer
+    if (details.image && !photoFile) details.image = null
+    if (photoFile) details.credit = await photoCredit(photoFile)
   }
   catch {
     // Wikipédia injoignable : la fiche garde le nom, le type et le lien OpenStreetMap

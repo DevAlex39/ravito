@@ -27,7 +27,8 @@
     </main>
     <footer class="screen-only">
       <div class="container">
-        {{ APP_NAME }} · sans compte, tes fichiers restent dans ton navigateur · fonds de carte © OpenStreetMap / OpenTopoMap
+        {{ APP_NAME }} · sans compte, tes fichiers restent dans ton navigateur · fonds de carte © OpenStreetMap / OpenTopoMap ·
+        <Link href="/mentions-legales">Mentions légales et confidentialité</Link>
       </div>
     </footer>
   </div>
@@ -63,6 +64,7 @@ const { user } = useAccount()
 .nav-link.pill:hover { text-decoration: none; background: var(--panel); }
 main { flex: 1; padding: 28px 0 40px; }
 footer { border-top: 1px solid var(--border); padding: 16px 0; font-size: 0.8rem; color: var(--text-dim); }
+footer a { color: inherit; }
 @media (max-width: 640px) {
   .bar { gap: 14px; }
   .logo { font-size: 1.5rem; }

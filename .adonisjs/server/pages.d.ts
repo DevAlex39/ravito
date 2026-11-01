@@ -20,5 +20,6 @@ declare module '@adonisjs/inertia/types' {
     'plans/index': ExtractProps<(typeof import('../../inertia/pages/plans/index.vue'))['default']>
     'shared': ExtractProps<(typeof import('../../inertia/pages/shared.vue'))['default']>
     'tracer': ExtractProps<(typeof import('../../inertia/pages/tracer.vue'))['default']>
+    'legal': ExtractProps<(typeof import('../../inertia/pages/legal.vue'))['default']>
   }
 }

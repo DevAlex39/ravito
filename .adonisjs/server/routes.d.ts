@@ -7,6 +7,7 @@ export type ScannedRoutes = {
     'home': { paramsTuple?: []; params?: {} }
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
+    'legal': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
     'pois.amenities': { paramsTuple?: []; params?: {} }
     'shared.around': { paramsTuple?: []; params?: {} }
@@ -34,6 +35,7 @@ export type ScannedRoutes = {
     'home': { paramsTuple?: []; params?: {} }
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
+    'legal': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
     'pois.amenities': { paramsTuple?: []; params?: {} }
     'shared.around': { paramsTuple?: []; params?: {} }
@@ -51,6 +53,7 @@ export type ScannedRoutes = {
     'home': { paramsTuple?: []; params?: {} }
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
+    'legal': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
     'pois.amenities': { paramsTuple?: []; params?: {} }
     'shared.around': { paramsTuple?: []; params?: {} }

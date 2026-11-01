@@ -267,6 +267,10 @@
               <button class="btn ghost" type="button" @click="adjust"><Icon name="pencil" :size="18" />Ajuster dans le traceur</button>
               <button class="btn ghost" type="button" @click="useForPlan">Préparer ma course avec cette boucle <Icon name="arrow" :size="18" /></button>
             </div>
+            <p class="disclaimer">
+              Boucles calculées automatiquement à partir d'OpenStreetMap : vérifie l'état des chemins, les accès et la météo sur place.
+              <Link href="/mentions-legales">En savoir plus</Link>
+            </p>
           </template>
 
           <section v-if="shared.length" class="card shared">
@@ -802,6 +806,7 @@ function useForPlan() {
   .layout.split .side { order: 3; flex: none; }
   .layout.split .profile { order: 4; }
   .layout.split .finish-actions { order: 5; }
+  .layout.split .disclaimer { order: 5; }
   .layout.split .shared { order: 6; }
   /* La barre remplace les fiches repliées des autres boucles */
   .layout.split .side button.loop { display: none; }
@@ -869,6 +874,8 @@ button.loop:hover { border-color: var(--border-strong); }
   white-space: nowrap;
 }
 .profile { padding: 12px 14px; border-radius: 18px; }
+.disclaimer { font-size: 0.8rem; color: var(--text-soft); line-height: 1.45; }
+.disclaimer a { color: inherit; }
 .finish-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .finish-actions .btn { padding: 11px 18px; border-radius: 12px; font-size: 0.93rem; }
 

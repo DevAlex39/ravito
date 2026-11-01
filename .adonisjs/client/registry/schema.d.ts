@@ -47,6 +47,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<unknown>
     }
   }
+  'legal': {
+    methods: ["GET","HEAD"]
+    pattern: '/mentions-legales'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+      rawResponse: ExtractRawResponse<unknown>
+    }
+  }
   'pois.around': {
     methods: ["GET","HEAD"]
     pattern: '/lieux'
