@@ -21,7 +21,7 @@
           <Icon :name="themeInfo.icon" :size="16" />{{ themeInfo.label }}<Icon name="chevron" :size="14" class="caret" />
         </PickList>
         <PickList v-model="terrain" class="pill pick" label="Type de chemins" :title="terrainInfo.hint" :options="TERRAIN_OPTIONS" @change="propose" />
-        <PickList v-model="count" class="pill pick" label="Nombre de boucles" :options="COUNT_OPTIONS" @change="propose" />
+        <PickList v-model="count" class="pill pick" label="Nombre de parcours proposés" :options="COUNT_OPTIONS" @change="propose" />
         <button class="btn ghost" type="button" @click="formOpen = true">
           <Icon name="sliders" :size="18" />Types de lieux<span v-if="groups.length" class="badge">{{ groups.length }}</span>
         </button>
@@ -86,8 +86,8 @@
             </div>
           </div>
           <div class="field">
-            <span>Nombre de boucles</span>
-            <div class="count" role="radiogroup" aria-label="Nombre de boucles">
+            <span>Nombre de parcours proposés</span>
+            <div class="count" role="radiogroup" aria-label="Nombre de parcours proposés">
               <button
                 v-for="n in 5"
                 :key="n"
@@ -389,7 +389,7 @@ const TERRAINS: { value: Terrain, label: string, hint: string }[] = [
 const terrain = ref<Terrain>('mixte')
 const terrainInfo = computed(() => TERRAINS.find(t => t.value === terrain.value)!)
 const TERRAIN_OPTIONS: PickOption<Terrain>[] = TERRAINS.map(t => ({ value: t.value, label: t.label, hint: t.hint }))
-const COUNT_OPTIONS: PickOption<number>[] = [1, 2, 3, 4, 5].map(n => ({ value: n, label: `${n} boucle${n > 1 ? 's' : ''}` }))
+const COUNT_OPTIONS: PickOption<number>[] = [1, 2, 3, 4, 5].map(n => ({ value: n, label: `${n} parcours` }))
 
 /** « 65 % sentiers · 3 % grandes routes » (grandes routes masquées sous 1 %) */
 function surfaceText(loop: Loop): string {

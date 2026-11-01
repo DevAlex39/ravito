@@ -66,8 +66,8 @@
             </div>
           </div>
           <div class="field">
-            <span>Nombre de boucles</span>
-            <div class="count" role="radiogroup" aria-label="Nombre de boucles">
+            <span>Nombre de parcours proposés</span>
+            <div class="count" role="radiogroup" aria-label="Nombre de parcours proposés">
               <button
                 v-for="n in 5"
                 :key="n"
