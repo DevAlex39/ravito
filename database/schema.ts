@@ -7,6 +7,27 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class AmenitySchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'kind', 'lat', 'lon', 'name', 'osmKey', 'updatedAt'] as const
+  $columns = AmenitySchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare kind: string
+  @column()
+  declare lat: number
+  @column()
+  declare lon: number
+  @column()
+  declare name: string | null
+  @column()
+  declare osmKey: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class PlanVoteSchema extends BaseModel {
   static $columns = ['createdAt', 'planId', 'userId'] as const
   $columns = PlanVoteSchema.$columns

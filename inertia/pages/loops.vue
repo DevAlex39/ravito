@@ -164,10 +164,23 @@
                   <div><strong class="num">{{ surfacePct(loop)!.road }} %</strong><span>routes</span></div>
                 </template>
               </div>
+              <button v-if="currentAmenities.length" type="button" class="amenities-line" :aria-pressed="showAmenities" @click="showAmenities = !showAmenities">
+                <span v-if="amenityCount.water"><Icon name="droplet" :size="16" />{{ amenityCount.water }} point{{ amenityCount.water > 1 ? 's' : '' }} d'eau</span>
+                <span v-if="amenityCount.toilets"><Icon name="toilets" :size="16" />{{ amenityCount.toilets }} toilettes</span>
+                <span class="toggle">{{ showAmenities ? 'Masquer' : 'Voir sur la carte' }}</span>
+              </button>
               <template v-if="loop.stops.length">
                 <ol class="stops">
                   <li v-for="(s, k) in visibleStops" :key="s.id">
-                    <button type="button" class="stop" :class="[s.category, { on: selectedStop?.id === s.id }]" :aria-expanded="selectedStop?.id === s.id" @click="toggleStop(s)">
+                    <button
+                      type="button"
+                      class="stop"
+                      :class="[s.category, { on: selectedStop?.id === s.id, hl: hoverStop === s.id }]"
+                      :aria-expanded="selectedStop?.id === s.id"
+                      @click="toggleStop(s)"
+                      @mouseenter="hoverStop = s.id"
+                      @mouseleave="hoverStop = null"
+                    >
                       <span class="n">{{ k + 1 }}</span>
                       <Icon :name="kindOf(s).icon" class="kind-icon" />
                       <span class="name">{{ s.name }}</span>
@@ -208,14 +221,42 @@
                 :selected="selected"
                 :track="track"
                 :hover="hoverD"
+                :highlight="hoverStop"
+                :amenities="showAmenities ? currentAmenities : []"
                 @pick="setStart"
                 @select="selected = $event"
                 @stop="openStop"
+                @hover-stop="hoverStop = $event"
               />
               <div v-if="!start" class="overlay">Clique sur la carte pour choisir ton départ</div>
+              <button
+                v-if="currentAmenities.length"
+                type="button"
+                class="amenity-toggle"
+                :class="{ on: showAmenities }"
+                :aria-pressed="showAmenities"
+                title="Points d'eau potable et toilettes le long de la boucle"
+                @click="showAmenities = !showAmenities"
+              >
+                <Icon name="droplet" :size="16" />Eau &amp; WC
+              </button>
               <div v-if="busy" class="loading"><RunnerLoader /></div>
             </div>
           </section>
+
+          <nav v-if="loops.length > 1" class="loop-tabs" aria-label="Choisir une boucle">
+            <button
+              v-for="(loop, i) in loops"
+              :key="i"
+              type="button"
+              :class="{ on: i === selected }"
+              :aria-pressed="i === selected"
+              @click="selected = i"
+            >
+              <strong>Boucle {{ i + 1 }}</strong>
+              <span class="num">{{ formatKm(loop.distance) }} km</span>
+            </button>
+          </nav>
 
           <template v-if="loops.length">
             <section v-if="profile" class="card profile">
@@ -256,7 +297,8 @@ import PoiDetail from '~/components/poi_detail.vue'
 import RunnerLoader from '~/components/runner_loader.vue'
 import { usePlan } from '~/composables/use_plan'
 import { useTracer } from '~/composables/use_tracer'
-import { generateLoops, loopTrack, searchRadius, type Loop, type Poi } from '~/utils/loops'
+import { readLoops, storeLoops } from '~/utils/loop_cache'
+import { amenitiesAlong, generateLoops, loopTrack, searchRadius, type Amenity, type Loop, type Poi } from '~/utils/loops'
 import type { LatLon, Terrain } from '~/utils/routing'
 import { searchPlace, type PlaceSuggestion } from '~/utils/geocode'
 import PlaceInput from '~/components/place_input.vue'
@@ -351,8 +393,20 @@ const messageBad = ref(false)
 
 const current = computed(() => loops.value[selected.value] ?? null)
 
+// --- Points d'eau et toilettes (France), affichés sur demande ---
+const amenities = ref<Amenity[]>([])
+const showAmenities = ref(false)
+const loopAmenities = computed(() => loops.value.map(l => amenitiesAlong(l, amenities.value)))
+const currentAmenities = computed(() => loopAmenities.value[selected.value] ?? [])
+const amenityCount = computed(() => ({
+  water: currentAmenities.value.filter(a => a.kind === 'water').length,
+  toilets: currentAmenities.value.filter(a => a.kind === 'toilets').length,
+}))
+
 // --- Fiche d'un lieu ---
 const selectedStop = ref<Poi | null>(null)
+/** Lieu survolé, dans la liste ou sur la carte : les deux le font ressortir */
+const hoverStop = ref<number | null>(null)
 /** Au-delà, les lieux de la boucle se déplient sur demande */
 const STOPS_SHOWN = 6
 const allStops = ref(false)
@@ -525,6 +579,28 @@ async function fetchPois(p: LatLon, target: number): Promise<Poi[]> {
 /** Réglage changé pendant un calcul : on relance une fois celui-ci terminé */
 let again = false
 
+/** Facultatif : sans réponse, les boucles s'affichent sans points d'eau ni toilettes */
+async function fetchAmenities(p: LatLon, target: number): Promise<Amenity[]> {
+  try {
+    const res = await fetch(`/equipements?lat=${p.lat.toFixed(5)}&lon=${p.lon.toFixed(5)}&rayon=${searchRadius(target)}`, { headers: { Accept: 'application/json' } })
+    return res.ok ? (await res.json() as { equipements: Amenity[] }).equipements : []
+  }
+  catch {
+    return []
+  }
+}
+
+function showLoops(found: Loop[], near: Amenity[], text = '', bad = false) {
+  amenities.value = near
+  loops.value = found
+  selected.value = 0
+  message.value = text
+  messageBad.value = bad
+  if (found.length) formOpen.value = false
+  // Les nouvelles boucles n'arrivent à la carte qu'au rendu suivant
+  nextTick(() => mapRef.value?.fitLoops())
+}
+
 async function propose() {
   if (busy.value) {
     again = true
@@ -535,10 +611,15 @@ async function propose() {
   if (!start.value) return
   const target = Math.min(40, Math.max(3, Math.round(km.value || 10))) * 1000
   km.value = target / 1000
+  // Même recherche que tout à l'heure : on réaffiche les boucles déjà calculées
+  const cacheKey = JSON.stringify([start.value.lat.toFixed(5), start.value.lon.toFixed(5), target, theme.value, [...kinds.value].sort(), terrain.value, count.value])
+  const cached = readLoops(cacheKey)
+  if (cached) return showLoops(cached.loops, cached.amenities, cached.message, cached.messageBad)
   busy.value = true
   message.value = ''
   let pois: Poi[] = []
   let poisFailed = false
+  const amenityRequest = fetchAmenities(start.value, target)
   try {
     pois = await fetchPois(start.value, target)
   }
@@ -546,11 +627,7 @@ async function propose() {
     poisFailed = true
   }
   try {
-    loops.value = await generateLoops(start.value, target, pois, count.value, { terrain: terrain.value })
-    selected.value = 0
-    if (loops.value.length) formOpen.value = false
-    // Les nouvelles boucles n'arrivent à la carte qu'au rendu suivant
-    nextTick(() => mapRef.value?.fitLoops())
+    showLoops(await generateLoops(start.value, target, pois, count.value, { terrain: terrain.value }), await amenityRequest)
     if (poisFailed) showError('Les lieux à voir sont indisponibles pour le moment : voici des boucles sans étapes.')
     else if (!loops.value.some(l => l.stops.length)) {
       const what = kinds.value.length ? 'de lieux de ce type' : theme.value === 'nature' ? 'de lieux naturels' : theme.value === 'patrimoine' ? 'de patrimoine' : 'de lieux remarquables'
@@ -558,6 +635,8 @@ async function propose() {
     }
     else if (loops.value.length < count.value) showInfo(`Seulement ${loops.value.length} boucle${loops.value.length > 1 ? 's' : ''} trouvée${loops.value.length > 1 ? 's' : ''} autour de ce départ (relief, rivière ou manque de chemins).`)
     else message.value = ''
+    // Lieux indisponibles : ces boucles de secours ne sont pas gardées
+    if (!poisFailed && loops.value.length) storeLoops(cacheKey, { loops: loops.value, amenities: amenities.value, message: message.value, messageBad: messageBad.value })
   }
   catch {
     loops.value = []
@@ -712,7 +791,26 @@ function useForPlan() {
 .layout.split { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 20px; }
 .side { flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 .main { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
-@media (max-width: 920px) { .layout.split .main { order: -1; } }
+/* Barre « Boucle 1 · 2 · 3 » : seulement sur petit écran, où les fiches passent sous la carte */
+.loop-tabs { display: none; }
+@media (max-width: 920px) {
+  /* Ordre : carte, barre des boucles, boucle choisie, profil, boutons, parcours partagés */
+  .layout.split { flex-direction: column; align-items: stretch; gap: 12px; }
+  .layout.split .main { display: contents; }
+  .layout.split .map-card { order: 1; }
+  .layout.split .loop-tabs { order: 2; display: flex; gap: 6px; overflow-x: auto; padding: 4px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); scrollbar-width: none; }
+  .layout.split .side { order: 3; flex: none; }
+  .layout.split .profile { order: 4; }
+  .layout.split .finish-actions { order: 5; }
+  .layout.split .shared { order: 6; }
+  /* La barre remplace les fiches repliées des autres boucles */
+  .layout.split .side button.loop { display: none; }
+}
+.loop-tabs button { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 12px; border: none; border-radius: 10px; background: none; font: inherit; color: var(--text); cursor: pointer; }
+.loop-tabs button strong { font-size: 0.9rem; }
+.loop-tabs button span { font-size: 0.78rem; color: var(--text-soft); }
+.loop-tabs button.on { background: var(--accent-strong); color: #fff; }
+.loop-tabs button.on span { color: rgba(255, 255, 255, 0.85); }
 
 .loop { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; border-radius: 18px; font: inherit; text-align: left; color: var(--text); }
 button.loop { cursor: pointer; }
@@ -727,10 +825,17 @@ button.loop:hover { border-color: var(--border-strong); }
 .stats > div { display: flex; flex-direction: column; padding: 8px 9px; border-radius: 10px; background: var(--bg); }
 .stats strong { font-size: 1.05rem; }
 .stats span { font-size: 0.75rem; color: var(--text-soft); }
+.amenities-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; border: 1px dashed var(--border-strong); border-radius: 10px; background: none; font: inherit; font-size: 0.88rem; color: var(--text); text-align: left; cursor: pointer; }
+.amenities-line:hover { border-color: #2f7fb5; }
+.amenities-line span { display: inline-flex; align-items: center; gap: 5px; }
+.amenities-line .icon { color: #2f7fb5; }
+.amenities-line .toggle { margin-left: auto; font-weight: 600; color: #2f7fb5; }
+.amenity-toggle { position: absolute; top: 10px; left: 56px; z-index: 500; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 2px solid rgba(0, 0, 0, 0.2); border-radius: 8px; background: #fff; background-clip: padding-box; font: inherit; font-size: 0.85rem; font-weight: 600; color: #2f7fb5; cursor: pointer; }
+.amenity-toggle.on { background: #2f7fb5; color: #fff; }
 .stops { list-style: none; display: flex; flex-direction: column; }
 .stops li + li { border-top: 1px solid var(--border); }
 .stop { width: 100%; display: flex; align-items: center; gap: 11px; padding: 9px 4px; border: none; border-radius: 8px; background: none; font: inherit; text-align: left; color: var(--text); cursor: pointer; }
-.stop:hover, .stop.on { background: var(--panel-2); }
+.stop:hover, .stop.on, .stop.hl { background: var(--panel-2); }
 .stop .n { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--accent); color: var(--accent-strong); font-size: 0.75rem; font-weight: 700; }
 .stop.nature .n { border-color: #2f7d4f; color: #2f7d4f; }
 .kind-icon { color: var(--forest); }

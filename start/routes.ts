@@ -20,6 +20,7 @@ router.on('/').renderInertia('home', {}).as('home')
 router.on('/tracer').renderInertia('tracer', {}).as('tracer')
 router.on('/boucles').renderInertia('loops', {}).as('loops')
 router.get('/lieux', [PoisController, 'around']).as('pois.around').use(throttleLieux)
+router.get('/equipements', [PoisController, 'amenities']).as('pois.amenities').use(throttleLieux)
 router.get('/partages', [SharedPlansController, 'around']).as('shared.around')
 router.get('/partages/:id', [SharedPlansController, 'show']).as('shared.show').where('id', router.matchers.number())
 

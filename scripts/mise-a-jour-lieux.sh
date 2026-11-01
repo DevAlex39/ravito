@@ -1,7 +1,7 @@
 #!/bin/bash
 # Mise à jour mensuelle des lieux à voir d'AlpaS (lancée par cron, journal : ~/alpas-data/mise-a-jour.log)
 #   1. retélécharge la carte de France si Geofabrik en a une plus récente
-#   2. en extrait les lieux candidats (patrimoine + nature) ; le tri fin est fait par l'import (poi_service.ts)
+#   2. en extrait les lieux candidats (patrimoine + nature) et les points d'eau / toilettes ; le tri fin est fait par l'import
 #   3. les importe en base : notoriété Wikidata des seuls nouveaux lieux, suppression des lieux disparus
 # Sur le serveur, ~/alpas-data/mise-a-jour.sh est un lien vers ce fichier.
 set -euo pipefail
@@ -17,7 +17,8 @@ nice osmium tags-filter france-latest.osm.pbf \
   nwr/historic \
   nwr/heritage \
   nwr/ref:mhs \
-  nwr/amenity=place_of_worship,fountain,lavoir \
+  nwr/amenity=place_of_worship,fountain,lavoir,drinking_water,toilets \
+  nwr/drinking_water=yes \
   nwr/leisure=park,garden \
   nwr/man_made=tower,lighthouse,bridge \
   nwr/place=square \

@@ -32,6 +32,12 @@ const routes = {
     tokens: [[0,"lieux"]],
     types: placeholder as Registry['pois.around']['types'],
   },
+  'pois.amenities': {
+    methods: ["GET","HEAD"],
+    pattern: '/equipements',
+    tokens: [[0,"equipements"]],
+    types: placeholder as Registry['pois.amenities']['types'],
+  },
   'shared.around': {
     methods: ["GET","HEAD"],
     pattern: '/partages',

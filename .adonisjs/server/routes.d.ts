@@ -8,6 +8,7 @@ export type ScannedRoutes = {
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
+    'pois.amenities': { paramsTuple?: []; params?: {} }
     'shared.around': { paramsTuple?: []; params?: {} }
     'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }
@@ -34,6 +35,7 @@ export type ScannedRoutes = {
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
+    'pois.amenities': { paramsTuple?: []; params?: {} }
     'shared.around': { paramsTuple?: []; params?: {} }
     'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }
@@ -50,6 +52,7 @@ export type ScannedRoutes = {
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
+    'pois.amenities': { paramsTuple?: []; params?: {} }
     'shared.around': { paramsTuple?: []; params?: {} }
     'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }

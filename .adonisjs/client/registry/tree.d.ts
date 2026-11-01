@@ -7,6 +7,7 @@ export interface ApiDefinition {
   loops: typeof routes['loops']
   pois: {
     around: typeof routes['pois.around']
+    amenities: typeof routes['pois.amenities']
   }
   shared: {
     around: typeof routes['shared.around']

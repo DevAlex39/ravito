@@ -14,6 +14,34 @@ export interface Poi extends LatLon {
   weight?: number
 }
 
+/** Point d'eau potable ou toilettes publiques (affichés en option le long de la boucle) */
+export interface Amenity extends LatLon {
+  id: number
+  kind: 'water' | 'toilets'
+  name: string | null
+}
+
+/** Points d'eau et toilettes à moins de `within` mètres du tracé */
+export function amenitiesAlong(loop: Loop, list: Amenity[], within = 60): Amenity[] {
+  if (!list.length || !loop.coords.length) return []
+  const lats = loop.coords.map(c => c[1])
+  const lons = loop.coords.map(c => c[0])
+  const mLat = 111_320
+  const mLon = 111_320 * Math.cos((lats[0]! * Math.PI) / 180)
+  const [south, north] = [Math.min(...lats) - within / mLat, Math.max(...lats) + within / mLat]
+  const [west, east] = [Math.min(...lons) - within / mLon, Math.max(...lons) + within / mLon]
+  return list.filter((a) => {
+    if (a.lat < south || a.lat > north || a.lon < west || a.lon > east) return false
+    // Distance aux points du tracé (espacés de quelques mètres) : assez précis pour 60 m
+    for (const c of loop.coords) {
+      const dx = (c[0] - a.lon) * mLon
+      const dy = (c[1] - a.lat) * mLat
+      if (dx * dx + dy * dy <= within * within) return true
+    }
+    return false
+  })
+}
+
 export interface Loop {
   /** Départ, lieux visités dans l'ordre, retour au départ */
   waypoints: LatLon[]

@@ -9,7 +9,7 @@ import type * as Leaflet from 'leaflet'
 import type { Track } from '~/utils/gpx'
 import { pointAt } from '~/utils/gpx'
 import type { LatLon } from '~/utils/routing'
-import type { Loop, Poi } from '~/utils/loops'
+import type { Amenity, Loop, Poi } from '~/utils/loops'
 import { kindOf } from '~/utils/places'
 import { iconSvg } from '~/utils/icons'
 
@@ -19,20 +19,28 @@ const props = defineProps<{
   selected: number
   track: Track | null
   hover: number | null
+  /** Lieu à faire ressortir (survolé dans la liste) */
+  highlight?: number | null
+  /** Points d'eau et toilettes à montrer (liste vide : rien) */
+  amenities?: Amenity[]
 }>()
 
 const emit = defineEmits<{
   pick: [LatLon]
   select: [number]
   stop: [Poi]
+  hoverStop: [number | null]
 }>()
 
 const el = ref<HTMLElement>()
 let L: typeof Leaflet | null = null
 let map: Leaflet.Map | null = null
 let loopLayer: Leaflet.LayerGroup | null = null
+let amenityLayer: Leaflet.LayerGroup | null = null
 let startMarker: Leaflet.Marker | null = null
 let hoverMarker: Leaflet.CircleMarker | null = null
+/** Marqueurs des lieux de la boucle choisie, par identifiant de lieu */
+const stopMarkers = new Map<number, Leaflet.Marker>()
 /**
  * La page change la taille de la carte (colonne des boucles qui apparaît) : Leaflet doit recalculer ses
  * tuiles, et un cadrage demandé juste avant est refait à la nouvelle taille.
@@ -59,6 +67,7 @@ onMounted(async () => {
   osm.addTo(map)
   L.control.layers({ Plan: osm, Topographique: topo }).addTo(map)
   loopLayer = L.layerGroup().addTo(map)
+  amenityLayer = L.layerGroup().addTo(map)
 
   if (props.start) map.setView([props.start.lat, props.start.lon], 14)
   else map.setView([46.6, 2.5], 6)
@@ -66,6 +75,7 @@ onMounted(async () => {
   map.on('click', (e: Leaflet.LeafletMouseEvent) => emit('pick', { lat: e.latlng.lat, lon: e.latlng.lng }))
   drawStart()
   drawLoops()
+  drawAmenities()
   resize.observe(el.value!)
 })
 
@@ -100,6 +110,7 @@ function drawStart() {
 function drawLoops() {
   if (!L || !loopLayer) return
   loopLayer.clearLayers()
+  stopMarkers.clear()
   // Les autres propositions en gris (cliquables), la boucle choisie par-dessus
   props.loops.forEach((loop, i) => {
     if (i === props.selected) return
@@ -118,7 +129,7 @@ function drawLoops() {
   L.polyline(latlngs, { color: '#e2672b', weight: 5, interactive: false }).addTo(loopLayer)
   loop.stops.forEach((s, k) => {
     const kind = kindOf(s)
-    L!.marker([s.lat, s.lon], {
+    const marker = L!.marker([s.lat, s.lon], {
       icon: L!.divIcon({ className: `stop stop-${s.category}`, html: String(k + 1), iconSize: [22, 22], iconAnchor: [11, 11] }),
       keyboard: false,
     })
@@ -127,8 +138,51 @@ function drawLoops() {
         L!.DomEvent.stopPropagation(e)
         emit('stop', s)
       })
+      .on('mouseover', () => emit('hoverStop', s.id))
+      .on('mouseout', () => emit('hoverStop', null))
       .addTo(loopLayer!)
+    stopMarkers.set(s.id, marker)
   })
+  drawHighlight()
+}
+
+/** Le lieu survolé grossit, passe devant les autres et montre son nom */
+let highlighted: Leaflet.Marker | null = null
+function drawHighlight() {
+  const next = props.highlight == null ? null : stopMarkers.get(props.highlight) ?? null
+  if (next === highlighted) return
+  if (highlighted) {
+    highlighted.getElement()?.classList.remove('stop-hl')
+    highlighted.setZIndexOffset(0)
+    highlighted.closeTooltip()
+  }
+  highlighted = next
+  if (next) {
+    next.getElement()?.classList.add('stop-hl')
+    next.setZIndexOffset(900)
+    next.openTooltip()
+  }
+}
+
+/** Points d'eau (goutte bleue) et toilettes (gris), sous les lieux de la boucle */
+function drawAmenities() {
+  if (!L || !amenityLayer) return
+  amenityLayer.clearLayers()
+  for (const a of props.amenities ?? []) {
+    const water = a.kind === 'water'
+    const label = water ? 'Eau potable' : 'Toilettes'
+    L.marker([a.lat, a.lon], {
+      icon: L.divIcon({ className: `amenity amenity-${a.kind}`, html: iconSvg(water ? 'droplet' : 'toilets', 13), iconSize: [22, 22], iconAnchor: [11, 11] }),
+      keyboard: false,
+      zIndexOffset: -500,
+    })
+      .bindTooltip(a.name && a.name !== label ? `<strong>${label}</strong> · ${escapeHtml(a.name)}` : `<strong>${label}</strong>`, { direction: 'top', offset: [0, -10] })
+      .addTo(amenityLayer)
+  }
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
 }
 
 /** Cadre toutes les propositions */
@@ -161,6 +215,8 @@ function drawHover() {
 watch(() => props.start, drawStart)
 watch(() => [props.loops, props.selected], drawLoops)
 watch(() => props.hover, drawHover)
+watch(() => props.highlight, drawHighlight)
+watch(() => props.amenities, drawAmenities)
 
 /** Centre la carte sur un lieu (recherche) */
 function flyTo(lat: number, lon: number, zoom = 14) {
@@ -199,4 +255,9 @@ defineExpose({ flyTo, fitLoops })
   cursor: pointer;
 }
 :deep(.stop-nature) { border-color: #2f7d4f; color: #2f7d4f; }
+:deep(.amenity) { display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); color: #fff; }
+:deep(.amenity-water) { background: #2f7fb5; }
+:deep(.amenity-toilets) { background: #6b7a72; }
+:deep(.stop.stop-hl) { background: #e2672b; color: #fff; transform-origin: center; box-shadow: 0 0 0 4px rgba(226, 103, 43, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3); }
+:deep(.stop-nature.stop-hl) { background: #2f7d4f; box-shadow: 0 0 0 4px rgba(47, 125, 79, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3); }
 </style>

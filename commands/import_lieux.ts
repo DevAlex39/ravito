@@ -4,6 +4,7 @@ import { BaseCommand, args, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import db from '@adonisjs/lucid/services/db'
 import { CELL, savePois, toPoi, type NewPoi } from '#services/poi_service'
+import { saveAmenities, toAmenity, type NewAmenity } from '#services/amenity_service'
 
 type Ring = [lon: number, lat: number][]
 
@@ -31,7 +32,8 @@ export default class ImportLieux extends BaseCommand {
 
   async run() {
     const startedAt = new Date()
-    const candidates = await this.readCandidates()
+    const { candidates, amenities } = await this.readCandidates()
+    this.logger.info(`${await saveAmenities(amenities)} points d'eau et toilettes enregistrés`)
     this.logger.info(`${candidates.length} lieux retenus, récupération de la notoriété des nouveaux lieux sur Wikidata…`)
 
     let lastShown = 0
@@ -50,6 +52,19 @@ export default class ImportLieux extends BaseCommand {
     this.logger.success(`${cells} secteurs marqués comme couverts par l'import`)
 
     await this.deleteStale(startedAt, count)
+    await this.deleteStaleAmenities(startedAt, amenities.length)
+  }
+
+  /** Points d'eau et toilettes disparus de la carte (même garde-fou que pour les lieux) */
+  private async deleteStaleAmenities(startedAt: Date, imported: number) {
+    const knex = db.connection().getWriteClient()
+    const [{ total }] = await knex.from('amenities').count({ total: '*' }) as { total: number }[]
+    if (imported < Number(total) * 0.7) {
+      this.logger.warning(`Seulement ${imported} points d'eau et toilettes pour ${total} en base : suppression annulée par prudence`)
+      return
+    }
+    const removed = await knex.from('amenities').where('updated_at', '<', startedAt).delete()
+    this.logger.success(`${removed} points d'eau et toilettes disparus supprimés`)
   }
 
   /**
@@ -72,9 +87,10 @@ export default class ImportLieux extends BaseCommand {
     this.logger.success(`${result.affectedRows} lieux disparus de la carte supprimés`)
   }
 
-  /** Lit le fichier ligne par ligne (une entité GeoJSON par ligne) et garde les lieux voulus */
-  private async readCandidates(): Promise<NewPoi[]> {
+  /** Lit le fichier ligne par ligne (une entité GeoJSON par ligne) : lieux voulus, points d'eau et toilettes */
+  private async readCandidates(): Promise<{ candidates: NewPoi[], amenities: NewAmenity[] }> {
     const result: NewPoi[] = []
+    const amenities: NewAmenity[] = []
     let read = 0
     for await (const line of readLines(this.file)) {
       if (!line.trim()) continue
@@ -83,11 +99,14 @@ export default class ImportLieux extends BaseCommand {
       const { '@type': type, '@id': id, ...tags } = feature.properties
       const center = bboxCenter(feature.geometry.coordinates)
       if (!center || (type !== 'node' && type !== 'way' && type !== 'relation')) continue
-      const poi = toPoi({ type, id: Number(id), lat: center[1], lon: center[0], tags })
+      const el = { type, id: Number(id), lat: center[1], lon: center[0], tags } as const
+      const poi = toPoi(el)
       if (poi) result.push(poi)
+      const amenity = toAmenity(el)
+      if (amenity) amenities.push(amenity)
     }
     this.logger.info(`${read} objets lus dans ${this.file}`)
-    return result
+    return { candidates: result, amenities }
   }
 
   /** Marque les cases entièrement à l'intérieur du contour (celles à cheval sur la frontière restent à Overpass) */

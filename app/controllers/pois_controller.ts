@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import { poisAround } from '#services/poi_service'
+import { amenitiesAround } from '#services/amenity_service'
 
 const aroundValidator = vine.create(
   vine.object({
@@ -29,5 +30,11 @@ export default class PoisController {
     catch {
       return response.serviceUnavailable({ message: 'Le service des lieux (OpenStreetMap) ne répond pas pour le moment.' })
     }
+  }
+
+  /** Points d'eau et toilettes autour d'un point (JSON), affichés en option le long des boucles */
+  async amenities({ request }: HttpContext) {
+    const { lat, lon, rayon } = await aroundValidator.validate(request.qs())
+    return { equipements: await amenitiesAround(lat, lon, rayon) }
   }
 }

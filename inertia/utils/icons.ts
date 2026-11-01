@@ -30,6 +30,7 @@ export const ICONS = {
   tree: '<circle cx="12" cy="9" r="6"/><path d="M12 15v7M9 22h6"/>',
   flower: '<circle cx="12" cy="8" r="3"/><path d="M12 11v11M12 18c-3 0-5-2-5-4 3 0 5 2 5 4zM12 16c3 0 5-2 5-4-3 0-5 2-5 4z"/>',
   beach: '<path d="M12 12v9M3 12a9 9 0 0 1 18 0z"/><path d="M3 21h18"/>',
+  toilets: '<circle cx="7" cy="4" r="2"/><circle cx="17" cy="4" r="2"/><path d="M5 22v-7H4V9h6v6H9v7M15 22v-5h-2l2-8h4l2 8h-2v5"/>',
   leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z"/><path d="M2 21c0-3 1.9-5.4 5.1-6C9.5 14.5 12 13 13 12"/>',
   // Interface
   pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',

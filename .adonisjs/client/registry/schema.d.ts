@@ -60,6 +60,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/pois_controller').default['around']>>>
     }
   }
+  'pois.amenities': {
+    methods: ["GET","HEAD"]
+    pattern: '/equipements'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/pois_controller').default['amenities']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/pois_controller').default['amenities']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/pois_controller').default['amenities']>>>
+    }
+  }
   'shared.around': {
     methods: ["GET","HEAD"]
     pattern: '/partages'
