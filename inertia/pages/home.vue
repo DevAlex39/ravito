@@ -11,19 +11,7 @@
             qui passent par les plus beaux lieux du coin.
           </p>
         </div>
-        <svg class="hero-art" viewBox="0 0 320 260" aria-hidden="true">
-          <rect width="320" height="260" rx="28" fill="#e3ece6" />
-          <path d="M0 190 C70 170 110 215 170 195 S270 150 320 170 V232 a28 28 0 0 1-28 28 H28 a28 28 0 0 1-28-28z" fill="#cfe0e6" />
-          <ellipse cx="80" cy="70" rx="56" ry="38" fill="#cfddd3" />
-          <ellipse cx="250" cy="90" rx="44" ry="30" fill="#cfddd3" />
-          <path d="M60 150 C60 90 120 55 175 70 S270 110 245 165 S130 215 95 190 S60 170 60 150z" fill="none" stroke="#e2672b" stroke-width="5" stroke-linecap="round" />
-          <circle cx="60" cy="150" r="10" fill="#1d2721" />
-          <g font-family="Inter, sans-serif" font-size="13" font-weight="700" text-anchor="middle">
-            <circle cx="132" cy="64" r="13" fill="#fff" stroke="#24503c" stroke-width="3" /><text x="132" y="69" fill="#24503c">1</text>
-            <circle cx="236" cy="104" r="13" fill="#fff" stroke="#24503c" stroke-width="3" /><text x="236" y="109" fill="#24503c">2</text>
-            <circle cx="196" cy="186" r="13" fill="#fff" stroke="#24503c" stroke-width="3" /><text x="196" y="191" fill="#24503c">3</text>
-          </g>
-        </svg>
+        <HeroMap class="hero-art" />
       </div>
 
       <form class="loop-form card" @submit.prevent="findLoop()">
@@ -225,6 +213,7 @@ import SaveButton from '~/components/save_button.vue'
 import LoopMap from '~/components/loop_map.vue'
 import PlaceInput from '~/components/place_input.vue'
 import Icon from '~/components/icon.vue'
+import HeroMap from '~/components/hero_map.vue'
 import type { IconName } from '~/utils/icons'
 import type { PlaceSuggestion } from '~/utils/geocode'
 import type { LatLon } from '~/utils/routing'
@@ -357,7 +346,7 @@ function clearPrint() {
 .hero h1 { font-size: clamp(2.4rem, 6vw, 4rem); line-height: 1; font-weight: 700; margin-bottom: 16px; }
 .hero h1 span { color: var(--accent); }
 .lead { font-size: 1.12rem; line-height: 1.55; color: var(--text-soft); max-width: 560px; }
-.hero-art { width: 300px; flex: none; }
+.hero-art { width: 340px; flex: none; }
 @media (max-width: 860px) { .hero-art { display: none; } }
 
 .loop-form { display: flex; flex-direction: column; gap: 18px; padding: 22px; border-radius: 20px; }
