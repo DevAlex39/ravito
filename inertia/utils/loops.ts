@@ -66,6 +66,8 @@ const TOLERANCE = 0.1
  */
 const MAX_SPUR_POI = 300
 const MIN_SPUR = 30
+/** Un lieu n'est annoncé que si le tracé passe à moins de cette distance (m) */
+const STOP_REACH = 200
 /** Autour du départ (m) : lieux visités en début ou en fin de boucle, même loin du cercle */
 const START_ZONE = 600
 /** Lieux du centre enchaînés au plus, à l'aller comme au retour */
@@ -365,6 +367,10 @@ function cutSpurs(coords: Coord[], waypoints: LatLon[], stops: Poi[]) {
     }
     if (!cut) break
   }
+  // Lieu sans chemin jusqu'à lui (sommet en pleine forêt…) : BRouter s'arrête au chemin le plus proche,
+  // parfois loin, et l'aller-retour vers ce chemin a pu être coupé. Le tracé ne passe pas au lieu : on ne l'annonce pas.
+  const reached = (p: LatLon) => coords.some(c => haversine(at(c), p) < STOP_REACH)
+  kept = kept.filter(w => !stops.includes(w as Poi) || reached(w))
   return {
     coords,
     waypoints: [waypoints[0]!, ...kept, waypoints[waypoints.length - 1]!],
