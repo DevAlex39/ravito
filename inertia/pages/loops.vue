@@ -122,19 +122,27 @@
         </button>
         <div v-if="moreOpen" class="groups">
           <p class="groups-hint">Coche ce que tu veux voir en chemin (rien de coché : tous les lieux du style choisi).</p>
-          <div v-for="cat in visibleCategories" :key="cat" class="group-row">
-            <span v-if="visibleCategories.length > 1" class="group-title">{{ cat === 'patrimoine' ? 'Patrimoine' : 'Nature' }}</span>
-            <button
-              v-for="g in KIND_GROUPS.filter(g => g.category === cat)"
-              :key="g.id"
-              type="button"
-              class="chip"
-              :class="{ on: groups.includes(g.id) }"
-              :aria-pressed="groups.includes(g.id)"
-              @click="toggleGroup(g.id)"
-            >
-              <Icon :name="g.icon" :size="16" />{{ g.label }}
-            </button>
+          <div class="families">
+            <section v-for="cat in visibleCategories" :key="cat" class="family" :class="cat">
+              <h3 class="family-title">
+                <Icon :name="cat === 'patrimoine' ? 'castle' : 'leaf'" :size="18" />
+                {{ cat === 'patrimoine' ? 'Patrimoine' : 'Nature' }}
+                <span v-if="pickedIn(cat)" class="family-count">{{ pickedIn(cat) }}</span>
+              </h3>
+              <div class="family-chips">
+                <button
+                  v-for="g in KIND_GROUPS.filter(g => g.category === cat)"
+                  :key="g.id"
+                  type="button"
+                  class="chip"
+                  :class="{ on: groups.includes(g.id) }"
+                  :aria-pressed="groups.includes(g.id)"
+                  @click="toggleGroup(g.id)"
+                >
+                  <Icon :name="g.icon" :size="16" />{{ g.label }}
+                </button>
+              </div>
+            </section>
           </div>
           <button v-if="groups.length" type="button" class="clear" @click="groups = []">Tout décocher</button>
         </div>
@@ -363,6 +371,10 @@ const themeInfo = computed(() => THEMES.find(t => t.value === theme.value)!)
 const moreOpen = ref(false)
 const groups = ref<string[]>([])
 const visibleCategories = computed(() => (theme.value === 'tout' ? ['patrimoine', 'nature'] as const : [theme.value]))
+/** Nombre de familles cochées dans Patrimoine ou Nature */
+function pickedIn(cat: string): number {
+  return KIND_GROUPS.filter(g => g.category === cat && groups.value.includes(g.id)).length
+}
 // Passer en « Nature » décoche les familles du patrimoine, et inversement
 watch(theme, (t) => {
   if (t !== 'tout') groups.value = groups.value.filter(id => KIND_GROUPS.find(g => g.id === id)?.category === t)
@@ -886,10 +898,18 @@ function useForPlan() {
 .flip { transform: rotate(180deg); }
 .groups { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--panel-2); border-radius: 12px; }
 .groups-hint { font-size: 0.82rem; color: var(--text-soft); }
-.group-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.group-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); min-width: 84px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 0.85rem; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text); cursor: pointer; }
-.chip.on { background: var(--forest); border-color: var(--forest); color: #fff; }
+/* Patrimoine et Nature : un bloc chacun, aux couleurs des lieux sur la carte (orange / vert) */
+.families { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.family { --fam: #c9561f; --fam-soft: #fbebe1; background: var(--panel); border: 1px solid var(--border); border-top: 3px solid var(--fam); border-radius: 12px; padding: 10px 12px 12px; }
+.family.nature { --fam: #2f7d4f; --fam-soft: #e3f0e7; }
+.family-title { display: flex; align-items: center; gap: 7px; margin: 0 0 9px; font-family: "Barlow Condensed", sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--fam); }
+.family-count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--fam); color: #fff; font-family: "Inter", sans-serif; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; }
+.family-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 0.85rem; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--fam-soft); color: var(--text); cursor: pointer; }
+.chip :deep(svg) { color: var(--fam); }
+.chip:hover { border-color: var(--fam); }
+.chip.on { background: var(--fam); border-color: var(--fam); color: #fff; font-weight: 600; }
+.chip.on :deep(svg) { color: #fff; }
 .clear { align-self: flex-start; font: inherit; font-size: 0.8rem; color: var(--text-soft); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; }
 .submit-row { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .go { height: 50px; padding: 0 24px; font-size: 1.02rem; border-radius: 12px; gap: 10px; }
