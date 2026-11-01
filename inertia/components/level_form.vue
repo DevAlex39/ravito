@@ -60,15 +60,10 @@
         <span>Heure de départ</span>
         <input v-model="settings.start" type="time">
       </label>
-      <label class="field grow">
+      <div class="field grow">
         <span>Terrain de la course</span>
-        <select v-model.number="settings.technicite">
-          <option :value="1">Route, chemins roulants</option>
-          <option :value="1.08">Sentiers faciles</option>
-          <option :value="1.18">Sentiers techniques (cailloux, racines)</option>
-          <option :value="1.3">Très technique (pierriers, haute montagne)</option>
-        </select>
-      </label>
+        <PickList v-model="settings.technicite" class="field-pick" label="Terrain de la course" :options="TECHNICITE" />
+      </div>
     </div>
 
     <details class="advanced">
@@ -93,6 +88,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import PickList from '~/components/pick_list.vue'
+import type { PickOption } from '~/utils/pick_list'
 import { usePlan } from '~/composables/use_plan'
 import { APP_NAME } from '~/brand'
 import { formatKm, formatPace, parsePace, parseTime } from '~/utils/format'
@@ -104,6 +101,13 @@ const modes = [
   { id: 'course', label: 'Course passée' },
 ] as const
 
+/** Terrain de la course : coefficient appliqué à l'effort */
+const TECHNICITE: PickOption<number>[] = [
+  { value: 1, label: 'Route, chemins roulants' },
+  { value: 1.08, label: 'Sentiers faciles' },
+  { value: 1.18, label: 'Sentiers techniques', hint: 'Cailloux, racines' },
+  { value: 1.3, label: 'Très technique', hint: 'Pierriers, haute montagne' },
+]
 const calibError = ref('')
 
 async function onCalib(e: Event) {
@@ -125,6 +129,9 @@ const enduranceLabel = computed(() => {
 </script>
 
 <style scoped>
+/* Liste déroulante présentée comme les autres champs du formulaire */
+.field-pick { padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: #fff; font-size: 0.9rem; }
+.field-pick:focus-within { border-color: var(--forest); }
 .tabs { display: flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; margin-bottom: 14px; }
 .tabs button {
   flex: 1;

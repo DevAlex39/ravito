@@ -17,25 +17,11 @@
           <span class="num">{{ km }} km</span>
           <button type="button" aria-label="Un kilomètre de plus" :disabled="km >= 40" @click="stepAndRun(1)">+</button>
         </div>
-        <label class="pill pick tone" :title="themeInfo.hint">
-          <Icon :name="themeInfo.icon" :size="16" />
-          <select v-model="theme" aria-label="Style de boucle" @change="propose">
-            <option v-for="t in THEMES" :key="t.value" :value="t.value">{{ t.label }}</option>
-          </select>
-          <Icon name="chevron" :size="14" class="caret" />
-        </label>
-        <label class="pill pick" :title="terrainInfo.hint">
-          <select v-model="terrain" aria-label="Type de chemins" @change="propose">
-            <option v-for="t in TERRAINS" :key="t.value" :value="t.value">{{ t.label }}</option>
-          </select>
-          <Icon name="chevron" :size="14" class="caret" />
-        </label>
-        <label class="pill pick">
-          <select v-model="count" aria-label="Nombre de boucles" @change="propose">
-            <option v-for="n in 5" :key="n" :value="n">{{ n }} boucle{{ n > 1 ? 's' : '' }}</option>
-          </select>
-          <Icon name="chevron" :size="14" class="caret" />
-        </label>
+        <PickList v-model="theme" class="pill pick tone" label="Style de boucle" :title="themeInfo.hint" :options="THEME_OPTIONS" @change="propose">
+          <Icon :name="themeInfo.icon" :size="16" />{{ themeInfo.label }}<Icon name="chevron" :size="14" class="caret" />
+        </PickList>
+        <PickList v-model="terrain" class="pill pick" label="Type de chemins" :title="terrainInfo.hint" :options="TERRAIN_OPTIONS" @change="propose" />
+        <PickList v-model="count" class="pill pick" label="Nombre de boucles" :options="COUNT_OPTIONS" @change="propose" />
         <button class="btn ghost" type="button" @click="formOpen = true">
           <Icon name="sliders" :size="18" />Types de lieux<span v-if="groups.length" class="badge">{{ groups.length }}</span>
         </button>
@@ -167,13 +153,17 @@
               <div class="stats">
                 <div><strong class="num">{{ formatKm(loop.distance) }} km</strong><span>distance</span></div>
                 <div><strong class="num">+{{ Math.round(gains[i] ?? 0) }} m</strong><span>dénivelé</span></div>
-                <label v-if="durations[i]" class="duration" title="Durée estimée selon ton allure sur le plat et le dénivelé : clique pour changer d'allure">
+                <PickList
+                  v-if="durations[i]"
+                  v-model="paceChoice"
+                  class="duration"
+                  label="Ton allure sur le plat (min/km)"
+                  title="Durée estimée selon ton allure sur le plat et le dénivelé : clique pour changer d'allure"
+                  :options="paceOptions"
+                >
                   <strong class="num">≈ {{ formatDuration(durations[i]!) }}</strong>
                   <span>à {{ paceLabel }}/km <Icon name="chevron" :size="12" /></span>
-                  <select v-model="paceChoice" aria-label="Ton allure sur le plat (min/km)">
-                    <option v-for="p in PACES" :key="p" :value="p">{{ formatPace(p) }} min/km</option>
-                  </select>
-                </label>
+                </PickList>
               </div>
               <p v-if="surfaceText(loop)" class="soft">{{ surfaceText(loop) }}</p>
               <button v-if="currentAmenities.length" type="button" class="amenities-line" :aria-pressed="showAmenities" @click="showAmenities = !showAmenities">
@@ -329,6 +319,8 @@ import { cumulativeEffort, predictTime } from '~/utils/model'
 import { haversine, toGpx } from '~/utils/gpx'
 import { KIND_GROUPS, kindOf } from '~/utils/places'
 import Icon from '~/components/icon.vue'
+import PickList from '~/components/pick_list.vue'
+import type { PickOption } from '~/utils/pick_list'
 import type { IconName } from '~/utils/icons'
 
 const plan = usePlan()
@@ -366,6 +358,7 @@ const THEMES: { value: Theme, label: string, icon: IconName, hint: string }[] = 
 /** Lieux à voir sur les boucles : tous, ou seulement le patrimoine / la nature */
 const theme = ref<Theme>('tout')
 const themeInfo = computed(() => THEMES.find(t => t.value === theme.value)!)
+const THEME_OPTIONS: PickOption<Theme>[] = THEMES.map(t => ({ value: t.value, label: t.label, icon: t.icon, hint: t.hint }))
 
 // --- « Plus de choix » : familles de lieux précises (cascades, grottes, châteaux…) ---
 const moreOpen = ref(false)
@@ -395,6 +388,8 @@ const TERRAINS: { value: Terrain, label: string, hint: string }[] = [
 /** Type de chemins voulu ; toutes les options évitent les routes à circulation */
 const terrain = ref<Terrain>('mixte')
 const terrainInfo = computed(() => TERRAINS.find(t => t.value === terrain.value)!)
+const TERRAIN_OPTIONS: PickOption<Terrain>[] = TERRAINS.map(t => ({ value: t.value, label: t.label, hint: t.hint }))
+const COUNT_OPTIONS: PickOption<number>[] = [1, 2, 3, 4, 5].map(n => ({ value: n, label: `${n} boucle${n > 1 ? 's' : ''}` }))
 
 /** « 65 % sentiers · 3 % grandes routes » (grandes routes masquées sous 1 %) */
 function surfaceText(loop: Loop): string {
@@ -480,6 +475,17 @@ const durations = computed(() => {
     const effort = cumulativeEffort(p, plan.settings.descente, plan.settings.technicite)
     return effort.length > 1 ? predictTime(effort[effort.length - 1]!, ref, plan.settings.endurance) : null
   })
+})
+/** Choix d'allure : chacune avec la durée qu'elle donnerait sur la boucle affichée */
+const paceOptions = computed<PickOption<number>[]>(() => {
+  const p = profiles.value[selected.value]
+  const effort = p ? cumulativeEffort(p, plan.settings.descente, plan.settings.technicite) : []
+  const total = effort.length > 1 ? effort[effort.length - 1]! : null
+  return PACES.map(pace => ({
+    value: pace,
+    label: `${formatPace(pace)} /km`,
+    side: total ? `≈ ${formatDuration(predictTime(total, { distance: 10_000, time: pace * 10 }, plan.settings.endurance))}` : undefined,
+  }))
 })
 const track = computed(() => tracks.value[selected.value] ?? null)
 const profile = computed(() => profiles.value[selected.value] ?? null)
@@ -936,8 +942,8 @@ function useForPlan() {
 .pill.pick:hover { border-color: var(--border-strong); }
 .pill.pick.tone:hover { border-color: var(--forest); }
 .pill.pick:focus-within { border-color: var(--forest); }
-.pill.pick select { appearance: none; -webkit-appearance: none; border: none; background: transparent; padding: 0 18px 0 0; margin-right: -18px; font: inherit; color: inherit; cursor: pointer; outline: none; }
 .pill.pick .caret { pointer-events: none; opacity: 0.6; }
+.pill.pick :deep(.trigger) { align-self: stretch; }
 .summary .btn { height: 40px; padding: 0 16px; border-radius: 10px; }
 .badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--forest); color: #fff; font-size: 0.75rem; }
 
@@ -982,10 +988,10 @@ button.loop:hover { border-color: var(--border-strong); }
 .preview { font-size: 0.9rem; color: var(--text-soft); }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 /* Durée : la tuile entière ouvre la liste des allures (menu natif invisible posé dessus) */
-.duration { position: relative; cursor: pointer; }
+.duration { cursor: pointer; }
 .duration:hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.duration :deep(.trigger) { flex-direction: column; align-items: flex-start; gap: 0; }
 .duration span { display: inline-flex; align-items: center; gap: 2px; }
-.duration select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .stats > * { display: flex; flex-direction: column; padding: 8px 9px; border-radius: 10px; background: var(--bg); }
 .stats strong { font-size: 1.05rem; }
 .stats span { font-size: 0.75rem; color: var(--text-soft); }
