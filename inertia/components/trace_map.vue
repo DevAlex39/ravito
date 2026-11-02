@@ -19,7 +19,7 @@ export interface MapView { lat: number, lon: number, radius: number, zoom: numbe
 
 const props = defineProps<{
   waypoints: TracePoint[]
-  /** Lieux à voir de la zone affichée (bouton « Lieux à voir ») */
+  /** Lieux à voir de la zone affichée (bouton « Afficher les lieux ») */
   places?: Poi[]
   legs: TraceLeg[]
   track: Track | null

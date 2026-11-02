@@ -4,7 +4,7 @@
     <div class="container tracer">
       <div class="head">
         <h1>Créer une trace</h1>
-        <p class="hint">Clique sur la carte pour poser tes points : le tracé suit les sentiers. Glisse un point pour le déplacer, clique dessus pour le retirer. Avec « Lieux à voir », ajoute les lieux de ton choix, même dans plusieurs villes.</p>
+        <p class="hint">Clique sur la carte pour poser tes points : le tracé suit les sentiers. Glisse un point pour le déplacer, clique dessus pour le retirer. Avec « Afficher les lieux », ajoute les lieux de ton choix, même dans plusieurs villes.</p>
       </div>
 
       <section class="card map-card">
@@ -23,7 +23,7 @@
             </button>
           </div>
           <button type="button" class="places-toggle" :class="{ active: showPlaces }" :aria-pressed="showPlaces" title="Afficher les lieux à voir de la zone, pour les ajouter au parcours" @click="togglePlaces">
-            <Icon name="landmark" :size="16" />Lieux à voir
+            <Icon name="landmark" :size="16" />{{ showPlaces ? 'Masquer les lieux' : 'Afficher les lieux' }}
           </button>
         </div>
         <p v-if="searchError" class="notice bad">{{ searchError }}</p>
