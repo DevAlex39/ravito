@@ -69,6 +69,11 @@ const TOLERANCE = 0.1
  */
 const MAX_SPUR_POI = 300
 const MIN_SPUR = 30
+/**
+ * Aller-retour vers un lieu sur une route à fort trafic (m) : au-delà, le lieu est abandonné.
+ * Passer par cette route pour continuer le tour ailleurs reste permis : ce n'est pas un aller-retour.
+ */
+const BUSY_SPUR_MAX = 40
 /** Écart maximal (m) entre les deux bouts raccordés quand on coupe un aller-retour */
 const JOIN_MAX = 25
 /** Un lieu n'est annoncé que si le tracé passe à moins de cette distance (m) */
@@ -351,12 +356,19 @@ function spurLength(coords: Coord[], i: number): number {
   return n * 10
 }
 
+/** Longueur (m) sur route à fort trafic entre les points `from` et `to` du tracé */
+function busyLength(coords: Coord[], busy: boolean[], from: number, to: number): number {
+  let d = 0
+  for (let k = from; k < to; k++) if (busy[k]) d += step(coords, k)
+  return d
+}
+
 /**
  * Coupe les allers-retours : quand le tracé va toucher un point de passage puis revient sur ses pas,
  * on retire la partie faite deux fois. Le point de forme disparaît ; un lieu au bout d'un long
  * cul-de-sac est abandonné (mieux vaut une boucle un peu plus courte qu'un aller-retour inutile).
  */
-function cutSpurs(coords: Coord[], waypoints: LatLon[], stops: Poi[]) {
+function cutSpurs(coords: Coord[], waypoints: LatLon[], stops: Poi[], busy: boolean[] = []) {
   let kept = waypoints.slice(1, -1)
   for (let guard = 0; guard < 30; guard++) {
     let cut = false
@@ -370,12 +382,28 @@ function cutSpurs(coords: Coord[], waypoints: LatLon[], stops: Poi[]) {
         .map(w => ({ w, d: haversine(w, tip) }))
         .filter(x => x.d < 250)
         .sort((a, b) => a.d - b.d)[0]?.w
-      if (near && stops.includes(near as Poi) && spur <= MAX_SPUR_POI) continue
-      const from = walk(coords, i, spur, -1)
-      const to = walk(coords, i, spur, 1)
+      // Raccord : le point de l'aller le plus loin de la pointe qui se retrouve aussi au retour (à 3 m près).
+      // `spur` n'est qu'une estimation (points espacés de 100 m sur une grande route, tolérance de 15 m à la fourche)
+      const end = walk(coords, i, spur + 150, 1)
+      let from = i
+      let to = i
+      let join = Infinity
+      for (let f = walk(coords, i, spur, -1); f < i && join > 3; f++) {
+        for (let k = i + 1; k <= end; k++) {
+          const d = haversine(at(coords[k]!), at(coords[f]!))
+          if (d < join) {
+            join = d
+            from = f
+            to = k
+          }
+        }
+      }
+      // Un lieu au bout d'un court aller-retour est gardé, sauf si l'aller-retour emprunte une route à fort trafic
+      if (near && stops.includes(near as Poi) && spur <= MAX_SPUR_POI && busyLength(coords, busy, from, i) < BUSY_SPUR_MAX) continue
       // Garde-fou : les deux bouts raccordés doivent se toucher, sinon la coupe tracerait une ligne droite hors chemin
-      if (haversine(at(coords[from]!), at(coords[to]!)) > JOIN_MAX) continue
+      if (join > JOIN_MAX) continue
       coords = [...coords.slice(0, from + 1), ...coords.slice(to)]
+      busy = [...busy.slice(0, from + 1), ...busy.slice(to)]
       if (near) kept = kept.filter(w => w !== near)
       cut = true
     }
@@ -402,7 +430,7 @@ async function routeOnce(waypoints: LatLon[], stops: Poi[], opts: RouteOptions):
     await new Promise(r => setTimeout(r, 1500))
     route = await routeVia(waypoints, opts)
   }
-  const cut = cutSpurs(route.coords, waypoints, stops)
+  const cut = cutSpurs(route.coords, waypoints, stops, route.busy)
   const { coords } = cut
   let distance = 0
   for (let i = 0; i < coords.length - 1; i++) distance += step(coords, i)

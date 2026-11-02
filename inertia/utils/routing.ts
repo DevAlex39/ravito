@@ -50,6 +50,8 @@ export interface Surface {
 export interface Route {
   coords: Coord[]
   surface: Surface
+  /** Pour chaque point du tracé : le bout qui suit est-il sur une route à fort trafic (nationale, grande départementale) */
+  busy: boolean[]
 }
 
 /** Calcule un itinéraire pédestre entre deux points avec BRouter */
@@ -72,6 +74,7 @@ export async function routeVia(points: LatLon[], { signal, terrain = 'mixte', pr
   return {
     coords: coords.map(c => [c[0]!, c[1]!, c[2] ?? null]),
     surface: surfaceOf(feature?.properties?.messages),
+    busy: busyOf(coords, feature?.properties?.messages),
   }
 }
 
@@ -80,6 +83,29 @@ const TRAIL = /\bhighway=(path|footway|track|bridleway|steps)\b/
 /** Trottoirs et passages piétons cartographiés à part : ce ne sont pas des sentiers */
 const SIDEWALK = /\bfootway=(sidewalk|crossing)\b/
 const PAVED = /\bsurface=(asphalt|paved|concrete|paving_stones|sett)\b/
+/** Routes où ça circule beaucoup : on ne s'y engage pas pour un simple aller-retour */
+const BUSY_ROAD = /\bhighway=(trunk|primary|secondary)(_link)?\b/
+
+/**
+ * Route à fort trafic ou non, point par point. Chaque ligne du détail de BRouter se termine à un point
+ * du tracé (coordonnées en millionièmes de degré) : les points jusqu'à celui-là sont sur cette voie.
+ */
+function busyOf(coords: number[][], messages: unknown): boolean[] {
+  const busy: boolean[] = Array.from({ length: coords.length }, () => false)
+  if (!Array.isArray(messages) || messages.length < 2) return busy
+  const header = messages[0] as string[]
+  const iLon = header.indexOf('Longitude')
+  const iLat = header.indexOf('Latitude')
+  const iTags = header.indexOf('WayTags')
+  const rows = (messages.slice(1) as string[][]).map(r => ({ lon: Number(r[iLon]) / 1e6, lat: Number(r[iLat]) / 1e6, busy: BUSY_ROAD.test(r[iTags] ?? '') }))
+  let m = 0
+  for (let i = 0; i < coords.length - 1 && m < rows.length; i++) {
+    busy[i] = rows[m]!.busy
+    const next = coords[i + 1]!
+    if (Math.abs(next[0]! - rows[m]!.lon) < 2e-6 && Math.abs(next[1]! - rows[m]!.lat) < 2e-6) m++
+  }
+  return busy
+}
 
 /** Répartition à partir du détail des tronçons de BRouter (une ligne par tronçon : distance, étiquettes OSM…) */
 function surfaceOf(messages: unknown): Surface {
