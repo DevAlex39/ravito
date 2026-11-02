@@ -194,7 +194,7 @@
                   type="button"
                   class="btn ghost small"
                   :disabled="climbBusy || busy"
-                  title="Cherche un autre itinéraire pour cette boucle, avec moins de montée, sans toucher aux autres"
+                  title="Cherche, si possible, un itinéraire avec moins de montée pour cette boucle (les autres ne bougent pas). Ce n'est pas toujours possible, et la distance peut augmenter un peu."
                   @click="lessClimb(i)"
                 >
                   <Icon name="mountain" :size="16" />{{ climbBusy ? 'Recherche…' : 'Moins de D+' }}
@@ -425,7 +425,7 @@ const terrainInfo = computed(() => TERRAINS.find(t => t.value === terrain.value)
 const TERRAIN_OPTIONS: PickOption<Terrain>[] = TERRAINS.map(t => ({ value: t.value, label: t.label, hint: t.hint }))
 const PRIORITIES: { value: Priority, label: string, hint: string }[] = [
   { value: 'distance', label: 'Plus petite distance', hint: 'Le chemin le plus direct d\'un lieu à l\'autre' },
-  { value: 'denivele', label: 'Plus petit dénivelé', hint: 'Les boucles qui montent le moins, quitte à faire un détour' },
+  { value: 'denivele', label: 'Plus petit dénivelé', hint: 'Les boucles qui montent le moins, si le secteur le permet : la distance peut augmenter un peu' },
 ]
 /** Ce que les itinéraires cherchent à réduire : la distance par défaut */
 const priority = ref<Priority>('distance')
