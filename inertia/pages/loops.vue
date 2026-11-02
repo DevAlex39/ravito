@@ -177,7 +177,7 @@
                   v-model="paceChoice"
                   class="duration"
                   label="Ton allure sur le plat (min/km)"
-                  title="Durée estimée selon ton allure sur le plat et le dénivelé : clique pour changer d'allure"
+                  title="Temps à plat selon ton allure (le dénivelé n'est pas compté) : clique pour changer d'allure"
                   :options="paceOptions"
                 >
                   <strong class="num">≈ {{ formatDuration(durations[i]!) }}</strong>
@@ -348,8 +348,7 @@ import { searchPlace, type PlaceSuggestion } from '~/utils/geocode'
 import PlaceInput from '~/components/place_input.vue'
 import { buildProfile } from '~/utils/profile'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
-import { formatDuration, formatKm, formatPace, parsePace } from '~/utils/format'
-import { cumulativeEffort, predictTime } from '~/utils/model'
+import { formatDuration, formatKm, formatPace } from '~/utils/format'
 import { haversine, toGpx } from '~/utils/gpx'
 import { KIND_GROUPS, kindOf } from '~/utils/places'
 import Icon from '~/components/icon.vue'
@@ -496,7 +495,7 @@ const tracks = computed(() => loops.value.map(l => loopTrack(l, loopName.value))
 const profiles = computed(() => tracks.value.map(t => buildProfile(t)))
 const gains = computed(() => profiles.value.map(p => p.gain))
 
-// --- Durée estimée : même modèle que le plan de course (effort selon la pente, puis allure du coureur) ---
+// --- Durée estimée : temps à plat selon l'allure du coureur (le dénivelé n'est pas compté) ---
 /** Allures proposées (s/km), de 3:30 à 9:00 */
 const PACES = Array.from({ length: 23 }, (_, k) => 210 + 15 * k)
 /** Allure sur le plat du coureur : celle de son plan de course, 5:30 par défaut */
@@ -513,22 +512,16 @@ const paceChoice = computed({
   },
 })
 const paceLabel = computed(() => formatPace(plan.flatPace10k.value ?? 330))
-const durations = computed(() => {
-  const ref = plan.reference.value ?? { distance: 10_000, time: (parsePace(plan.settings.pace) ?? 330) * 10 }
-  return profiles.value.map((p) => {
-    const effort = cumulativeEffort(p, plan.settings.descente, plan.settings.technicite)
-    return effort.length > 1 ? predictTime(effort[effort.length - 1]!, ref, plan.settings.endurance) : null
-  })
-})
+/** Temps à plat : distance × allure, sans le dénivelé (simple à vérifier de tête) */
+const flatTime = (distance: number, pace: number) => (distance / 1000) * pace
+const durations = computed(() => loops.value.map(l => (l.distance ? flatTime(l.distance, plan.flatPace10k.value ?? 330) : null)))
 /** Choix d'allure : chacune avec la durée qu'elle donnerait sur la boucle affichée */
 const paceOptions = computed<PickOption<number>[]>(() => {
-  const p = profiles.value[selected.value]
-  const effort = p ? cumulativeEffort(p, plan.settings.descente, plan.settings.technicite) : []
-  const total = effort.length > 1 ? effort[effort.length - 1]! : null
+  const distance = loops.value[selected.value]?.distance
   return PACES.map(pace => ({
     value: pace,
     label: `${formatPace(pace)} /km`,
-    side: total ? `≈ ${formatDuration(predictTime(total, { distance: 10_000, time: pace * 10 }, plan.settings.endurance))}` : undefined,
+    side: distance ? `≈ ${formatDuration(flatTime(distance, pace))}` : undefined,
   }))
 })
 const track = computed(() => tracks.value[selected.value] ?? null)
