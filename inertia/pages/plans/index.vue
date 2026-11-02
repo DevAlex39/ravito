@@ -49,6 +49,28 @@
           </div>
         </li>
       </ul>
+
+      <section v-if="favorites.length" class="favorites">
+        <h2><Icon name="star" :size="20" class="fav-icon" />Boucles favorites</h2>
+        <ul class="list">
+          <li v-for="f in favorites" :key="f.id" class="card item">
+            <Link :href="f.url" class="open">
+              <strong class="name">{{ f.name }}</strong>
+              <span class="stats">
+                <span class="stat"><Icon name="route" :size="15" /><span class="num">{{ formatKm(f.distance) }} km</span></span>
+                <span class="stat"><Icon name="mountain" :size="15" /><span class="num">+{{ f.gain }} m</span></span>
+                <span class="stat"><Icon name="star" :size="15" /><span class="num">{{ f.stops ? `${f.stops} lieu${f.stops > 1 ? 'x' : ''}` : 'sans lieu' }}</span></span>
+              </span>
+            </Link>
+            <div class="foot">
+              <span class="date">Ajoutée {{ formatDate(f.createdAt) }}</span>
+              <button class="remove" type="button" :title="`Retirer « ${f.name} » des favoris`" :aria-label="`Retirer « ${f.name} » des favoris`" @click="removeFavorite(f)">
+                <Icon name="trash" :size="17" />
+              </button>
+            </div>
+          </li>
+        </ul>
+      </section>
     </div>
   </DefaultLayout>
 </template>
@@ -72,7 +94,18 @@ type PlanItem = {
   updatedAt: string
 }
 
-defineProps<{ plans: PlanItem[] }>()
+type FavoriteItem = {
+  id: number
+  /** Lien de la boucle (/boucles?…) */
+  url: string
+  name: string
+  distance: number
+  gain: number
+  stops: number
+  createdAt: string
+}
+
+defineProps<{ plans: PlanItem[], favorites: FavoriteItem[] }>()
 
 const { planId, clearTrack } = usePlan()
 
@@ -99,6 +132,11 @@ function remove(p: PlanItem) {
       if (planId.value === p.id) planId.value = null
     },
   })
+}
+
+function removeFavorite(f: FavoriteItem) {
+  if (!confirm(`Retirer « ${f.name} » de tes boucles favorites ?`)) return
+  router.delete(`/favoris/${f.id}`, { preserveScroll: true })
 }
 </script>
 
@@ -136,6 +174,10 @@ function remove(p: PlanItem) {
 .date { color: var(--text-dim); font-size: 0.8rem; margin-left: auto; white-space: nowrap; }
 .remove { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: none; border-radius: 8px; background: none; color: var(--text-dim); cursor: pointer; }
 .remove:hover { color: var(--bad); background: var(--bad-bg); }
+
+.favorites { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.favorites h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.6rem; }
+.fav-icon { color: #e0a100; fill: currentColor; }
 
 @media (max-width: 520px) {
   .head h1 { font-size: 2rem; }

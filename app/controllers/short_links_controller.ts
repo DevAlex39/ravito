@@ -1,12 +1,11 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import { createHash, randomBytes } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import db from '@adonisjs/lucid/services/db'
 import vine from '@vinejs/vine'
+import { cleanLoopQuery, loopQueryHash } from '#services/loop_query'
 
 const ALPHABET = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 7
-/** Paramètres acceptés dans un lien de boucle : rien d'autre n'est enregistré */
-const ALLOWED = new Set(['lat', 'lon', 'km', 'n', 'chemins', 'nom', 'style', 'priorite', 'types', 'via', 'lieux'])
 
 const storeValidator = vine.create(
   vine.object({
@@ -24,14 +23,9 @@ export default class ShortLinksController {
   /** Raccourcit le lien d'une boucle ; renvoie le code (le même pour un lien déjà raccourci) */
   async store({ request, response }: HttpContext) {
     const { query } = await storeValidator.validate(request.body())
-    const params = new URLSearchParams(query)
-    const lat = Number(params.get('lat'))
-    const lon = Number(params.get('lon'))
-    if ([...params.keys()].some(k => !ALLOWED.has(k)) || !params.get('via') || !(Math.abs(lat) <= 90) || !(Math.abs(lon) <= 180)) {
-      return response.badRequest({ message: 'Lien de boucle invalide.' })
-    }
-    const clean = params.toString()
-    const hash = createHash('sha256').update(clean).digest('hex')
+    const clean = cleanLoopQuery(query)
+    if (!clean) return response.badRequest({ message: 'Lien de boucle invalide.' })
+    const hash = loopQueryHash(clean)
     const existing = await db.from('short_links').where('query_hash', hash).first()
     if (existing) return { code: existing.code }
     // Collision de code improbable (57⁷ possibilités) : quelques essais suffisent

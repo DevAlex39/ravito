@@ -12,6 +12,7 @@ import { middleware } from '#start/kernel'
 import { throttleAccount, throttleAuth, throttleLieux, throttleLinks, throttleSignup, throttleWrites } from '#start/limiter'
 
 const AuthController = () => import('#controllers/auth_controller')
+const FavoriteLoopsController = () => import('#controllers/favorite_loops_controller')
 const PlansController = () => import('#controllers/plans_controller')
 const PoisController = () => import('#controllers/pois_controller')
 const SharedPlansController = () => import('#controllers/shared_plans_controller')
@@ -57,5 +58,8 @@ router
     router.patch('/parcours/:id/partage', [SharedPlansController, 'share']).as('plans.share').where('id', router.matchers.number())
     router.post('/partages/:id/vote', [SharedPlansController, 'vote']).as('shared.vote').where('id', router.matchers.number())
     router.delete('/parcours/:id', [PlansController, 'destroy']).as('plans.destroy').where('id', router.matchers.number())
+    router.get('/favoris', [FavoriteLoopsController, 'index']).as('favorites.index')
+    router.post('/favoris', [FavoriteLoopsController, 'store']).as('favorites.store')
+    router.delete('/favoris/:id', [FavoriteLoopsController, 'destroy']).as('favorites.destroy').where('id', router.matchers.number())
   })
   .use([middleware.auth(), throttleWrites])

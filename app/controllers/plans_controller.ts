@@ -12,7 +12,20 @@ export default class PlansController {
       .select('id', 'name', 'distance', 'gain', 'duration', 'isPublic', 'updatedAt', 'createdAt')
       .select(db.raw('(SELECT COUNT(*) FROM plan_votes v WHERE v.plan_id = plans.id) AS votes'))
       .orderBy('updatedAt', 'desc')
+    const favorites = await db.from('favorite_loops')
+      .where('user_id', auth.user!.id)
+      .select('id', 'query', 'name', 'distance', 'gain', 'stops', 'created_at')
+      .orderBy('created_at', 'desc')
     return inertia.render('plans/index', {
+      favorites: favorites.map(f => ({
+        id: f.id as number,
+        url: `/boucles?${f.query}`,
+        name: f.name as string,
+        distance: f.distance as number,
+        gain: f.gain as number,
+        stops: f.stops as number,
+        createdAt: new Date(f.created_at).toISOString(),
+      })),
       plans: plans.map(p => ({
         id: p.id,
         name: p.name,

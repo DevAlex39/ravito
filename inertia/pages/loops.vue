@@ -22,7 +22,6 @@
         </PickList>
         <PickList v-model="terrain" class="pill pick" label="Type de chemins" :title="terrainInfo.hint" :options="TERRAIN_OPTIONS" @change="propose" />
         <PickList v-model="priority" class="pill pick" label="Priorité" :title="priorityInfo.hint" :options="PRIORITY_OPTIONS" @change="propose" />
-        <PickList v-model="count" class="pill pick" label="Nombre de parcours proposés" :options="COUNT_OPTIONS" @change="propose" />
         <button class="btn ghost" type="button" @click="formOpen = true">
           <Icon name="sliders" :size="18" />Types de lieux<span v-if="groups.length" class="badge">{{ groups.length }}</span>
         </button>
@@ -104,22 +103,6 @@
               </button>
             </div>
           </div>
-          <div class="field">
-            <span>Nombre de parcours proposés</span>
-            <div class="count" role="radiogroup" aria-label="Nombre de parcours proposés">
-              <button
-                v-for="n in 5"
-                :key="n"
-                type="button"
-                role="radio"
-                :aria-checked="count === n"
-                :class="{ on: count === n }"
-                @click="count = n"
-              >
-                {{ n }}
-              </button>
-            </div>
-          </div>
         </div>
         <button type="button" class="more" :aria-expanded="moreOpen" @click="moreOpen = !moreOpen">
           {{ groups.length ? `${groups.length} type${groups.length > 1 ? 's' : ''} de lieux choisi${groups.length > 1 ? 's' : ''}` : 'Choisir les types de lieux' }}
@@ -167,6 +150,18 @@
             <article v-if="i === selected" class="loop card active">
               <header class="loop-head">
                 <h2>Boucle {{ i + 1 }}</h2>
+                <button
+                  type="button"
+                  class="fav"
+                  :class="{ on: isFavorite }"
+                  :aria-pressed="isFavorite"
+                  :disabled="favBusy"
+                  :title="isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'"
+                  :aria-label="isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'"
+                  @click="toggleFavorite"
+                >
+                  <Icon name="star" :size="22" />
+                </button>
                 <span class="soft">{{ loop.stops.length ? `${loop.stops.length} lieu${loop.stops.length > 1 ? 'x' : ''}` : 'sans lieu remarquable' }}</span>
               </header>
               <div class="stats">
@@ -328,12 +323,25 @@
         </div>
       </div>
     </div>
+
+    <dialog ref="loginDialog" class="login-dialog" aria-labelledby="login-dialog-title" @click.self="loginDialog?.close()">
+      <div class="dialog-body">
+        <Icon name="star" :size="28" class="dialog-star" />
+        <h2 id="login-dialog-title">Garde tes boucles préférées</h2>
+        <p>Pour enregistrer des boucles en favoris, il faut un compte. Une fois connecté, tu reviens sur cette boucle.</p>
+        <div class="dialog-actions">
+          <Link class="btn" :href="`/connexion?next=${encodeURIComponent(loginNext)}`">Se connecter</Link>
+          <Link class="btn ghost" :href="`/inscription?next=${encodeURIComponent(loginNext)}`">Créer un compte</Link>
+          <button type="button" class="btn ghost" @click="loginDialog?.close()">Plus tard</button>
+        </div>
+      </div>
+    </dialog>
   </DefaultLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { Head, Link, router } from '@inertiajs/vue3'
+import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import DefaultLayout from '~/layouts/default.vue'
 import LoopMap from '~/components/loop_map.vue'
 import ElevationProfile from '~/components/elevation_profile.vue'
@@ -364,8 +372,8 @@ const start = ref<LatLon | null>(null)
 /** Nom court du lieu de départ, pour nommer la boucle */
 const placeName = ref('')
 const km = ref(10)
-/** Nombre de boucles demandées (3 par défaut, de 1 à 5) */
-const count = ref(3)
+/** Nombre de boucles proposées à chaque fois (« D'autres boucles » en propose d'autres) */
+const LOOP_COUNT = 3
 
 function stepKm(delta: number) {
   km.value = Math.min(40, Math.max(3, Math.round(km.value || 10) + delta))
@@ -432,7 +440,6 @@ const priorityInfo = computed(() => PRIORITIES.find(p => p.value === priority.va
 const PRIORITY_OPTIONS: PickOption<Priority>[] = PRIORITIES.map(p => ({ value: p.value, label: p.label, hint: p.hint }))
 /** Réglages d'itinéraire communs à tous les calculs */
 const routeOpts = computed<RouteOptions>(() => ({ terrain: terrain.value, priority: priority.value }))
-const COUNT_OPTIONS: PickOption<number>[] = [1, 2, 3, 4, 5].map(n => ({ value: n, label: `${n} parcours` }))
 
 /** « 65 % sentiers · 3 % grandes routes » (grandes routes masquées sous 1 %) */
 function surfaceText(loop: Loop): string {
@@ -714,7 +721,7 @@ async function propose() {
   const more = wantMore && loops.value.length > 0
   wantMore = false
   // Même recherche que tout à l'heure : on réaffiche les boucles déjà calculées
-  const cacheKey = JSON.stringify([start.value.lat.toFixed(5), start.value.lon.toFixed(5), target, theme.value, [...kinds.value].sort(), terrain.value, priority.value, count.value])
+  const cacheKey = JSON.stringify([start.value.lat.toFixed(5), start.value.lon.toFixed(5), target, theme.value, [...kinds.value].sort(), terrain.value, priority.value, LOOP_COUNT])
   const cached = more ? null : readLoops(cacheKey)
   if (cached) {
     shownLoops = [...cached.loops]
@@ -735,17 +742,17 @@ async function propose() {
   try {
     if (more) {
       variant++
-      const found = await generateLoops(start.value, target, pois, count.value, routeOpts.value, { variant, shown: shownLoops })
+      const found = await generateLoops(start.value, target, pois, LOOP_COUNT, routeOpts.value, { variant, shown: shownLoops })
       if (!found.length) {
         showInfo('Pas d\'autre boucle vraiment différente autour de ce départ : essaie une autre distance, un autre style ou un départ un peu plus loin.')
         return
       }
       shownLoops.push(...found)
       showLoops(found, await amenityRequest)
-      if (found.length < count.value) showInfo(`${found.length === 1 ? 'Une seule nouvelle boucle' : `Seulement ${found.length} nouvelles boucles`} : les autres ressemblaient trop à celles déjà vues.`)
+      if (found.length < LOOP_COUNT) showInfo(`${found.length === 1 ? 'Une seule nouvelle boucle' : `Seulement ${found.length} nouvelles boucles`} : les autres ressemblaient trop à celles déjà vues.`)
       return
     }
-    const found = await generateLoops(start.value, target, pois, count.value, routeOpts.value)
+    const found = await generateLoops(start.value, target, pois, LOOP_COUNT, routeOpts.value)
     shownLoops = [...found]
     variant = 0
     showLoops(found, await amenityRequest)
@@ -754,7 +761,7 @@ async function propose() {
       const what = kinds.value.length ? 'de lieux de ce type' : theme.value === 'nature' ? 'de lieux naturels' : theme.value === 'patrimoine' ? 'de patrimoine' : 'de lieux remarquables'
       showInfo(`Peu ${what} connus ici : ces boucles explorent simplement les alentours.`)
     }
-    else if (loops.value.length < count.value) showInfo(`Seulement ${loops.value.length} boucle${loops.value.length > 1 ? 's' : ''} trouvée${loops.value.length > 1 ? 's' : ''} autour de ce départ (relief, rivière ou manque de chemins).`)
+    else if (loops.value.length < LOOP_COUNT) showInfo(`Seulement ${loops.value.length} boucle${loops.value.length > 1 ? 's' : ''} trouvée${loops.value.length > 1 ? 's' : ''} autour de ce départ (relief, rivière ou manque de chemins).`)
     else message.value = ''
     // Lieux indisponibles : ces boucles de secours ne sont pas gardées
     if (!poisFailed && loops.value.length && !more) storeLoops(cacheKey, { loops: loops.value, amenities: amenities.value, message: message.value, messageBad: messageBad.value })
@@ -819,12 +826,16 @@ function restoreLoop(i: number) {
 const copied = ref(false)
 
 function shareUrl(): string {
+  return `${window.location.origin}/boucles?${loopQuery()}`
+}
+
+/** Paramètres de la boucle choisie (sans le « ? ») : servent au lien de partage et aux favoris */
+function loopQuery(): string {
   const loop = current.value!
   const p = new URLSearchParams({
     lat: start.value!.lat.toFixed(5),
     lon: start.value!.lon.toFixed(5),
     km: String(km.value),
-    n: String(count.value),
     chemins: terrain.value,
   })
   const name = placeName.value || query.value.trim()
@@ -835,16 +846,21 @@ function shareUrl(): string {
   // Points de passage : la même boucle est recalculée à l'identique à l'ouverture du lien
   p.set('via', (loop.via ?? loop.waypoints).map(w => `${w.lat.toFixed(5)},${w.lon.toFixed(5)}`).join('_'))
   if (loop.stops.length) p.set('lieux', loop.stops.map(s => s.id).join(','))
-  return `${window.location.origin}/boucles?${p}`
+  return p.toString()
+}
+
+/** En-têtes des envois au serveur (JSON + jeton anti-falsification) */
+function jsonHeaders(): Record<string, string> {
+  const xsrf = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)?.[1]
+  return { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf ? decodeURIComponent(xsrf) : '' }
 }
 
 /** Lien court (/b/<code>) demandé au serveur ; à défaut, le lien complet, qui marche aussi */
 async function shortUrl(url: string): Promise<string> {
   try {
-    const xsrf = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)?.[1]
     const res = await fetch('/liens', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf ? decodeURIComponent(xsrf) : '' },
+      headers: jsonHeaders(),
       body: JSON.stringify({ query: url.split('?')[1] ?? '' }),
     })
     if (!res.ok) return url
@@ -853,6 +869,75 @@ async function shortUrl(url: string): Promise<string> {
   }
   catch {
     return url
+  }
+}
+
+// --- Boucles favorites (étoile) : réservées aux comptes ; sinon on invite à se connecter ---
+const page = usePage()
+const loggedIn = computed(() => !!page.props.user)
+/** Favoris du compte : paramètres de la boucle → numéro du favori */
+const favorites = ref(new Map<string, number>())
+const favBusy = ref(false)
+const loginDialog = ref<HTMLDialogElement>()
+/** Page où revenir après la connexion : la boucle regardée (lien court) */
+const loginNext = ref('/boucles')
+const isFavorite = computed(() => !!current.value && !!start.value && favorites.value.has(loopQuery()))
+
+async function loadFavorites() {
+  if (!loggedIn.value) return
+  try {
+    const res = await fetch('/favoris', { headers: { Accept: 'application/json' } })
+    if (!res.ok) return
+    const rows = (await res.json()) as { id: number, query: string }[]
+    favorites.value = new Map(rows.map(r => [r.query, r.id]))
+  }
+  catch {
+    // Sans la liste, les étoiles restent vides : rien de grave
+  }
+}
+
+async function toggleFavorite() {
+  if (!current.value || !start.value || favBusy.value) return
+  if (!loggedIn.value) {
+    const url = new URL(await shortUrl(shareUrl()))
+    loginNext.value = url.pathname + url.search
+    loginDialog.value?.showModal()
+    return
+  }
+  const q = loopQuery()
+  const id = favorites.value.get(q)
+  favBusy.value = true
+  try {
+    if (id) {
+      const res = await fetch(`/favoris/${id}`, { method: 'DELETE', headers: jsonHeaders() })
+      if (!res.ok) throw new Error()
+      const next = new Map(favorites.value)
+      next.delete(q)
+      favorites.value = next
+    }
+    else {
+      const res = await fetch('/favoris', {
+        method: 'POST',
+        headers: jsonHeaders(),
+        body: JSON.stringify({
+          query: q,
+          name: (placeName.value || query.value.trim() || 'Boucle').slice(0, 120),
+          distance: current.value.distance,
+          gain: gains.value[selected.value] ?? 0,
+          stops: current.value.stops.length,
+        }),
+      })
+      const body = (await res.json().catch(() => ({}))) as { id?: number, query?: string, message?: string }
+      if (!res.ok || !body.id) throw new Error(body.message)
+      favorites.value = new Map(favorites.value).set(body.query ?? q, body.id)
+      showInfo('Boucle ajoutée à tes favoris : retrouve-la dans « Mes parcours ».')
+    }
+  }
+  catch (error) {
+    showError((error as Error).message || 'Le favori n\'a pas pu être enregistré : réessaie dans un instant.')
+  }
+  finally {
+    favBusy.value = false
   }
 }
 
@@ -905,8 +990,9 @@ async function openSharedLoop(via: string, stopIds: number[]) {
   }
 }
 
-// --- Arrivée depuis l'accueil (?depart=Dole, ?position=1 ou ?lat=…&lon=…, avec &km=10, &n=3, &style=nature) : on enchaîne tout seul ---
+// --- Arrivée depuis l'accueil (?depart=Dole, ?position=1 ou ?lat=…&lon=…, avec &km=10, &style=nature) : on enchaîne tout seul ---
 onMounted(async () => {
+  loadFavorites()
   const params = new URLSearchParams(window.location.search)
   const lat = Number(params.get('lat'))
   const lon = Number(params.get('lon'))
@@ -914,8 +1000,6 @@ onMounted(async () => {
   if (!params.has('depart') && !params.has('position') && !fromPoint) return
   const wanted = Number(params.get('km'))
   if (wanted) km.value = Math.min(40, Math.max(3, Math.round(wanted)))
-  const wantedCount = Number(params.get('n'))
-  if (wantedCount) count.value = Math.min(5, Math.max(1, Math.round(wantedCount)))
   const style = params.get('style')
   if (style === 'nature' || style === 'patrimoine') theme.value = style
   const paths = params.get('chemins')
@@ -1088,6 +1172,19 @@ button.loop:hover { border-color: var(--border-strong); }
 .loop.active { gap: 14px; border: 2px solid var(--accent); }
 .loop-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .loop-head h2 { margin: 0; font-size: 1.7rem; font-weight: 700; color: var(--accent-strong); }
+.loop-head .soft { margin-left: auto; }
+.fav { align-self: center; display: inline-flex; padding: 4px; border: none; border-radius: 8px; background: transparent; color: var(--text-dim); cursor: pointer; }
+.fav:hover { color: var(--accent-strong); background: var(--panel-2); }
+.fav.on { color: #e0a100; }
+.fav.on :deep(svg) { fill: currentColor; }
+.login-dialog { width: min(420px, calc(100vw - 32px)); margin: auto; padding: 0; border: 1px solid var(--border); border-radius: 16px; background: var(--panel); color: var(--text); box-shadow: 0 20px 60px rgb(0 0 0 / 0.25); }
+.login-dialog::backdrop { background: rgb(0 0 0 / 0.45); }
+.dialog-body { padding: 24px; text-align: center; }
+.dialog-star { color: #e0a100; }
+.dialog-body h2 { margin: 6px 0 8px; font-size: 1.4rem; }
+.dialog-body p { margin: 0 0 18px; color: var(--text-soft); }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.dialog-actions .btn { text-decoration: none; }
 .loop-head .title { font-family: 'Barlow Condensed', sans-serif; font-size: 1.45rem; font-weight: 700; }
 .soft { font-size: 0.84rem; color: var(--text-soft); }
 .preview { font-size: 0.9rem; color: var(--text-soft); }

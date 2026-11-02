@@ -65,22 +65,6 @@
               </button>
             </div>
           </div>
-          <div class="field">
-            <span>Nombre de parcours proposés</span>
-            <div class="count" role="radiogroup" aria-label="Nombre de parcours proposés">
-              <button
-                v-for="n in 5"
-                :key="n"
-                type="button"
-                role="radio"
-                :aria-checked="loopCount === n"
-                :class="{ on: loopCount === n }"
-                @click="loopCount = n"
-              >
-                {{ n }}
-              </button>
-            </div>
-          </div>
           <button class="btn go" type="submit" :disabled="!loopStart.trim() && !loopPoint">
             Trouver mes boucles <Icon name="arrow" />
           </button>
@@ -250,7 +234,6 @@ const loopStart = ref('')
 /** Suggestion choisie : ses coordonnées servent tant que le champ n'est pas retouché */
 const loopPicked = ref<PlaceSuggestion | null>(null)
 const loopKm = ref(10)
-const loopCount = ref(3)
 
 type LoopTheme = 'tout' | 'nature' | 'patrimoine'
 const THEMES: { value: LoopTheme, label: string, icon: IconName, hint: string }[] = [
@@ -280,7 +263,7 @@ watch(loopStart, (v) => {
 })
 
 function findLoop(fromPosition = false) {
-  const params = new URLSearchParams({ km: String(Math.min(40, Math.max(3, Math.round(loopKm.value || 10)))), n: String(loopCount.value) })
+  const params = new URLSearchParams({ km: String(Math.min(40, Math.max(3, Math.round(loopKm.value || 10)))) })
   if (loopTheme.value !== 'tout') params.set('style', loopTheme.value)
   if (fromPosition) params.set('position', '1')
   else if (loopPicked.value && loopPicked.value.label === loopStart.value) {
@@ -384,9 +367,6 @@ function clearPrint() {
 .chips button { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel); font: inherit; font-size: 0.95rem; color: var(--text); cursor: pointer; }
 .chips button:hover { border-color: var(--forest); }
 .chips button.on { background: var(--forest); border-color: var(--forest); color: #fff; font-weight: 600; }
-.count { display: flex; padding: 3px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel-2); }
-.count button { width: 42px; height: 38px; border: none; border-radius: 999px; background: transparent; font: inherit; font-size: 0.95rem; color: var(--text); cursor: pointer; }
-.count button.on { background: var(--forest); color: #fff; font-weight: 600; }
 .go { margin-left: auto; height: 52px; padding: 0 24px; font-size: 1.05rem; border-radius: 12px; gap: 10px; }
 .go:disabled { opacity: 0.5; cursor: not-allowed; }
 .alt { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 0.92rem; font-weight: 500; color: var(--forest); background: none; border: none; cursor: pointer; padding: 2px; }

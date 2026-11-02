@@ -28,6 +28,29 @@ export class AmenitySchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class FavoriteLoopSchema extends BaseModel {
+  static $columns = ['createdAt', 'distance', 'gain', 'id', 'name', 'query', 'queryHash', 'stops', 'userId'] as const
+  $columns = FavoriteLoopSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare distance: number
+  @column()
+  declare gain: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare query: string
+  @column()
+  declare queryHash: string
+  @column()
+  declare stops: number
+  @column()
+  declare userId: number
+}
+
 export class PlanVoteSchema extends BaseModel {
   static $columns = ['createdAt', 'planId', 'userId'] as const
   $columns = PlanVoteSchema.$columns
