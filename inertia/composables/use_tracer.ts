@@ -5,6 +5,17 @@ import { buildProfile } from '~/utils/profile'
 
 export type TraceMode = 'sentiers' | 'droit'
 
+/** Lieu à voir posé comme point de passage : repéré sur la carte par son nom */
+export interface TracePoi {
+  id: number
+  name: string
+  kind: string
+  category: 'patrimoine' | 'nature'
+}
+
+/** Point de passage ; `poi` quand c'est un lieu à voir (il le reste tant qu'on ne le déplace pas) */
+export type TracePoint = LatLon & { poi?: TracePoi }
+
 export interface TraceLeg {
   id: number
   mode: TraceMode
@@ -13,14 +24,14 @@ export interface TraceLeg {
 }
 
 interface Snapshot {
-  waypoints: LatLon[]
+  waypoints: TracePoint[]
   legs: TraceLeg[]
 }
 
 const STORAGE_KEY = 'ravito:tracer'
 
 // État partagé du traceur (un seul brouillon à la fois)
-const waypoints = ref<LatLon[]>([])
+const waypoints = ref<TracePoint[]>([])
 const legs = ref<TraceLeg[]>([])
 const mode = ref<TraceMode>('sentiers')
 const name = ref('')
@@ -61,7 +72,7 @@ function updateLeg(id: number, patch: Partial<TraceLeg>) {
   }
 }
 
-function addPoint(p: LatLon) {
+function addPoint(p: TracePoint) {
   snapshot()
   const prev = waypoints.value[waypoints.value.length - 1]
   waypoints.value.push(p)
@@ -95,6 +106,33 @@ function removePoint(i: number) {
   }
 }
 
+/**
+ * Ajoute un point là où il rallonge le moins le tracé (à vol d'oiseau) : entre deux points existants,
+ * ou au bout si le tracé n'est pas bouclé. Ajouter plusieurs lieux ainsi donne un ordre de visite raisonnable.
+ */
+function insertPoint(p: TracePoint) {
+  const w = waypoints.value
+  if (w.length < 2) return addPoint(p)
+  let best = { at: w.length, cost: isLoop.value ? Infinity : haversine(w[w.length - 1]!, p) }
+  for (let i = 0; i < w.length - 1; i++) {
+    const cost = haversine(w[i]!, p) + haversine(p, w[i + 1]!) - haversine(w[i]!, w[i + 1]!)
+    if (cost < best.cost) best = { at: i + 1, cost }
+  }
+  if (best.at === w.length) return addPoint(p)
+  snapshot()
+  const before = w[best.at - 1]!
+  const after = w[best.at]!
+  const legMode = legs.value[best.at - 1]!.mode
+  legs.value.splice(best.at - 1, 1, makeLeg(before, p, legMode), makeLeg(p, after, legMode))
+  waypoints.value.splice(best.at, 0, p)
+}
+
+/** Retire du tracé le point posé sur ce lieu */
+function removePoi(id: number) {
+  const i = waypoints.value.findIndex(w => w.poi?.id === id)
+  if (i >= 0) removePoint(i)
+}
+
 /** Revient au point de départ pour fermer la boucle */
 function closeLoop() {
   const first = waypoints.value[0]
@@ -109,9 +147,14 @@ function undo() {
 }
 
 /** Remplace le tracé par un itinéraire déjà calculé (boucle découverte), pour l'ajuster à la main */
-function loadRoute(points: LatLon[], legCoords: Coord[][], routeName: string) {
+function loadRoute(points: (LatLon & Partial<TracePoi>)[], legCoords: Coord[][], routeName: string) {
   if (waypoints.value.length) snapshot()
-  waypoints.value = points.map(p => ({ lat: p.lat, lon: p.lon }))
+  // Les lieux de la boucle restent des lieux (nom, icône) ; les points de forme deviennent de simples points
+  waypoints.value = points.map(p => ({
+    lat: p.lat,
+    lon: p.lon,
+    ...(p.id != null && p.name && p.kind && p.category ? { poi: { id: p.id, name: p.name, kind: p.kind, category: p.category } } : {}),
+  }))
   legs.value = legCoords.map(coords => ({ id: nextLegId++, mode: 'sentiers', coords, status: 'ok' }))
   mode.value = 'sentiers'
   name.value = routeName
@@ -217,6 +260,6 @@ export function useTracer() {
   return {
     waypoints, legs, mode, name, history,
     track, profile, isLoop, pending, failed, noElevation,
-    restore, addPoint, movePoint, removePoint, closeLoop, undo, clear, gpxText, loadRoute,
+    restore, addPoint, insertPoint, movePoint, removePoint, removePoi, closeLoop, undo, clear, gpxText, loadRoute,
   }
 }

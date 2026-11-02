@@ -304,7 +304,7 @@
             <div class="finish-actions">
               <button class="btn" type="button" @click="download"><Icon name="download" :size="18" />Télécharger le GPX</button>
               <button class="btn ghost" type="button" @click="copyLink"><Icon name="link" :size="18" />{{ copied ? 'Lien copié ✓' : 'Copier le lien' }}</button>
-              <button class="btn ghost" type="button" @click="adjust"><Icon name="pencil" :size="18" />Ajuster dans le traceur</button>
+              <button class="btn ghost" type="button" @click="adjust"><Icon name="pencil" :size="18" />Modifier cette boucle</button>
               <button class="btn ghost" type="button" @click="useForPlan">Préparer ma course avec cette boucle <Icon name="arrow" :size="18" /></button>
             </div>
             <p class="disclaimer">

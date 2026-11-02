@@ -4,7 +4,7 @@
     <div class="container tracer">
       <div class="head">
         <h1>Créer une trace</h1>
-        <p class="hint">Clique sur la carte pour poser tes points : le tracé suit les sentiers. Glisse un point pour le déplacer, clique dessus pour le retirer.</p>
+        <p class="hint">Clique sur la carte pour poser tes points : le tracé suit les sentiers. Glisse un point pour le déplacer, clique dessus pour le retirer. Avec « Lieux à voir », ajoute les lieux de ton choix, même dans plusieurs villes.</p>
       </div>
 
       <section class="card map-card">
@@ -22,8 +22,12 @@
               <Icon name="arrow" :size="16" />Ligne droite
             </button>
           </div>
+          <button type="button" class="places-toggle" :class="{ active: showPlaces }" :aria-pressed="showPlaces" title="Afficher les lieux à voir de la zone, pour les ajouter au parcours" @click="togglePlaces">
+            <Icon name="landmark" :size="16" />Lieux à voir
+          </button>
         </div>
         <p v-if="searchError" class="notice bad">{{ searchError }}</p>
+        <p v-if="showPlaces && placesNote" class="notice">{{ placesNote }}</p>
 
         <div class="map-wrap">
           <TraceMap
@@ -33,7 +37,10 @@
             :track="track"
             :hover="hoverD"
             :start-bounds="startBounds"
+            :places="showPlaces ? places : []"
             @add="addPoint"
+            @place="onPlace"
+            @view="onView"
             @move="movePoint"
             @remove="removePoint"
           />
@@ -51,6 +58,14 @@
             <span class="stat"><Icon name="mountain" :size="16" /><strong>+{{ profile ? Math.round(profile.gain) : 0 }}</strong> m</span>
             <span class="stat"><strong>−{{ profile ? Math.round(profile.loss) : 0 }}</strong> m</span>
           </div>
+        </div>
+
+        <div v-if="tracePois.length" class="pois">
+          <span class="pois-title">Lieux du parcours</span>
+          <span v-for="p in tracePois" :key="p.id" class="poi-chip" :class="p.category">
+            <Icon :name="kindOf(p).icon" :size="14" />{{ p.name }}
+            <button type="button" :aria-label="`Retirer ${p.name} du parcours`" title="Retirer du parcours" @click="removePoi(p.id)">×</button>
+          </span>
         </div>
 
         <p v-if="pending" class="notice">Calcul de l'itinéraire…</p>
@@ -86,7 +101,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
 import DefaultLayout from '~/layouts/default.vue'
-import TraceMap from '~/components/trace_map.vue'
+import TraceMap, { type MapView } from '~/components/trace_map.vue'
 import ElevationProfile from '~/components/elevation_profile.vue'
 import PlaceInput from '~/components/place_input.vue'
 import Icon from '~/components/icon.vue'
@@ -95,10 +110,12 @@ import { usePlan } from '~/composables/use_plan'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
 import { searchPlace, type PlaceSuggestion } from '~/utils/geocode'
 import { formatKm } from '~/utils/format'
+import { kindOf } from '~/utils/places'
+import type { Poi } from '~/utils/loops'
 
 const {
   waypoints, legs, mode, name, history, track, profile, isLoop, pending, failed, noElevation,
-  restore, addPoint, movePoint, removePoint, closeLoop, undo, clear, gpxText,
+  restore, addPoint, insertPoint, movePoint, removePoint, removePoi, closeLoop, undo, clear, gpxText,
 } = useTracer()
 restore()
 
@@ -151,6 +168,61 @@ async function onLocate() {
   searchError.value = ''
   const ok = await mapRef.value?.locate()
   if (!ok) searchError.value = 'Position indisponible : autorise la localisation dans ton navigateur.'
+}
+
+// --- Lieux à voir : ceux de la zone affichée, rechargés quand on déplace la carte ---
+const showPlaces = ref(false)
+const places = ref<Poi[]>([])
+const placesNote = ref('')
+let lastView: MapView | null = null
+let viewTimer: ReturnType<typeof setTimeout> | undefined
+/** Numéro de la dernière demande : une réponse plus ancienne arrivée en retard est ignorée */
+let placesRequest = 0
+
+function onView(view: MapView) {
+  lastView = view
+  if (!showPlaces.value) return
+  clearTimeout(viewTimer)
+  viewTimer = setTimeout(loadPlaces, 400)
+}
+
+function togglePlaces() {
+  showPlaces.value = !showPlaces.value
+  if (showPlaces.value) loadPlaces()
+}
+
+async function loadPlaces() {
+  const view = lastView
+  if (!view) return
+  if (view.zoom < 12) {
+    places.value = []
+    placesNote.value = 'Zoome sur une ville ou un secteur pour voir ses lieux.'
+    return
+  }
+  const id = ++placesRequest
+  placesNote.value = 'Recherche des lieux…'
+  try {
+    const radius = Math.round(Math.min(9000, Math.max(300, view.radius)))
+    const res = await fetch(`/lieux?lat=${view.lat.toFixed(5)}&lon=${view.lon.toFixed(5)}&rayon=${radius}`, { headers: { Accept: 'application/json' } })
+    if (id !== placesRequest) return
+    if (!res.ok) throw new Error()
+    places.value = ((await res.json()) as { lieux: Poi[] }).lieux
+    placesNote.value = places.value.length ? 'Clique sur un lieu pour l\'ajouter au parcours.' : 'Aucun lieu connu dans cette zone.'
+  }
+  catch {
+    if (id === placesRequest) placesNote.value = 'Les lieux sont indisponibles pour le moment.'
+  }
+}
+
+/** Lieux posés dans le tracé, dans l'ordre de passage */
+const tracePois = computed(() => waypoints.value.flatMap(w => (w.poi ? [w.poi] : [])))
+
+function onPlace(p: Poi) {
+  const first = !waypoints.value.length
+  insertPoint({ lat: p.lat, lon: p.lon, poi: { id: p.id, name: p.name, kind: p.kind, category: p.category } })
+  placesNote.value = first
+    ? `« ${p.name} » est ton point de départ : ajoute d'autres lieux ou clique sur la carte.`
+    : `« ${p.name} » ajouté au parcours, là où il rallonge le moins le tracé.`
 }
 
 // --- Sortie ---
@@ -208,6 +280,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .modes button:hover { color: var(--text); }
 .modes button.active { background: var(--forest); color: #fff; }
 
+.places-toggle { display: inline-flex; align-items: center; gap: 6px; height: 46px; padding: 0 14px; font: inherit; font-size: 0.86rem; font-weight: 600; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--panel-2); color: var(--text); cursor: pointer; white-space: nowrap; }
+.places-toggle .icon { color: var(--forest); }
+.places-toggle:hover { border-color: var(--forest); }
+.places-toggle.active { background: var(--forest); border-color: var(--forest); color: #fff; }
+.places-toggle.active .icon { color: #fff; }
+.pois { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pois-title { font-size: 0.8rem; font-weight: 600; color: var(--text-soft); margin-right: 2px; }
+.poi-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 4px 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 10%, #fff); border: 1px solid color-mix(in srgb, var(--accent) 35%, #fff); font-size: 0.83rem; }
+.poi-chip .icon { color: #b4561f; }
+.poi-chip.nature { background: var(--forest-soft); border-color: #bcd3c4; }
+.poi-chip.nature .icon { color: #2f7d4f; }
+.poi-chip button { width: 20px; height: 20px; border: none; border-radius: 50%; background: none; color: var(--text-soft); font-size: 1rem; line-height: 1; cursor: pointer; }
+.poi-chip button:hover { background: var(--bad-bg); color: var(--bad); }
 .map-wrap { position: relative; height: 62vh; min-height: 420px; border-radius: 10px; overflow: hidden; }
 .overlay { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 500; background: rgba(29, 39, 33, 0.88); color: #fff; padding: 7px 14px; border-radius: 999px; font-size: 0.88rem; font-weight: 600; pointer-events: none; white-space: nowrap; }
 
@@ -238,6 +323,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   .head h1 { font-size: 2rem; }
   .map-card { padding: 10px; }
   .modes { width: 100%; }
+  .places-toggle { width: 100%; justify-content: center; }
   .modes button { flex: 1; justify-content: center; }
   .map-wrap { height: 55vh; min-height: 320px; }
   .tools { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
