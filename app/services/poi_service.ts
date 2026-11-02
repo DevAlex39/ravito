@@ -99,7 +99,14 @@ export async function poisAround(lat: number, lon: number, radius: number, categ
   const dLon = radius / (111_320 * Math.cos(lat * Math.PI / 180))
   const bbox: Bbox = [lat - dLat, lon - dLon, lat + dLat, lon + dLon]
 
-  await fillCells(bbox)
+  try {
+    await fillCells(bbox)
+  }
+  catch (error) {
+    // Cases hors de l'import (souvent de l'autre côté d'une frontière) et OpenStreetMap injoignable :
+    // on rend quand même les lieux déjà en base plutôt que de priver la boucle de tous ses lieux
+    logger.warn({ bbox, error: (error as Error).message }, 'lieux : OpenStreetMap injoignable, réponse avec la base seule')
+  }
 
   const best = (cat: PoiCategory, limit: number) => Poi.query()
     .whereBetween('lat', [bbox[0], bbox[2]])
@@ -154,7 +161,16 @@ async function fillCells(bbox: Bbox) {
     (Math.max(...missing.map(c => c.i)) + 1) * CELL,
     (Math.max(...missing.map(c => c.j)) + 1) * CELL,
   ]
-  const elements = await fetchOverpass(area)
+  let elements: OverpassElement[]
+  try {
+    elements = await fetchOverpass(area)
+  }
+  catch (error) {
+    // Échec retenu : ces cases ne seront redemandées que dans un jour, les visiteurs suivants n'attendent pas
+    const retryAt = DateTime.now().minus({ days: CELL_TTL_DAYS - 1 })
+    await PoiCell.updateOrCreateMany('cell', missing.map(c => ({ cell: c.key, fetchedAt: retryAt, source: 'overpass' })))
+    throw error
+  }
   const count = await savePois(elements.map(toPoi).filter(p => p != null))
   await PoiCell.updateOrCreateMany('cell', missing.map(c => ({ cell: c.key, fetchedAt: DateTime.now(), source: 'overpass' })))
   logger.info({ area, count }, 'lieux importés depuis OpenStreetMap')

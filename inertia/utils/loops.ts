@@ -74,6 +74,9 @@ const MIN_SPUR = 30
  * Passer par cette route pour continuer le tour ailleurs reste permis : ce n'est pas un aller-retour.
  */
 const BUSY_SPUR_MAX = 40
+/** Part de grands axes au-delà de laquelle une boucle n'est gardée qu'à défaut d'une autre (voir generateLoops) */
+const BUSY_SHARE_MAX = 0.1
+const busyShare = (l: Loop) => (l.distance ? l.surface.busy / l.distance : 0)
 /** Écart maximal (m) entre les deux bouts raccordés quand on coupe un aller-retour */
 const JOIN_MAX = 25
 /** Un lieu n'est annoncé que si le tracé passe à moins de cette distance (m) */
@@ -415,6 +418,7 @@ function cutSpurs(coords: Coord[], waypoints: LatLon[], stops: Poi[], busy: bool
   kept = kept.filter(w => !stops.includes(w as Poi) || reached(w))
   return {
     coords,
+    busy,
     waypoints: [waypoints[0]!, ...kept, waypoints[waypoints.length - 1]!],
     stops: stops.filter(p => kept.includes(p)),
   }
@@ -430,13 +434,15 @@ async function routeOnce(waypoints: LatLon[], stops: Poi[], opts: RouteOptions):
     await new Promise(r => setTimeout(r, 1500))
     route = await routeVia(waypoints, opts)
   }
-  const cut = cutSpurs(route.coords, waypoints, stops, route.busy)
+  const { busy: busyFlags, ...cut } = cutSpurs(route.coords, waypoints, stops, route.busy)
   const { coords } = cut
   let distance = 0
   for (let i = 0; i < coords.length - 1; i++) distance += step(coords, i)
-  // Les parts de sentiers et de routes sont données pour tout l'itinéraire : on les ramène au tracé coupé
+  // Les parts de sentiers et de routes sont données pour tout l'itinéraire : on les ramène au tracé coupé ;
+  // les grands axes, eux, sont connus point par point
   const ratio = route.surface.total ? distance / route.surface.total : 1
-  const surface = { total: distance, trail: route.surface.trail * ratio, bigRoad: route.surface.bigRoad * ratio }
+  const busy = busyFlags.length ? busyLength(coords, busyFlags, 0, coords.length - 1) : route.surface.busy * ratio
+  const surface = { total: distance, trail: route.surface.trail * ratio, bigRoad: route.surface.bigRoad * ratio, busy }
   return { ...cut, legs: splitLegs(coords, cut.waypoints), distance, surface, via: waypoints }
 }
 
@@ -541,11 +547,13 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
       if (r.status === 'rejected') lastError = r.reason
       // Trop semblable à une boucle déjà montrée : on n'en veut pas
       else if (known && overlap(r.value, known) > MAX_OVERLAP) return
-      else if (Math.abs(r.value.distance - target) / target > TOLERANCE * 1.5) weak.push({ direction: picked[i]!.direction, loop: r.value })
+      else if (Math.abs(r.value.distance - target) / target > TOLERANCE * 1.5 || busyShare(r.value) > BUSY_SHARE_MAX) weak.push({ direction: picked[i]!.direction, loop: r.value })
       else loops.push({ direction: picked[i]!.direction, loop: r.value })
     })
   }
-  weak.sort((a, b) => Math.abs(a.loop.distance - target) - Math.abs(b.loop.distance - target))
+  // À défaut de mieux : les moins éloignées de la distance demandée, un grand axe pesant lourd
+  const penalty = (l: Loop) => Math.abs(l.distance - target) / target + 2 * busyShare(l)
+  weak.sort((a, b) => penalty(a.loop) - penalty(b.loop))
   for (const w of weak) {
     if (loops.length >= wanted) break
     if (loops.every(l => angleGap(l.direction, w.direction) >= pickGap)) loops.push(w)

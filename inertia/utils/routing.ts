@@ -45,6 +45,8 @@ export interface Surface {
   trail: number
   /** Routes à circulation (nationales, départementales) */
   bigRoad: number
+  /** Dont routes à fort trafic (nationales, grandes départementales) : à éviter au maximum */
+  busy: number
 }
 
 export interface Route {
@@ -109,7 +111,7 @@ function busyOf(coords: number[][], messages: unknown): boolean[] {
 
 /** Répartition à partir du détail des tronçons de BRouter (une ligne par tronçon : distance, étiquettes OSM…) */
 function surfaceOf(messages: unknown): Surface {
-  const surface: Surface = { total: 0, trail: 0, bigRoad: 0 }
+  const surface: Surface = { total: 0, trail: 0, bigRoad: 0, busy: 0 }
   if (!Array.isArray(messages) || messages.length < 2) return surface
   const header = messages[0] as string[]
   const iDist = header.indexOf('Distance')
@@ -118,6 +120,7 @@ function surfaceOf(messages: unknown): Surface {
     const d = Number(row[iDist]) || 0
     const tags = row[iTags] ?? ''
     surface.total += d
+    if (BUSY_ROAD.test(tags)) surface.busy += d
     if (BIG_ROAD.test(tags)) surface.bigRoad += d
     else if (TRAIL.test(tags) && !PAVED.test(tags) && !SIDEWALK.test(tags)) surface.trail += d
   }
