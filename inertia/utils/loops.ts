@@ -66,6 +66,8 @@ const TOLERANCE = 0.1
  */
 const MAX_SPUR_POI = 300
 const MIN_SPUR = 30
+/** Écart maximal (m) entre les deux bouts raccordés quand on coupe un aller-retour */
+const JOIN_MAX = 25
 /** Un lieu n'est annoncé que si le tracé passe à moins de cette distance (m) */
 const STOP_REACH = 200
 /** Autour du départ (m) : lieux visités en début ou en fin de boucle, même loin du cercle */
@@ -292,15 +294,20 @@ function step(coords: Coord[], i: number) {
   return haversine({ lon: coords[i]![0], lat: coords[i]![1] }, { lon: coords[i + 1]![0], lat: coords[i + 1]![1] })
 }
 
-/** Points tous les 10 m le long d'un tronçon */
+/**
+ * Points tous les 10 m le long d'un tronçon, à intervalle régulier même quand le tracé est fait de
+ * petits bouts de 2-3 m (sinon chaque bout compterait pour 10 m et l'aller-retour serait surestimé)
+ */
 function sample(coords: Coord[], max: number): LatLon[] {
   const out: LatLon[] = []
   let d = 0
-  for (let i = 0; i < coords.length - 1 && d < max; i++) {
+  let next = 0
+  for (let i = 0; i < coords.length - 1 && next < max; i++) {
     const a = { lon: coords[i]![0], lat: coords[i]![1] }
     const b = { lon: coords[i + 1]![0], lat: coords[i + 1]![1] }
     const len = step(coords, i)
-    for (let s = 0; s < len && d + s < max; s += 10) {
+    for (; next < d + len && next < max; next += 10) {
+      const s = next - d
       out.push({ lat: a.lat + ((b.lat - a.lat) * s) / len, lon: a.lon + ((b.lon - a.lon) * s) / len })
     }
     d += len
@@ -361,7 +368,11 @@ function cutSpurs(coords: Coord[], waypoints: LatLon[], stops: Poi[]) {
         .filter(x => x.d < 250)
         .sort((a, b) => a.d - b.d)[0]?.w
       if (near && stops.includes(near as Poi) && spur <= MAX_SPUR_POI) continue
-      coords = [...coords.slice(0, walk(coords, i, spur, -1) + 1), ...coords.slice(walk(coords, i, spur, 1))]
+      const from = walk(coords, i, spur, -1)
+      const to = walk(coords, i, spur, 1)
+      // Garde-fou : les deux bouts raccordés doivent se toucher, sinon la coupe tracerait une ligne droite hors chemin
+      if (haversine(at(coords[from]!), at(coords[to]!)) > JOIN_MAX) continue
+      coords = [...coords.slice(0, from + 1), ...coords.slice(to)]
       if (near) kept = kept.filter(w => w !== near)
       cut = true
     }
