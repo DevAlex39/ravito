@@ -44,6 +44,9 @@ export const throttleSignup = perIp('signup', 5, '1 hour')
 /** Lieux à voir (peut interroger OpenStreetMap) : 60 par minute et par IP */
 export const throttleLieux = perIp('lieux', 60, '1 minute')
 
+/** Liens courts des boucles : 30 par minute et par IP */
+export const throttleLinks = perIp('liens', 30, '1 minute')
+
 /** Enregistrements (parcours, partages, votes) : 60 par minute et par compte */
 export const throttleWrites = limiter.define('writes', (ctx) =>
   ctx.auth.user ? limiter.allowRequests(60).every('1 minute').usingKey(ctx.auth.user.id) : limiter.noLimit())

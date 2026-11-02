@@ -119,6 +119,25 @@ export class RateLimitSchema extends BaseModel {
   declare points: number
 }
 
+export class ShortLinkSchema extends BaseModel {
+  static $columns = ['code', 'createdAt', 'hits', 'id', 'lastUsedAt', 'query', 'queryHash'] as const
+  $columns = ShortLinkSchema.$columns
+  @column()
+  declare code: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare hits: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime()
+  declare lastUsedAt: DateTime | null
+  @column()
+  declare query: string
+  @column()
+  declare queryHash: string
+}
+
 export class UserSchema extends BaseModel {
   static $columns = ['createdAt', 'email', 'fullName', 'googleId', 'id', 'password', 'resetExpiresAt', 'resetTokenHash', 'sessionVersion', 'stravaId', 'updatedAt'] as const
   $columns = UserSchema.$columns

@@ -845,16 +845,38 @@ function shareUrl(): string {
   return `${window.location.origin}/boucles?${p}`
 }
 
-async function copyLink() {
-  const url = shareUrl()
+/** Lien court (/b/<code>) demandé au serveur ; à défaut, le lien complet, qui marche aussi */
+async function shortUrl(url: string): Promise<string> {
   try {
-    await navigator.clipboard.writeText(url)
+    const xsrf = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)?.[1]
+    const res = await fetch('/liens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf ? decodeURIComponent(xsrf) : '' },
+      body: JSON.stringify({ query: url.split('?')[1] ?? '' }),
+    })
+    if (!res.ok) return url
+    const { code } = (await res.json()) as { code?: string }
+    return code ? `${window.location.origin}/b/${code}` : url
+  }
+  catch {
+    return url
+  }
+}
+
+async function copyLink() {
+  const pending = shortUrl(shareUrl())
+  try {
+    // Safari n'accepte la copie que pendant le clic : on lui confie la promesse du lien plutôt que d'attendre la réponse
+    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+      await navigator.clipboard.write([new ClipboardItem({ 'text/plain': pending.then(u => new Blob([u], { type: 'text/plain' })) })])
+    }
+    else await navigator.clipboard.writeText(await pending)
     copied.value = true
     setTimeout(() => (copied.value = false), 2500)
   }
   catch {
     // Presse-papiers refusé (ancien navigateur, page non sécurisée) : on montre le lien à copier
-    window.prompt('Copie ce lien :', url)
+    window.prompt('Copie ce lien :', await pending)
   }
 }
 

@@ -9,12 +9,13 @@
 
 import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
-import { throttleAccount, throttleAuth, throttleLieux, throttleSignup, throttleWrites } from '#start/limiter'
+import { throttleAccount, throttleAuth, throttleLieux, throttleLinks, throttleSignup, throttleWrites } from '#start/limiter'
 
 const AuthController = () => import('#controllers/auth_controller')
 const PlansController = () => import('#controllers/plans_controller')
 const PoisController = () => import('#controllers/pois_controller')
 const SharedPlansController = () => import('#controllers/shared_plans_controller')
+const ShortLinksController = () => import('#controllers/short_links_controller')
 
 router.on('/').renderInertia('home', {}).as('home')
 router.on('/tracer').renderInertia('tracer', {}).as('tracer')
@@ -22,6 +23,8 @@ router.on('/boucles').renderInertia('loops', {}).as('loops')
 router.on('/mentions-legales').renderInertia('legal', {}).as('legal')
 router.get('/lieux', [PoisController, 'around']).as('pois.around').use(throttleLieux)
 router.get('/equipements', [PoisController, 'amenities']).as('pois.amenities').use(throttleLieux)
+router.post('/liens', [ShortLinksController, 'store']).as('links.store').use(throttleLinks)
+router.get('/b/:code', [ShortLinksController, 'show']).as('links.show').where('code', /^[A-Za-z0-9]{4,12}$/)
 router.get('/partages', [SharedPlansController, 'around']).as('shared.around')
 router.get('/partages/:id', [SharedPlansController, 'show']).as('shared.show').where('id', router.matchers.number())
 
