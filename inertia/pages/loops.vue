@@ -21,6 +21,7 @@
           <Icon :name="themeInfo.icon" :size="16" />{{ themeInfo.label }}<Icon name="chevron" :size="14" class="caret" />
         </PickList>
         <PickList v-model="terrain" class="pill pick" label="Type de chemins" :title="terrainInfo.hint" :options="TERRAIN_OPTIONS" @change="propose" />
+        <PickList v-model="priority" class="pill pick" label="Priorité" :title="priorityInfo.hint" :options="PRIORITY_OPTIONS" @change="propose" />
         <PickList v-model="count" class="pill pick" label="Nombre de parcours proposés" :options="COUNT_OPTIONS" @change="propose" />
         <button class="btn ghost" type="button" @click="formOpen = true">
           <Icon name="sliders" :size="18" />Types de lieux<span v-if="groups.length" class="badge">{{ groups.length }}</span>
@@ -82,6 +83,24 @@
                 @click="terrain = t.value"
               >
                 {{ t.label }}
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <span>Priorité</span>
+            <div class="count" role="radiogroup" aria-label="Priorité">
+              <button
+                v-for="p in PRIORITIES"
+                :key="p.value"
+                type="button"
+                role="radio"
+                class="wide"
+                :title="p.hint"
+                :aria-checked="priority === p.value"
+                :class="{ on: priority === p.value }"
+                @click="priority = p.value"
+              >
+                {{ p.label }}
               </button>
             </div>
           </div>
@@ -166,6 +185,21 @@
                 </PickList>
               </div>
               <p v-if="surfaceText(loop)" class="soft">{{ surfaceText(loop) }}</p>
+              <div class="climb-row">
+                <button v-if="originals[i]" type="button" class="btn ghost small" :disabled="climbBusy" @click="restoreLoop(i)">
+                  <Icon name="undo" :size="16" />Revenir à l'itinéraire d'origine
+                </button>
+                <button
+                  v-else
+                  type="button"
+                  class="btn ghost small"
+                  :disabled="climbBusy || busy"
+                  title="Cherche un autre itinéraire pour cette boucle, avec moins de montée, sans toucher aux autres"
+                  @click="lessClimb(i)"
+                >
+                  <Icon name="mountain" :size="16" />{{ climbBusy ? 'Recherche…' : 'Moins de D+' }}
+                </button>
+              </div>
               <button v-if="currentAmenities.length" type="button" class="amenities-line" :aria-pressed="showAmenities" @click="showAmenities = !showAmenities">
                 <span v-if="amenityCount.water"><Icon name="droplet" :size="16" />{{ amenityCount.water }} point{{ amenityCount.water > 1 ? 's' : '' }} d'eau</span>
                 <span v-if="amenityCount.toilets"><Icon name="toilets" :size="16" />{{ amenityCount.toilets }} toilettes</span>
@@ -308,8 +342,8 @@ import RunnerLoader from '~/components/runner_loader.vue'
 import { usePlan } from '~/composables/use_plan'
 import { useTracer } from '~/composables/use_tracer'
 import { readLoops, storeLoops } from '~/utils/loop_cache'
-import { amenitiesAlong, generateLoops, loopFromWaypoints, loopTrack, searchRadius, type Amenity, type Loop, type Poi } from '~/utils/loops'
-import type { LatLon, Terrain } from '~/utils/routing'
+import { amenitiesAlong, generateLoops, loopFromWaypoints, loopTrack, lowerClimb, searchRadius, type Amenity, type Loop, type Poi } from '~/utils/loops'
+import type { LatLon, Priority, RouteOptions, Terrain } from '~/utils/routing'
 import { searchPlace, type PlaceSuggestion } from '~/utils/geocode'
 import PlaceInput from '~/components/place_input.vue'
 import { buildProfile } from '~/utils/profile'
@@ -389,6 +423,16 @@ const TERRAINS: { value: Terrain, label: string, hint: string }[] = [
 const terrain = ref<Terrain>('mixte')
 const terrainInfo = computed(() => TERRAINS.find(t => t.value === terrain.value)!)
 const TERRAIN_OPTIONS: PickOption<Terrain>[] = TERRAINS.map(t => ({ value: t.value, label: t.label, hint: t.hint }))
+const PRIORITIES: { value: Priority, label: string, hint: string }[] = [
+  { value: 'distance', label: 'Plus petite distance', hint: 'Le chemin le plus direct d\'un lieu à l\'autre' },
+  { value: 'denivele', label: 'Plus petit dénivelé', hint: 'Les boucles qui montent le moins, quitte à faire un détour' },
+]
+/** Ce que les itinéraires cherchent à réduire : la distance par défaut */
+const priority = ref<Priority>('distance')
+const priorityInfo = computed(() => PRIORITIES.find(p => p.value === priority.value)!)
+const PRIORITY_OPTIONS: PickOption<Priority>[] = PRIORITIES.map(p => ({ value: p.value, label: p.label, hint: p.hint }))
+/** Réglages d'itinéraire communs à tous les calculs */
+const routeOpts = computed<RouteOptions>(() => ({ terrain: terrain.value, priority: priority.value }))
 const COUNT_OPTIONS: PickOption<number>[] = [1, 2, 3, 4, 5].map(n => ({ value: n, label: `${n} parcours` }))
 
 /** « 65 % sentiers · 3 % grandes routes » (grandes routes masquées sous 1 %) */
@@ -655,6 +699,7 @@ async function fetchAmenities(p: LatLon, target: number): Promise<Amenity[]> {
 function showLoops(found: Loop[], near: Amenity[], text = '', bad = false) {
   amenities.value = near
   loops.value = found
+  originals.value = []
   selected.value = 0
   message.value = text
   messageBad.value = bad
@@ -676,7 +721,7 @@ async function propose() {
   const more = wantMore && loops.value.length > 0
   wantMore = false
   // Même recherche que tout à l'heure : on réaffiche les boucles déjà calculées
-  const cacheKey = JSON.stringify([start.value.lat.toFixed(5), start.value.lon.toFixed(5), target, theme.value, [...kinds.value].sort(), terrain.value, count.value])
+  const cacheKey = JSON.stringify([start.value.lat.toFixed(5), start.value.lon.toFixed(5), target, theme.value, [...kinds.value].sort(), terrain.value, priority.value, count.value])
   const cached = more ? null : readLoops(cacheKey)
   if (cached) {
     shownLoops = [...cached.loops]
@@ -697,7 +742,7 @@ async function propose() {
   try {
     if (more) {
       variant++
-      const found = await generateLoops(start.value, target, pois, count.value, { terrain: terrain.value }, { variant, shown: shownLoops })
+      const found = await generateLoops(start.value, target, pois, count.value, routeOpts.value, { variant, shown: shownLoops })
       if (!found.length) {
         showInfo('Pas d\'autre boucle vraiment différente autour de ce départ : essaie une autre distance, un autre style ou un départ un peu plus loin.')
         return
@@ -707,7 +752,7 @@ async function propose() {
       if (found.length < count.value) showInfo(`${found.length === 1 ? 'Une seule nouvelle boucle' : `Seulement ${found.length} nouvelles boucles`} : les autres ressemblaient trop à celles déjà vues.`)
       return
     }
-    const found = await generateLoops(start.value, target, pois, count.value, { terrain: terrain.value })
+    const found = await generateLoops(start.value, target, pois, count.value, routeOpts.value)
     shownLoops = [...found]
     variant = 0
     showLoops(found, await amenityRequest)
@@ -734,6 +779,49 @@ async function propose() {
   }
 }
 
+// --- « Moins de D+ » sur une seule boucle : les autres ne bougent pas ---
+/** Boucle d'origine, par numéro, tant qu'on peut y revenir */
+const originals = ref<(Loop | undefined)[]>([])
+const climbBusy = ref(false)
+
+async function lessClimb(i: number) {
+  const loop = loops.value[i]
+  if (!loop || !start.value || climbBusy.value) return
+  climbBusy.value = true
+  message.value = ''
+  const target = km.value * 1000
+  const before = Math.round(gains.value[i] ?? 0)
+  try {
+    // Les lieux viennent du cache du serveur : la réponse est immédiate après une première recherche
+    const pois = await fetchPois(start.value, target).catch(() => [] as Poi[])
+    const better = await lowerClimb(loop, start.value, target, pois, { terrain: terrain.value })
+    if (!better || loops.value[i] !== loop) {
+      if (!better) showInfo(`Pas d'itinéraire nettement moins vallonné pour la boucle ${i + 1} : elle passe déjà au plus plat du secteur.`)
+      return
+    }
+    originals.value[i] = loop
+    loops.value[i] = better
+    nextTick(() => {
+      showInfo(`Boucle ${i + 1} : ${before} m de D+ → ${Math.round(gains.value[i] ?? 0)} m.${better.stops.map(s => s.id).join() === loop.stops.map(s => s.id).join() ? '' : ' Les lieux traversés changent un peu.'}`)
+      mapRef.value?.fitLoops()
+    })
+  }
+  catch {
+    showError('Le calcul a échoué. Réessaie dans un instant.')
+  }
+  finally {
+    climbBusy.value = false
+  }
+}
+
+function restoreLoop(i: number) {
+  const loop = originals.value[i]
+  if (!loop) return
+  loops.value[i] = loop
+  originals.value[i] = undefined
+  message.value = ''
+}
+
 // --- Lien de partage : départ, réglages et points de passage de la boucle choisie ---
 const copied = ref(false)
 
@@ -749,6 +837,7 @@ function shareUrl(): string {
   const name = placeName.value || query.value.trim()
   if (name) p.set('nom', name)
   if (theme.value !== 'tout') p.set('style', theme.value)
+  if (priority.value !== 'distance') p.set('priorite', priority.value)
   if (groups.value.length) p.set('types', groups.value.join(','))
   // Points de passage : la même boucle est recalculée à l'identique à l'ouverture du lien
   p.set('via', (loop.via ?? loop.waypoints).map(w => `${w.lat.toFixed(5)},${w.lon.toFixed(5)}`).join('_'))
@@ -784,7 +873,7 @@ async function openSharedLoop(via: string, stopIds: number[]) {
     const pois = await fetchPois(start.value, target).catch(() => [] as Poi[])
     const byId = new Map(pois.map(p => [p.id, p]))
     const stops = stopIds.map(id => byId.get(id)).filter((p): p is Poi => !!p)
-    const loop = await loopFromWaypoints(waypoints, stops, { terrain: terrain.value })
+    const loop = await loopFromWaypoints(waypoints, stops, routeOpts.value)
     shownLoops = [loop]
     variant = 0
     showLoops([loop], await amenityRequest, 'Boucle partagée par lien : change un réglage ou demande d\'autres boucles pour en voir d\'autres.')
@@ -816,6 +905,7 @@ onMounted(async () => {
   if (style === 'nature' || style === 'patrimoine') theme.value = style
   const paths = params.get('chemins')
   if (paths === 'route' || paths === 'mixte' || paths === 'sentiers') terrain.value = paths
+  if (params.get('priorite') === 'denivele') priority.value = 'denivele'
   const types = (params.get('types') ?? '').split(',').filter(id => KIND_GROUPS.some(g => g.id === id))
   if (types.length) groups.value = types
   const via = params.get('via')
@@ -995,6 +1085,7 @@ button.loop:hover { border-color: var(--border-strong); }
 .stats > * { display: flex; flex-direction: column; padding: 8px 9px; border-radius: 10px; background: var(--bg); }
 .stats strong { font-size: 1.05rem; }
 .stats span { font-size: 0.75rem; color: var(--text-soft); }
+.climb-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .amenities-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; border: 1px dashed var(--border-strong); border-radius: 10px; background: none; font: inherit; font-size: 0.88rem; color: var(--text); text-align: left; cursor: pointer; }
 .amenities-line:hover { border-color: #2f7fb5; }
 .amenities-line span { display: inline-flex; align-items: center; gap: 5px; }

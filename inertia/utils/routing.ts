@@ -29,9 +29,13 @@ const TERRAIN_PARAMS: Record<Terrain, string> = {
   sentiers: '&profile:road_avoidance=3.5&profile:path_preference=4&profile:hiking_routes_preference=1',
 }
 
+/** Ce que l'itinéraire cherche à réduire : la distance (défaut) ou le dénivelé */
+export type Priority = 'distance' | 'denivele'
+
 export interface RouteOptions {
   signal?: AbortSignal
   terrain?: Terrain
+  priority?: Priority
 }
 
 /** Répartition d'un itinéraire, en mètres */
@@ -54,9 +58,11 @@ export async function routeLeg(a: LatLon, b: LatLon, signal?: AbortSignal): Prom
 }
 
 /** Itinéraire pédestre passant par tous les points, dans l'ordre (une seule requête) */
-export async function routeVia(points: LatLon[], { signal, terrain = 'mixte' }: RouteOptions = {}): Promise<Route> {
+export async function routeVia(points: LatLon[], { signal, terrain = 'mixte', priority = 'distance' }: RouteOptions = {}): Promise<Route> {
   const lonlats = points.map(p => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join('|')
-  const url = `${BROUTER_URL}?lonlats=${lonlats}&profile=alpas${TERRAIN_PARAMS[terrain]}&alternativeidx=0&format=geojson`
+  // Dénivelé : BRouter compte les montées (et les descentes raides) comme un surcoût et les contourne si possible
+  const climb = priority === 'denivele' ? '&profile:consider_elevation=1' : ''
+  const url = `${BROUTER_URL}?lonlats=${lonlats}&profile=alpas${TERRAIN_PARAMS[terrain]}${climb}&alternativeidx=0&format=geojson`
   const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`BRouter : ${res.status}`)
   const data = await res.json()

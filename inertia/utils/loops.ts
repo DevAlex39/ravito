@@ -1,4 +1,5 @@
 import { haversine, type Track } from '~/utils/gpx'
+import { buildProfile } from '~/utils/profile'
 import { routeVia, type Coord, type LatLon, type Route, type RouteOptions, type Surface } from '~/utils/routing'
 
 export interface Poi extends LatLon {
@@ -54,6 +55,8 @@ export interface Loop {
   surface: Surface
   /** Points de passage demandés au calcul (avant nettoyage) : les repasser redonne exactement cette boucle */
   via?: LatLon[]
+  /** Direction du tour depuis le départ (radians, 0 = est), pour en calculer des variantes */
+  direction?: number
 }
 
 /** Rapport moyen entre la distance à pied et la distance à vol d'oiseau en ville */
@@ -481,20 +484,25 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
   const remaining = Array.from({ length: 12 }, (_, i) => fitCandidate(start, pois, target, offset + (i * Math.PI) / 6))
     .sort((a, b) => b.quality - a.quality)
 
+  // Moins de dénivelé : on calcule deux fois plus de boucles pour garder celles qui montent le moins
+  const lowClimb = opts.priority === 'denivele'
+  const wanted = lowClimb ? Math.min(12, count * 2) : count
   // Écart minimal entre deux directions de départ : 75° pour 3 boucles, resserré quand on en demande plus
-  const minGap = Math.min((Math.PI * 5) / 12, ((Math.PI * 2) / count) * 0.8)
+  const gapFor = (n: number) => Math.min((Math.PI * 5) / 12, ((Math.PI * 2) / n) * 0.8)
+  const minGap = gapFor(count)
+  const pickGap = gapFor(wanted)
   const loops: { direction: number, loop: Loop }[] = []
   // Boucles trop éloignées de la distance demandée : gardées seulement à défaut de mieux
   const weak: { direction: number, loop: Loop }[] = []
   let lastError: unknown
   // Une direction peut échouer (point de forme dans un lac, zone sans chemin) : on essaie alors la suivante
-  for (let round = 0; round < 3 && loops.length < count && remaining.length; round++) {
+  for (let round = 0; round < 3 && loops.length < wanted && remaining.length; round++) {
     // Des boucles qui partent dans des directions vraiment différentes
     const picked: Candidate[] = []
     for (const c of [...remaining]) {
-      if (loops.length + picked.length >= count) break
+      if (loops.length + picked.length >= wanted) break
       const taken = [...loops.map(l => l.direction), ...picked.map(p => p.direction)]
-      if (taken.every(d => angleGap(d, c.direction) >= minGap)) {
+      if (taken.every(d => angleGap(d, c.direction) >= pickGap)) {
         picked.push(c)
         remaining.splice(remaining.indexOf(c), 1)
       }
@@ -511,11 +519,60 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
   }
   weak.sort((a, b) => Math.abs(a.loop.distance - target) - Math.abs(b.loop.distance - target))
   for (const w of weak) {
-    if (loops.length >= count) break
-    if (loops.every(l => angleGap(l.direction, w.direction) >= minGap)) loops.push(w)
+    if (loops.length >= wanted) break
+    if (loops.every(l => angleGap(l.direction, w.direction) >= pickGap)) loops.push(w)
   }
   if (!loops.length && !avoid) throw lastError ?? new Error('Aucune boucle trouvée')
-  return loops.map(l => l.loop)
+  let kept = loops
+  if (lowClimb) {
+    // Les moins vallonnées d'abord, toujours dans des directions bien différentes
+    kept = []
+    for (const l of [...loops].sort((a, b) => loopGain(a.loop) - loopGain(b.loop))) {
+      if (kept.length >= count) break
+      if (kept.every(k => angleGap(k.direction, l.direction) >= minGap)) kept.push(l)
+    }
+  }
+  return kept.map(l => ({ ...l.loop, direction: l.direction }))
+}
+
+/** D+ de la boucle, calculé comme sur la page (profil lissé) */
+export function loopGain(loop: Loop): number {
+  return buildProfile(loopTrack(loop, '')).gain
+}
+
+/** Direction du tour vue du départ : celle du calcul, sinon celle du centre des points de passage */
+function directionOf(loop: Loop, start: LatLon): number {
+  if (loop.direction != null) return loop.direction
+  const { toXY } = projector(start)
+  const pts = (loop.via ?? loop.waypoints).map(toXY)
+  return Math.atan2(pts.reduce((a, p) => a + p.y, 0), pts.reduce((a, p) => a + p.x, 0))
+}
+
+/**
+ * Variante de la même boucle avec moins de dénivelé : mêmes points de passage calculés en évitant les montées,
+ * puis la même direction et ses voisines (±20° et ±40°), qui peuvent changer un peu les lieux traversés.
+ * Renvoie null si rien ne monte nettement moins (au moins 10 m et 5 % de moins) à distance comparable.
+ */
+export async function lowerClimb(loop: Loop, start: LatLon, target: number, allPois: Poi[], opts: RouteOptions = {}): Promise<Loop | null> {
+  const climbOpts: RouteOptions = { ...opts, priority: 'denivele' }
+  const pois = balance(allPois)
+  const direction = directionOf(loop, start)
+  const directions = [direction, direction, ...[-1, 1, -2, 2].map(k => direction + (k * Math.PI) / 9)]
+  const tries: Promise<Loop>[] = [
+    loopFromWaypoints(loop.via ?? loop.waypoints, loop.stops, climbOpts),
+    ...directions.slice(1).map(d => routeCandidate(target, fitCandidate(start, pois, target, d), pois, climbOpts)),
+  ]
+  const before = loopGain(loop)
+  let best: { loop: Loop, gain: number } | null = null
+  const results = await Promise.allSettled(tries)
+  for (const [i, r] of results.entries()) {
+    if (r.status !== 'fulfilled') continue
+    if (Math.abs(r.value.distance - target) / target > TOLERANCE * 1.5) continue
+    const gain = loopGain(r.value)
+    if (!best || gain < best.gain) best = { loop: { ...r.value, direction: directions[i] }, gain }
+  }
+  if (!best || best.gain > Math.min(before - 10, before * 0.95)) return null
+  return best.loop
 }
 
 /** Recalcule une boucle à partir de ses points de passage (lien partagé) */
