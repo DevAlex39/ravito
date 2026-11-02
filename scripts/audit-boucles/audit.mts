@@ -7,7 +7,11 @@
  * - écart à la distance demandée, nombre de lieux.
  *
  * Lancement (depuis la racine du projet) :
- *   node --import ./scripts/audit-boucles/register.mjs scripts/audit-boucles/audit.mts [--rapide] [--ville Dole]
+ *   node --import ./scripts/audit-boucles/register.mjs scripts/audit-boucles/audit.mts [--rapide] [--ville Dole] [--hasard 12] [--graine 123]
+ * Deux séries de départs :
+ * - les villes de PLACES, toujours les mêmes : leurs chiffres se comparent d'un audit à l'autre ;
+ * - des départs tirés au hasard en France (campagne, périphéries, montagne…), différents à chaque audit,
+ *   pour trouver des cas qu'on n'aurait pas imaginés. La graine est notée : --graine la rejoue à l'identique.
  * Rapport : scripts/audit-boucles/rapports/<date>.md (+ .json pour comparer deux audits)
  */
 import fs from 'node:fs'
@@ -45,12 +49,17 @@ const args = process.argv.slice(2)
 const quick = args.includes('--rapide')
 const only = args.includes('--ville') ? args[args.indexOf('--ville') + 1]?.toLowerCase() : null
 const priority: Priority = args.includes('--denivele') ? 'denivele' : 'distance'
+const argValue = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined)
+/** Départs au hasard : 12 par défaut, 4 en --rapide, aucun pour une seule ville */
+const randomCount = Number(argValue('--hasard') ?? (only ? 0 : quick ? 4 : 12))
+const seed = Number(argValue('--graine') ?? Math.floor(Math.random() * 1e9))
 
 type Pt = { lat: number, lon: number }
 const pt = (c: number[]): Pt => ({ lon: c[0]!, lat: c[1]! })
 const key = (a: number[], b: number[]) => `${a[0]},${a[1]}|${b[0]},${b[1]}`
 
 interface LoopReport {
+  zone: 'ville' | 'hasard'
   place: string
   km: number
   terrain: Terrain
@@ -66,7 +75,7 @@ interface LoopReport {
 }
 
 /** Analyse d'une boucle : on recalcule l'itinéraire brut par ses points de passage (BRouter est déterministe) */
-async function inspect(loop: Loop, place: string, start: Pt, km: number, terrain: Terrain, index: number): Promise<LoopReport> {
+async function inspect(loop: Loop, place: string, start: Pt, km: number, terrain: Terrain, index: number): Promise<Omit<LoopReport, 'zone'>> {
   const raw = await routeVia(loop.via ?? loop.waypoints, { terrain, priority })
   const real = new Map<string, boolean>()
   for (let i = 0; i < raw.coords.length - 1; i++) {
@@ -116,6 +125,44 @@ async function inspect(loop: Loop, place: string, start: Pt, km: number, terrain
   return { place, km, terrain, index, distance: loop.distance, stops: loop.stops.length, phantom, busy, doubled, busyDoubled, link: `${SITE}/boucles?${p}`, problems }
 }
 
+/** Générateur pseudo-aléatoire reproductible (mulberry32) */
+function random(seedValue: number) {
+  let a = seedValue >>> 0
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/**
+ * Départ au hasard en France métropolitaine : point tiré dans le rectangle de la France, gardé seulement
+ * si une adresse française existe à moins de 2 km (pas en mer ni à l'étranger) ; on part de cette adresse,
+ * comme un coureur qui part de chez lui
+ */
+async function randomStarts(n: number): Promise<{ p: [string, number, number], rank: number }[]> {
+  const rnd = random(seed)
+  const out: { p: [string, number, number], rank: number }[] = []
+  for (let tries = 0; out.length < n && tries < n * 15; tries++) {
+    const lat = 42.4 + rnd() * (51 - 42.4)
+    const lon = -4.7 + rnd() * (8.2 + 4.7)
+    const rank = Math.floor(rnd() * 1000)
+    try {
+      const res = await fetch(`https://data.geopf.fr/geocodage/reverse?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&limit=1`, { headers: { 'User-Agent': 'AlpastAudit/1.0' } })
+      const f = res.ok ? ((await res.json()) as { features: { geometry: { coordinates: [number, number] }, properties: { city?: string, label?: string } }[] }).features[0] : undefined
+      if (!f) continue
+      const [flon, flat] = f.geometry.coordinates
+      if (haversine({ lat, lon }, { lat: flat, lon: flon }) > 2000) continue
+      out.push({ p: [`${f.properties.city ?? f.properties.label ?? 'Inconnu'} (hasard)`, flat, flon], rank })
+    }
+    catch {
+      // Géocodeur indisponible pour ce tirage : on tire un autre point
+    }
+  }
+  return out
+}
+
 async function fetchPois(start: Pt, target: number): Promise<Poi[]> {
   const res = await fetch(`${SITE}/lieux?lat=${start.lat.toFixed(5)}&lon=${start.lon.toFixed(5)}&rayon=${searchRadius(target)}`, { headers: { Accept: 'application/json', 'User-Agent': 'AlpastAudit/1.0' } })
   if (!res.ok) throw new Error(`lieux : ${res.status}`)
@@ -125,17 +172,20 @@ async function fetchPois(start: Pt, target: number): Promise<Poi[]> {
 // Chaque départ garde son rang (donc sa distance et son terrain) même quand on n'en teste qu'une partie
 const places = PLACES.map((p, rank) => ({ p, rank })).filter(({ p }) => !only || p[0].toLowerCase().includes(only)).slice(0, quick ? 8 : undefined)
 const partial = places.length < PLACES.length
+const randoms = await randomStarts(randomCount)
+const randomNames = new Set(randoms.map(r => r.p[0]))
 const reports: LoopReport[] = []
 const failures: string[] = []
 const t0 = Date.now()
-for (const { p: [place, lat, lon], rank: n } of places) {
+for (const { p: [place, lat, lon], rank: n } of [...places, ...randoms]) {
+  const zone = randomNames.has(place) ? 'hasard' : 'ville'
   const km = KMS[n % KMS.length]!
   const terrain = TERRAINS[n % TERRAINS.length]!
   const start = { lat, lon }
   try {
     const pois = await fetchPois(start, km * 1000)
     const loops = await generateLoops(start, km * 1000, pois, 3, { terrain, priority })
-    for (const [i, loop] of loops.entries()) reports.push(await inspect(loop, place, start, km, terrain, i + 1))
+    for (const [i, loop] of loops.entries()) reports.push({ zone, ...(await inspect(loop, place, start, km, terrain, i + 1)) })
     const mine = reports.filter(r => r.place === place)
     console.log(`${place.padEnd(20)} ${String(km).padStart(2)} km ${terrain.padEnd(8)} ${mine.map(r => (r.problems.length ? '✗' : '✓')).join('')} ${mine.flatMap(r => r.problems).join(' ; ')}`)
   }
@@ -146,20 +196,30 @@ for (const { p: [place, lat, lon], rank: n } of places) {
 }
 
 // --- Synthèse ---
-const total = reports.reduce((a, r) => a + r.distance, 0)
-const sum = (f: (r: LoopReport) => number) => reports.reduce((a, r) => a + f(r), 0)
+/** Indicateurs d'une série de boucles */
+function summarize(list: LoopReport[], failed: number) {
+  const total = list.reduce((a, r) => a + r.distance, 0)
+  const sum = (f: (r: LoopReport) => number) => list.reduce((a, r) => a + f(r), 0)
+  return {
+    boucles: list.length,
+    echecs: failed,
+    sansProbleme: list.filter(r => !r.problems.length).length,
+    cheminInexistant: list.filter(r => r.phantom.length).length,
+    allerRetourGrandAxe: list.filter(r => r.busyDoubled / 2 > BUSY_SPUR_MAX).length,
+    partGrandsAxes: total ? sum(r => r.busy) / total : 0,
+    partAllersRetours: total ? sum(r => r.doubled) / total : 0,
+    ecartDistanceMoyen: list.length ? sum(r => Math.abs(r.distance - r.km * 1000) / (r.km * 1000)) / list.length : 0,
+    lieuxMoyens: list.length ? sum(r => r.stops) / list.length : 0,
+  }
+}
+const failedRandom = failures.filter(f => f.includes('(hasard)')).length
+// Les villes seules servent à comparer d'un audit à l'autre (mêmes départs) ; le hasard est à part
 const summary = {
   date: new Date().toISOString(),
   priority,
-  boucles: reports.length,
-  echecs: failures.length,
-  sansProbleme: reports.filter(r => !r.problems.length).length,
-  cheminInexistant: reports.filter(r => r.phantom.length).length,
-  allerRetourGrandAxe: reports.filter(r => r.busyDoubled / 2 > BUSY_SPUR_MAX).length,
-  partGrandsAxes: total ? sum(r => r.busy) / total : 0,
-  partAllersRetours: total ? sum(r => r.doubled) / total : 0,
-  ecartDistanceMoyen: reports.length ? sum(r => Math.abs(r.distance - r.km * 1000) / (r.km * 1000)) / reports.length : 0,
-  lieuxMoyens: reports.length ? sum(r => r.stops) / reports.length : 0,
+  graine: seed,
+  ...summarize(reports.filter(r => r.zone === 'ville'), failures.length - failedRandom),
+  hasard: summarize(reports.filter(r => r.zone === 'hasard'), failedRandom),
 }
 const pct = (x: number) => `${(100 * x).toFixed(1)} %`
 
@@ -170,23 +230,24 @@ const stamp = summary.date.slice(0, 19).replace(/[:T]/g, '-') + (partial ? '-par
 const previous = fs.readdirSync(dir).filter(f => f.endsWith('.json') && !f.includes('partiel')).sort().pop()
 fs.writeFileSync(path.join(dir, `${stamp}.json`), JSON.stringify({ summary, reports, failures }, null, 1))
 
-const prev = previous ? (JSON.parse(fs.readFileSync(path.join(dir, previous), 'utf8')).summary as typeof summary) : null
+const prev = previous && !partial ? (JSON.parse(fs.readFileSync(path.join(dir, previous), 'utf8')).summary as typeof summary) : null
 const delta = (now: number, before: number | undefined, fmt: (x: number) => string) => (before === undefined ? fmt(now) : `${fmt(now)} (avant ${fmt(before)})`)
+const h = summary.hasard
 const lines = [
   `# Audit des boucles — ${summary.date.slice(0, 16).replace('T', ' ')}`,
   '',
-  `${places.length} départs, ${summary.boucles} boucles, priorité ${priority}, ${Math.round((Date.now() - t0) / 1000)} s.${previous ? ` Comparé à ${previous}.` : ''}`,
+  `${places.length} villes + ${randoms.length} départs au hasard (graine ${seed}), ${reports.length} boucles, priorité ${priority}, ${Math.round((Date.now() - t0) / 1000)} s.${previous && !partial ? ` Villes comparées à ${previous}.` : ''}`,
   '',
-  '| Indicateur | Valeur |',
-  '|---|---|',
-  `| Boucles sans problème | ${delta(summary.sansProbleme / Math.max(1, summary.boucles), prev ? prev.sansProbleme / Math.max(1, prev.boucles) : undefined, pct)} |`,
-  `| Avec chemin inexistant | ${delta(summary.cheminInexistant, prev?.cheminInexistant, String)} |`,
-  `| Avec aller-retour sur grand axe | ${delta(summary.allerRetourGrandAxe, prev?.allerRetourGrandAxe, String)} |`,
-  `| Part sur grands axes | ${delta(summary.partGrandsAxes, prev?.partGrandsAxes, pct)} |`,
-  `| Part faite en aller-retour | ${delta(summary.partAllersRetours, prev?.partAllersRetours, pct)} |`,
-  `| Écart moyen à la distance | ${delta(summary.ecartDistanceMoyen, prev?.ecartDistanceMoyen, pct)} |`,
-  `| Lieux par boucle | ${delta(summary.lieuxMoyens, prev?.lieuxMoyens, x => x.toFixed(1))} |`,
-  `| Départs en échec | ${summary.echecs} |`,
+  '| Indicateur | Villes | Hasard |',
+  '|---|---|---|',
+  `| Boucles sans problème | ${delta(summary.sansProbleme / Math.max(1, summary.boucles), prev ? prev.sansProbleme / Math.max(1, prev.boucles) : undefined, pct)} | ${pct(h.sansProbleme / Math.max(1, h.boucles))} |`,
+  `| Avec chemin inexistant | ${delta(summary.cheminInexistant, prev?.cheminInexistant, String)} | ${h.cheminInexistant} |`,
+  `| Avec aller-retour sur grand axe | ${delta(summary.allerRetourGrandAxe, prev?.allerRetourGrandAxe, String)} | ${h.allerRetourGrandAxe} |`,
+  `| Part sur grands axes | ${delta(summary.partGrandsAxes, prev?.partGrandsAxes, pct)} | ${pct(h.partGrandsAxes)} |`,
+  `| Part faite en aller-retour | ${delta(summary.partAllersRetours, prev?.partAllersRetours, pct)} | ${pct(h.partAllersRetours)} |`,
+  `| Écart moyen à la distance | ${delta(summary.ecartDistanceMoyen, prev?.ecartDistanceMoyen, pct)} | ${pct(h.ecartDistanceMoyen)} |`,
+  `| Lieux par boucle | ${delta(summary.lieuxMoyens, prev?.lieuxMoyens, x => x.toFixed(1))} | ${h.lieuxMoyens.toFixed(1)} |`,
+  `| Départs en échec | ${summary.echecs} | ${h.echecs} |`,
   '',
   '## Boucles à problème',
   '',
