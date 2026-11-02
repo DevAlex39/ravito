@@ -11,7 +11,7 @@ export interface CachedLoops {
   messageBad: boolean
 }
 
-const STORAGE_KEY = 'alpast:boucles:3'
+const STORAGE_KEY = 'alpast:boucles:4'
 const TTL = 6 * 3600_000
 /** Au-delà, les plus anciennes sont oubliées (une boucle pèse quelques dizaines de Ko) */
 const MAX_ENTRIES = 8

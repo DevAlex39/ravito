@@ -77,6 +77,30 @@ const BUSY_SPUR_MAX = 40
 /** Part de grands axes au-delà de laquelle une boucle n'est gardée qu'à défaut d'une autre (voir generateLoops) */
 const BUSY_SHARE_MAX = 0.1
 const busyShare = (l: Loop) => (l.distance ? l.surface.busy / l.distance : 0)
+/**
+ * Part de la boucle faite en aller-retour au-delà de laquelle elle n'est gardée qu'à défaut d'une autre.
+ * En campagne, c'est surtout la sortie du départ : on part et on revient par la même route sur 1 à 3 km.
+ */
+const RETRACE_SHARE_MAX = 0.15
+/** Autour du départ (m) : repartir et revenir par la même rue est inévitable, ce n'est pas compté */
+const RETRACE_FREE = 200
+const retraced = new WeakMap<Loop, number>()
+/** Part du tracé parcourue dans les deux sens (les deux passages comptent), hors abords du départ */
+function retraceShare(l: Loop): number {
+  if (retraced.has(l)) return retraced.get(l)!
+  const c = l.coords
+  const key = (a: Coord, b: Coord) => `${a[0].toFixed(6)},${a[1].toFixed(6)}>${b[0].toFixed(6)},${b[1].toFixed(6)}`
+  const edges = new Set<string>()
+  for (let i = 0; i < c.length - 1; i++) edges.add(key(c[i]!, c[i + 1]!))
+  let twice = 0
+  for (let i = 0; i < c.length - 1; i++) {
+    if (!edges.has(key(c[i + 1]!, c[i]!)) || haversine(at(c[i]!), at(c[0]!)) < RETRACE_FREE) continue
+    twice += step(c, i)
+  }
+  const share = l.distance ? twice / l.distance : 0
+  retraced.set(l, share)
+  return share
+}
 /** Écart maximal (m) entre les deux bouts raccordés quand on coupe un aller-retour */
 const JOIN_MAX = 25
 /** Un lieu n'est annoncé que si le tracé passe à moins de cette distance (m) */
@@ -547,12 +571,12 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
       if (r.status === 'rejected') lastError = r.reason
       // Trop semblable à une boucle déjà montrée : on n'en veut pas
       else if (known && overlap(r.value, known) > MAX_OVERLAP) return
-      else if (Math.abs(r.value.distance - target) / target > TOLERANCE * 1.5 || busyShare(r.value) > BUSY_SHARE_MAX) weak.push({ direction: picked[i]!.direction, loop: r.value })
+      else if (Math.abs(r.value.distance - target) / target > TOLERANCE * 1.5 || busyShare(r.value) > BUSY_SHARE_MAX || retraceShare(r.value) > RETRACE_SHARE_MAX) weak.push({ direction: picked[i]!.direction, loop: r.value })
       else loops.push({ direction: picked[i]!.direction, loop: r.value })
     })
   }
-  // À défaut de mieux : les moins éloignées de la distance demandée, un grand axe pesant lourd
-  const penalty = (l: Loop) => Math.abs(l.distance - target) / target + 2 * busyShare(l)
+  // À défaut de mieux : les moins éloignées de la distance demandée, un grand axe pesant lourd, puis les allers-retours
+  const penalty = (l: Loop) => Math.abs(l.distance - target) / target + 2 * busyShare(l) + retraceShare(l)
   weak.sort((a, b) => penalty(a.loop) - penalty(b.loop))
   for (const w of weak) {
     if (loops.length >= wanted) break
