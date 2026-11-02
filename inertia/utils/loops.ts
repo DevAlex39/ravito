@@ -592,7 +592,7 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
       if (kept.every(k => angleGap(k.direction, l.direction) >= minGap)) kept.push(l)
     }
   }
-  return kept.map(l => ({ ...l.loop, direction: l.direction }))
+  return kept.map(l => withPassedPlaces({ ...l.loop, direction: l.direction }, pois))
 }
 
 /** D+ de la boucle, calculé comme sur la page (profil lissé) */
@@ -632,7 +632,52 @@ export async function lowerClimb(loop: Loop, start: LatLon, target: number, allP
     if (!best || gain < best.gain) best = { loop: { ...r.value, direction: directions[i] }, gain }
   }
   if (!best || best.gain > Math.min(before - 10, before * 0.95)) return null
-  return best.loop
+  return withPassedPlaces(best.loop, pois)
+}
+
+/** Un lieu à moins de cette distance (m) du tracé est sur le chemin : on l'annonce comme les autres */
+const PASS_BY = 75
+/** Deux lieux plus proches que ça (m) sont le même endroit (une église et son entrée « monument historique ») */
+const SAME_SPOT = 50
+/** Lieux annoncés au plus par boucle (ceux visés sont toujours gardés) : au-delà, la liste et la carte deviennent illisibles */
+const MAX_STOPS = 15
+
+/**
+ * Ajoute aux lieux d'une boucle ceux devant lesquels le tracé passe déjà sans les viser (le tracé ne change pas),
+ * puis range tous les lieux dans l'ordre de passage. En campagne, c'est presque autant de lieux que ceux visés.
+ */
+export function withPassedPlaces(loop: Loop, pool: Poi[]): Loop {
+  const c = loop.coords
+  if (!c.length) return loop
+  // Repère local en mètres et emprise du tracé : seuls les lieux dans l'emprise sont examinés
+  const { toXY } = projector(at(c[0]!))
+  const pts = c.map(p => toXY(at(p)))
+  const xs = pts.map(p => p.x)
+  const ys = pts.map(p => p.y)
+  const box = { x0: Math.min(...xs) - PASS_BY, x1: Math.max(...xs) + PASS_BY, y0: Math.min(...ys) - PASS_BY, y1: Math.max(...ys) + PASS_BY }
+  /** Point du tracé le plus proche du lieu et sa distance */
+  const closest = (p: LatLon) => {
+    const q = toXY(p)
+    let best = { i: 0, d: Infinity }
+    pts.forEach((t, i) => {
+      const d = Math.hypot(t.x - q.x, t.y - q.y)
+      if (d < best.d) best = { i, d }
+    })
+    return best
+  }
+  const stops = loop.stops.map(p => ({ p, i: closest(p).i }))
+  // En ville on passe devant des dizaines de monuments : au plus MAX_STOPS lieux, les plus remarquables d'abord
+  const byWeight = [...pool].sort((a, b) => (b.weight ?? b.score) - (a.weight ?? a.score))
+  for (const p of byWeight) {
+    if (stops.length >= MAX_STOPS) break
+    if (stops.some(s => s.p.id === p.id || haversine(s.p, p) < SAME_SPOT)) continue
+    const q = toXY(p)
+    if (q.x < box.x0 || q.x > box.x1 || q.y < box.y0 || q.y > box.y1) continue
+    const near = closest(p)
+    if (near.d <= PASS_BY) stops.push({ p, i: near.i })
+  }
+  if (stops.length === loop.stops.length) return loop
+  return { ...loop, stops: stops.sort((a, b) => a.i - b.i).map(s => s.p) }
 }
 
 /** Recalcule une boucle à partir de ses points de passage (lien partagé) */
@@ -643,7 +688,8 @@ export function loopFromWaypoints(waypoints: LatLon[], stops: Poi[], opts: Route
     if (i === 0 || i === waypoints.length - 1) return w
     return stops.find(s => haversine(s, w) < 15) ?? w
   })
-  return routeOnce(points, stops, opts)
+  // Les lieux du lien qui ne sont pas des points de passage sont ceux devant lesquels on passe : on les retrouve
+  return routeOnce(points, stops, opts).then(loop => withPassedPlaces(loop, stops))
 }
 
 /** Rayon de recherche des lieux pour une boucle de `target` mètres */

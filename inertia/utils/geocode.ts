@@ -37,6 +37,44 @@ function fromBan(f: BanFeature): PlaceSuggestion {
   return { label: p.label, detail, name: p.city ? `${p.name}, ${p.city}` : p.name, lat, lon }
 }
 
+/** API Découpage administratif : retrouve les communes par le début de leur nom, les plus peuplées d'abord */
+const COMMUNES_URL = 'https://geo.api.gouv.fr/communes'
+
+interface Commune {
+  nom: string
+  codesPostaux?: string[]
+  centre?: { coordinates: [number, number] }
+  population?: number
+  departement?: { nom: string }
+  region?: { nom: string }
+}
+
+const simplify = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[-']/g, ' ')
+
+/**
+ * Communes dont le nom commence par la saisie. La BAN rate certains débuts de nom (« annec » ne donne
+ * qu'Annequin) ; cette API les trouve, mais en manque d'autres (« chamo » ne donne pas Chamonix) : on combine.
+ */
+async function communesStartingWith(q: string, signal?: AbortSignal): Promise<PlaceSuggestion[]> {
+  try {
+    const params = new URLSearchParams({ nom: q, fields: 'nom,codesPostaux,centre,population,departement,region', boost: 'population', limit: '5' })
+    const res = await fetch(`${COMMUNES_URL}?${params}`, { signal })
+    const list = res.ok ? (await res.json()) as Commune[] : []
+    return list
+      .filter(c => c.centre && simplify(c.nom).startsWith(simplify(q)))
+      .map((c) => {
+        const [lon, lat] = c.centre!.coordinates
+        const postcode = c.codesPostaux?.[0]
+        const detail = [c.departement?.nom, c.region?.nom].filter(Boolean).join(', ')
+        return { label: postcode ? `${c.nom} (${postcode})` : c.nom, detail, name: c.nom, lat, lon, town: { name: c.nom } }
+      })
+  }
+  catch {
+    // Service indisponible : les suggestions de la BAN suffisent
+    return []
+  }
+}
+
 /** Suggestions pendant la frappe (France uniquement), au moins 3 caractères */
 export async function suggestPlaces(query: string, signal?: AbortSignal): Promise<PlaceSuggestion[]> {
   const q = query.trim()
@@ -48,13 +86,22 @@ export async function suggestPlaces(query: string, signal?: AbortSignal): Promis
   // Les communes d'abord (« dol » → Dole, « besan » → Besançon : la recherche générale les noie parmi
   // les rues), sauf quand on tape une adresse (« 12 rue… »)
   const isAddress = /^\d+\s*\D/.test(q)
-  const [towns, all] = await Promise.all([isAddress ? [] : search('&type=municipality', 3), search('', 6)])
+  const [banTowns, communes, all] = await Promise.all([
+    isAddress ? [] : search('&type=municipality', 3),
+    isAddress ? [] : communesStartingWith(q, signal),
+    search('', 6),
+  ])
+  // Communes sûres de la BAN, puis celles qui commencent par la saisie, puis les moins probables de la BAN
+  const sure = banTowns.filter(f => f.properties.score >= 0.6).map(fromBan)
+  const unsure = banTowns.filter(f => f.properties.score < 0.6).map(fromBan)
   const seen = new Set<string>()
-  return [...towns, ...all].map(fromBan).filter((p) => {
+  const fresh = (p: PlaceSuggestion) => {
     if (seen.has(p.label)) return false
     seen.add(p.label)
     return true
-  }).slice(0, 6)
+  }
+  const towns = [...sure, ...communes, ...unsure].filter(fresh).slice(0, 3)
+  return [...towns, ...all.map(fromBan).filter(fresh)].slice(0, 6)
 }
 
 /**
