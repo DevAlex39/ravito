@@ -40,8 +40,8 @@ onMounted(async () => {
     maxZoom: 19,
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   })
-  topo.addTo(map)
-  L.control.layers({ Topographique: topo, Plan: osm }).addTo(map)
+  osm.addTo(map)
+  L.control.layers({ Plan: osm, Topographique: topo }).addTo(map)
   routeLayer = L.layerGroup().addTo(map)
   markerLayer = L.layerGroup().addTo(map)
   drawRoute(true)

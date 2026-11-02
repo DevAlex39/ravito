@@ -42,6 +42,8 @@ let map: Leaflet.Map | null = null
 let legLayer: Leaflet.LayerGroup | null = null
 let pointLayer: Leaflet.LayerGroup | null = null
 let placeLayer: Leaflet.LayerGroup | null = null
+const placeMarkers = new Map<number, Leaflet.Marker>()
+let resizer: ResizeObserver | null = null
 let hoverMarker: Leaflet.CircleMarker | null = null
 
 onMounted(async () => {
@@ -56,8 +58,8 @@ onMounted(async () => {
     maxZoom: 19,
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | itinéraires <a href="https://brouter.de">BRouter</a>',
   })
-  topo.addTo(map)
-  L.control.layers({ Topographique: topo, Plan: osm }).addTo(map)
+  osm.addTo(map)
+  L.control.layers({ Plan: osm, Topographique: topo }).addTo(map)
   legLayer = L.layerGroup().addTo(map)
   placeLayer = L.layerGroup().addTo(map)
   pointLayer = L.layerGroup().addTo(map)
@@ -72,6 +74,9 @@ onMounted(async () => {
   drawPoints()
   drawPlaces()
   emitView()
+  // La liste des lieux s'affiche à côté de la carte : Leaflet doit recalculer sa taille
+  resizer = new ResizeObserver(() => map?.invalidateSize())
+  resizer.observe(el.value!)
 })
 
 function emitView() {
@@ -88,7 +93,10 @@ function escapeHtml(text: string): string {
 /** Lieux de la zone : un clic ouvre une bulle pour l'ajouter au parcours (ceux déjà ajoutés sont des points du tracé) */
 function drawPlaces() {
   if (!L || !placeLayer) return
+  // Les lieux sont rechargés quand la carte bouge (y compris quand elle se décale pour montrer une bulle) : on rouvre la bulle ouverte
+  const openId = [...placeMarkers].find(([, m]) => m.isPopupOpen())?.[0]
   placeLayer.clearLayers()
+  placeMarkers.clear()
   const picked = new Set(props.waypoints.map(w => w.poi?.id).filter(id => id != null))
   for (const p of props.places ?? []) {
     if (picked.has(p.id)) continue
@@ -97,6 +105,7 @@ function drawPlaces() {
       icon: L.divIcon({ className: `place place-${p.category}`, html: iconSvg(kind.icon, 13), iconSize: [24, 24], iconAnchor: [12, 12] }),
       keyboard: false,
     }).addTo(placeLayer)
+    placeMarkers.set(p.id, marker)
     const box = document.createElement('div')
     box.className = 'place-pop'
     box.innerHTML = `<strong>${escapeHtml(p.name)}</strong><small>${kind.label}</small>`
@@ -112,9 +121,13 @@ function drawPlaces() {
     marker.bindPopup(box, { closeButton: false, offset: [0, -8] })
     marker.bindTooltip(escapeHtml(p.name), { direction: 'top', offset: [0, -12] })
   }
+  if (openId != null) placeMarkers.get(openId)?.openPopup()
 }
 
-onBeforeUnmount(() => map?.remove())
+onBeforeUnmount(() => {
+  resizer?.disconnect()
+  map?.remove()
+})
 
 function fitAll() {
   if (!L || !map) return
@@ -226,7 +239,12 @@ function locate(): Promise<boolean> {
   })
 }
 
-defineExpose({ flyTo, locate, fitAll })
+/** Ouvre la bulle d'un lieu de la liste (la carte se décale pour l'afficher) */
+function focusPlace(id: number) {
+  placeMarkers.get(id)?.openPopup()
+}
+
+defineExpose({ flyTo, locate, fitAll, focusPlace })
 </script>
 
 <style scoped>

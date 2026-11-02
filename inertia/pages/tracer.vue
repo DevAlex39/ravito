@@ -29,22 +29,66 @@
         <p v-if="searchError" class="notice bad">{{ searchError }}</p>
         <p v-if="showPlaces && placesNote" class="notice">{{ placesNote }}</p>
 
-        <div class="map-wrap">
-          <TraceMap
-            ref="mapRef"
-            :waypoints="waypoints"
-            :legs="legs"
-            :track="track"
-            :hover="hoverD"
-            :start-bounds="startBounds"
-            :places="showPlaces ? places : []"
-            @add="addPoint"
-            @place="onPlace"
-            @view="onView"
-            @move="movePoint"
-            @remove="removePoint"
-          />
-          <div v-if="!waypoints.length" class="overlay">Clique sur la carte pour poser ton départ</div>
+        <div class="map-area" :class="{ 'with-list': showPlaces && places.length }">
+          <div ref="mapWrap" class="map-wrap">
+            <TraceMap
+              ref="mapRef"
+              :waypoints="waypoints"
+              :legs="legs"
+              :track="track"
+              :hover="hoverD"
+              :start-bounds="startBounds"
+              :places="showPlaces ? shownPlaces : []"
+              @add="onMapClick"
+              @place="onPlace"
+              @view="onView"
+              @move="movePoint"
+              @remove="removePoint"
+            />
+            <div v-if="!waypoints.length" class="overlay">Clique sur la carte pour poser ton départ</div>
+          </div>
+
+          <aside v-if="showPlaces && places.length" class="place-list" :class="{ open: listOpen }">
+            <button type="button" class="list-toggle" :aria-expanded="listOpen" @click="listOpen = !listOpen">
+              <Icon name="landmark" :size="16" />{{ listOpen ? 'Masquer la liste' : `Afficher la liste (${shownPlaces.length})` }}
+            </button>
+            <div class="list-body">
+              <div class="box list-search">
+                <input v-model="placeQuery" type="search" placeholder="Rechercher un lieu (ex. collégiale)" aria-label="Rechercher dans les lieux">
+              </div>
+              <div v-if="groupsHere.length > 1" class="groups" role="group" aria-label="Filtrer par type de lieu">
+                <button
+                  v-for="g in visibleGroups"
+                  :key="g.id"
+                  type="button"
+                  class="group"
+                  :class="[g.category, { active: placeGroups.includes(g.id) }]"
+                  :aria-pressed="placeGroups.includes(g.id)"
+                  @click="toggleGroup(g.id)"
+                >
+                  <Icon :name="g.icon" :size="13" />{{ g.label }} <span class="count">{{ g.count }}</span>
+                </button>
+                <button v-if="groupsHere.length > GROUPS_SHOWN" type="button" class="group more" @click="allGroups = !allGroups">
+                  {{ allGroups ? 'Moins' : `+ ${groupsHere.length - GROUPS_SHOWN} autres` }}
+                </button>
+              </div>
+              <p class="list-from">{{ shownPlaces.length }} lieu{{ shownPlaces.length > 1 ? 'x' : '' }} · distance à vol d'oiseau {{ fromLabel }}</p>
+              <ul class="items">
+                <li v-for="item in listItems" :key="item.p.id" class="item" :class="item.p.category">
+                  <button type="button" class="item-main" title="Voir sur la carte" @click="showOnMap(item.p.id)">
+                    <Icon :name="kindOf(item.p).icon" :size="15" class="item-icon" />
+                    <span class="item-text">
+                      <strong>{{ item.p.name }}</strong>
+                      <small>{{ kindOf(item.p).label }}</small>
+                    </span>
+                    <span class="item-dist num">{{ formatDistance(item.d) }}</span>
+                  </button>
+                  <button type="button" class="item-add" :aria-label="`Ajouter ${item.p.name} au parcours`" title="Ajouter au parcours" @click="onPlace(item.p)">+</button>
+                </li>
+              </ul>
+              <p v-if="places.length && !listItems.length" class="list-empty">Aucun lieu ne correspond.</p>
+            </div>
+          </aside>
         </div>
 
         <div class="toolbar">
@@ -98,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
 import DefaultLayout from '~/layouts/default.vue'
 import TraceMap, { type MapView } from '~/components/trace_map.vue'
@@ -110,8 +154,11 @@ import { usePlan } from '~/composables/use_plan'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
 import { searchPlace, type PlaceSuggestion } from '~/utils/geocode'
 import { formatKm } from '~/utils/format'
-import { kindOf } from '~/utils/places'
+import { KIND_GROUPS, kindOf } from '~/utils/places'
 import type { Poi } from '~/utils/loops'
+import type { LatLon } from '~/utils/routing'
+import type { IconName } from '~/utils/icons'
+import { haversine } from '~/utils/gpx'
 
 const {
   waypoints, legs, mode, name, history, track, profile, isLoop, pending, failed, noElevation,
@@ -174,13 +221,13 @@ async function onLocate() {
 const showPlaces = ref(false)
 const places = ref<Poi[]>([])
 const placesNote = ref('')
-let lastView: MapView | null = null
+const lastView = shallowRef<MapView | null>(null)
 let viewTimer: ReturnType<typeof setTimeout> | undefined
 /** Numéro de la dernière demande : une réponse plus ancienne arrivée en retard est ignorée */
 let placesRequest = 0
 
 function onView(view: MapView) {
-  lastView = view
+  lastView.value = view
   if (!showPlaces.value) return
   clearTimeout(viewTimer)
   viewTimer = setTimeout(loadPlaces, 400)
@@ -192,7 +239,7 @@ function togglePlaces() {
 }
 
 async function loadPlaces() {
-  const view = lastView
+  const view = lastView.value
   if (!view) return
   if (view.zoom < 12) {
     places.value = []
@@ -217,9 +264,95 @@ async function loadPlaces() {
 /** Lieux posés dans le tracé, dans l'ordre de passage */
 const tracePois = computed(() => waypoints.value.flatMap(w => (w.poi ? [w.poi] : [])))
 
+// --- Liste des lieux : recherche par nom ou type, filtre par famille, tri par distance ---
+const placeQuery = ref('')
+const placeGroups = ref<string[]>([])
+/** Sur mobile, la liste est repliée tant qu'on ne l'ouvre pas (sur ordinateur elle est toujours visible) */
+const listOpen = ref(false)
+/** Dernier point posé (clic sur la carte ou lieu ajouté) : les distances de la liste partent de lui */
+const lastAdded = ref<LatLon | null>(null)
+
+const simplify = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const groupOf = (p: Poi) => KIND_GROUPS.find(g => g.kinds.includes(p.kind))?.id ?? `autres-${p.category}`
+
+/** Lieux de la zone pas encore dans le parcours */
+const freePlaces = computed(() => {
+  const picked = new Set(tracePois.value.map(p => p.id))
+  return places.value.filter(p => !picked.has(p.id))
+})
+
+/** Familles présentes dans la zone, les plus fournies d'abord */
+const groupsHere = computed(() => {
+  const counts = new Map<string, number>()
+  for (const p of freePlaces.value) counts.set(groupOf(p), (counts.get(groupOf(p)) ?? 0) + 1)
+  const others = (category: 'patrimoine' | 'nature') => ({ id: `autres-${category}`, category, icon: (category === 'nature' ? 'leaf' : 'pin') as IconName, label: category === 'nature' ? 'Autres sites naturels' : 'Autres lieux' })
+  return [...KIND_GROUPS, others('patrimoine'), others('nature')]
+    .filter(g => counts.has(g.id))
+    .map(g => ({ ...g, count: counts.get(g.id)! }))
+    .sort((a, b) => b.count - a.count)
+})
+
+/** Les familles les plus fournies, les autres derrière « + N autres » (une famille cochée reste visible) */
+const GROUPS_SHOWN = 5
+const allGroups = ref(false)
+const visibleGroups = computed(() => (allGroups.value
+  ? groupsHere.value
+  : groupsHere.value.filter((g, i) => i < GROUPS_SHOWN || placeGroups.value.includes(g.id))))
+
+function toggleGroup(id: string) {
+  placeGroups.value = placeGroups.value.includes(id) ? placeGroups.value.filter(g => g !== id) : [...placeGroups.value, id]
+}
+
+/** Lieux retenus par la recherche et les familles cochées (la carte affiche les mêmes) */
+const shownPlaces = computed(() => {
+  const q = simplify(placeQuery.value.trim())
+  // Une famille cochée qui n'existe plus dans la zone affichée ne doit pas tout masquer
+  const groups = placeGroups.value.filter(id => groupsHere.value.some(g => g.id === id))
+  return freePlaces.value.filter(p =>
+    (!groups.length || groups.includes(groupOf(p)))
+    && (!q || simplify(p.name).includes(q) || simplify(kindOf(p).label).includes(q)))
+})
+
+/** Point de départ des distances : le dernier point posé s'il est encore là, sinon la fin du tracé, sinon le centre de la carte */
+const fromPoint = computed<{ at: LatLon, label: string } | null>(() => {
+  const w = waypoints.value
+  const last = lastAdded.value
+  if (last && w.some(p => p.lat === last.lat && p.lon === last.lon)) return { at: last, label: 'depuis ton dernier point' }
+  const end = w[isLoop.value ? w.length - 2 : w.length - 1]
+  if (end) return { at: end, label: 'depuis la fin du tracé' }
+  return lastView.value ? { at: { lat: lastView.value.lat, lon: lastView.value.lon }, label: 'depuis le centre de la carte' } : null
+})
+const fromLabel = computed(() => fromPoint.value?.label ?? '')
+
+const listItems = computed(() => {
+  const from = fromPoint.value?.at
+  return shownPlaces.value
+    .map(p => ({ p, d: from ? haversine(from, p) : 0 }))
+    .sort((a, b) => a.d - b.d)
+})
+
+function formatDistance(m: number) {
+  return m < 1000 ? `${Math.round(m / 10) * 10} m` : `${formatKm(m, 1)} km`
+}
+
+/** Ouvre la bulle du lieu ; sur mobile la carte est au-dessus de la liste, on y remonte si elle n'est plus visible */
+const mapWrap = ref<HTMLElement>()
+function showOnMap(id: number) {
+  mapRef.value?.focusPlace(id)
+  const box = mapWrap.value?.getBoundingClientRect()
+  if (box && (box.bottom < 80 || box.top > window.innerHeight)) mapWrap.value!.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+function onMapClick(p: LatLon) {
+  addPoint(p)
+  lastAdded.value = p
+}
+
 function onPlace(p: Poi) {
   const first = !waypoints.value.length
-  insertPoint({ lat: p.lat, lon: p.lon, poi: { id: p.id, name: p.name, kind: p.kind, category: p.category } })
+  const point = { lat: p.lat, lon: p.lon }
+  insertPoint({ ...point, poi: { id: p.id, name: p.name, kind: p.kind, category: p.category } })
+  lastAdded.value = point
   placesNote.value = first
     ? `« ${p.name} » est ton point de départ : ajoute d'autres lieux ou clique sur la carte.`
     : `« ${p.name} » ajouté au parcours, là où il rallonge le moins le tracé.`
@@ -294,6 +427,35 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .poi-chip button { width: 20px; height: 20px; border: none; border-radius: 50%; background: none; color: var(--text-soft); font-size: 1rem; line-height: 1; cursor: pointer; }
 .poi-chip button:hover { background: var(--bad-bg); color: var(--bad); }
 .map-wrap { position: relative; height: 62vh; min-height: 420px; border-radius: 10px; overflow: hidden; }
+.map-area { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.map-area.with-list { grid-template-columns: minmax(0, 1fr) 360px; }
+
+.place-list { display: flex; flex-direction: column; height: 62vh; min-height: 420px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); overflow: hidden; }
+.list-toggle { display: none; }
+.list-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; padding: 10px; }
+.list-search { height: 40px; padding: 0 12px; background: #fff; }
+.list-search input { flex: 1; min-width: 0; border: none; background: transparent; font: inherit; font-size: 0.9rem; outline: none; }
+.groups { display: flex; flex-wrap: wrap; gap: 4px; }
+.group { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border: 1px solid var(--border-strong); border-radius: 999px; background: #fff; font: inherit; font-size: 0.74rem; color: var(--text); cursor: pointer; }
+.group.more { border-style: dashed; color: var(--forest); font-weight: 600; }
+.group .icon { color: #b4561f; }
+.group.nature .icon { color: #2f7d4f; }
+.group .count { color: var(--text-dim); font-size: 0.72rem; }
+.group.active { background: var(--forest); border-color: var(--forest); color: #fff; }
+.group.active .icon, .group.active .count { color: #fff; }
+.list-from { margin: 0; font-size: 0.76rem; color: var(--text-dim); }
+.items { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
+.item { display: flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--border); border-radius: 9px; }
+.item-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 7px 4px 7px 9px; border: none; background: none; font: inherit; text-align: left; color: var(--text); cursor: pointer; }
+.item-icon { flex: none; color: #b4561f; }
+.item.nature .item-icon { color: #2f7d4f; }
+.item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.item-text strong { font-size: 0.86rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-text small { font-size: 0.74rem; color: var(--text-soft); }
+.item-dist { flex: none; font-size: 0.8rem; font-weight: 600; color: var(--text-soft); }
+.item-add { flex: none; width: 30px; height: 30px; margin-right: 5px; border: none; border-radius: 8px; background: var(--forest-soft); color: var(--forest); font-size: 1.2rem; line-height: 1; cursor: pointer; }
+.item-add:hover { background: var(--forest); color: #fff; }
+.list-empty { margin: 0; font-size: 0.84rem; color: var(--text-soft); }
 .overlay { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 500; background: rgba(29, 39, 33, 0.88); color: #fff; padding: 7px 14px; border-radius: 999px; font-size: 0.88rem; font-weight: 600; pointer-events: none; white-space: nowrap; }
 
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -318,6 +480,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .finish-actions .btn { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 18px; border-radius: 12px; font-size: 0.95rem; }
 .finish-actions .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .finish-hint { flex-basis: 100%; margin: -4px 0 0; font-size: 0.84rem; color: var(--text-dim); }
+
+/* Écran étroit : la liste passe sous la carte, repliée derrière un bouton */
+@media (max-width: 900px) {
+  .map-area.with-list { grid-template-columns: 1fr; }
+  .place-list { height: auto; min-height: 0; }
+  .list-toggle { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border: none; background: none; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--forest); cursor: pointer; }
+  .place-list:not(.open) .list-body { display: none; }
+  .place-list.open .list-body { padding-top: 0; }
+  .place-list.open .items { max-height: 55vh; }
+}
 
 @media (max-width: 640px) {
   .head h1 { font-size: 2rem; }
