@@ -1,0 +1,23 @@
+# Journal des versions
+
+Chaque mise en ligne porte un numéro **vMAJEUR.MINEUR.CORRECTIF** (affiché en bas des pages) :
+- **MINEUR** (v1.1.0) : nouvelle fonction visible ;
+- **CORRECTIF** (v1.0.1) : correction sans nouveauté ;
+- **MAJEUR** (v2.0.0) : grand changement (nouveau nom, refonte…).
+
+Mettre en ligne : `ssh alexis@213.32.69.211 /var/www/alpas/scripts/deployer.sh`
+Revenir à la version d'avant : `ssh alexis@213.32.69.211 /var/www/alpas/scripts/revenir-version-precedente.sh`
+
+## v1.0.0 — 2026-11-03
+
+Première version numérotée : tout ce qui était en ligne à cette date.
+
+- **Boucles découverte** : boucle à distance donnée qui enchaîne les plus beaux lieux (OpenStreetMap, IGN, Wikidata),
+  3 boucles proposées + « D'autres boucles », « Moins de D+ », points d'eau et toilettes, lien court à partager,
+  boucles favorites (avec un compte).
+- **Créer une trace** : tracé sur les sentiers, lieux à voir à ajouter, ordre des lieux par glisser-déposer
+  et « Optimiser l'ordre », ligne droite automatique là où il n'y a pas de chemin.
+- **Plan de course** depuis un GPX : temps de passage, allures par tronçon, ravitaillements, fiche et bracelet.
+- **Comptes** : parcours enregistrés et partagés, votes, suppression du compte.
+- **Sécurité** : CSP et en-têtes de sécurité, limites par compte, sauvegardes quotidiennes copiées hors du serveur.
+- **Mise en ligne** avec retour automatique à la version précédente si le site ne répond plus.

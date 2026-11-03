@@ -8,3 +8,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/** Numéro de version (package.json), injecté par Vite : voir vite.config.ts */
+declare const __APP_VERSION__: string

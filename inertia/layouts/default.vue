@@ -29,6 +29,7 @@
       <div class="container">
         {{ APP_NAME }} · sans compte, tes fichiers restent dans ton navigateur · fonds de carte © OpenStreetMap / OpenTopoMap ·
         <Link href="/mentions-legales">Mentions légales et confidentialité</Link>
+        · <span class="version">v{{ APP_VERSION }}</span>
       </div>
     </footer>
   </div>
@@ -37,6 +38,8 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3'
 import { APP_NAME } from '~/brand'
+
+const APP_VERSION = __APP_VERSION__
 import { usePlan } from '~/composables/use_plan'
 import { useAccount } from '~/composables/use_account'
 import AccountMenu from '~/components/account_menu.vue'
