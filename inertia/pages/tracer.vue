@@ -106,10 +106,31 @@
 
         <div v-if="tracePois.length" class="pois">
           <span class="pois-title">Lieux du parcours</span>
-          <span v-for="p in tracePois" :key="p.id" class="poi-chip" :class="p.category">
-            <Icon :name="kindOf(p).icon" :size="14" />{{ p.name }}
-            <button type="button" :aria-label="`Retirer ${p.name} du parcours`" title="Retirer du parcours" @click="removePoi(p.id)">×</button>
+          <span ref="chipList" class="poi-list">
+            <span
+              v-for="(p, k) in tracePois"
+              :key="p.id"
+              :data-id="p.id"
+              class="poi-chip"
+              :class="[p.category, { fixed: !movable.has(p.id) }]"
+              :title="movable.has(p.id) ? 'Glisse pour changer l\'ordre de visite' : ''"
+            >
+              <span class="poi-rank num">{{ k + 1 }}</span>
+              <Icon :name="kindOf(p).icon" :size="14" />{{ p.name }}
+              <button type="button" :aria-label="`Retirer ${p.name} du parcours`" title="Retirer du parcours" @click="removePoi(p.id)">×</button>
+            </span>
           </span>
+          <button
+            v-if="movable.size >= 2"
+            type="button"
+            class="optimize"
+            :disabled="pending"
+            title="Remet les lieux dans l'ordre qui donne le parcours le plus court (départ et arrivée inchangés)"
+            @click="onOptimize"
+          >
+            <Icon name="route" :size="15" />Optimiser l'ordre
+          </button>
+          <span v-if="orderNote" class="order-note">{{ orderNote }}</span>
         </div>
 
         <p v-if="pending" class="notice">Calcul de l'itinéraire…</p>
@@ -142,7 +163,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import Sortable from 'sortablejs'
 import { Head, router } from '@inertiajs/vue3'
 import DefaultLayout from '~/layouts/default.vue'
 import TraceMap, { type MapView } from '~/components/trace_map.vue'
@@ -162,7 +184,7 @@ import { haversine } from '~/utils/gpx'
 
 const {
   waypoints, legs, mode, name, history, track, profile, isLoop, pending, failed, noElevation,
-  restore, addPoint, insertPoint, movePoint, removePoint, removePoi, closeLoop, undo, clear, gpxText,
+  restore, addPoint, insertPoint, movePoint, removePoint, removePoi, reorderPois, optimizeOrder, closeLoop, undo, clear, gpxText,
 } = useTracer()
 restore()
 
@@ -263,6 +285,56 @@ async function loadPlaces() {
 
 /** Lieux posés dans le tracé, dans l'ordre de passage */
 const tracePois = computed(() => waypoints.value.flatMap(w => (w.poi ? [w.poi] : [])))
+/** Lieux dont on peut changer l'ordre : tous sauf un lieu posé en départ ou en arrivée */
+const movable = computed(() => {
+  const w = waypoints.value
+  return new Set(w.flatMap((p, i) => (p.poi && i > 0 && i < w.length - 1 ? [p.poi.id] : [])))
+})
+
+// --- Ordre de visite des lieux : glisser-déposer des pastilles, ou « Optimiser l'ordre » ---
+const chipList = ref<HTMLElement>()
+const orderNote = ref('')
+let orderNoteTimer: ReturnType<typeof setTimeout> | undefined
+let sortable: Sortable | null = null
+
+function showOrderNote(text: string) {
+  orderNote.value = text
+  clearTimeout(orderNoteTimer)
+  orderNoteTimer = setTimeout(() => (orderNote.value = ''), 4000)
+}
+
+function onOptimize() {
+  showOrderNote(optimizeOrder() ? 'Ordre optimisé : l\'itinéraire est recalculé.' : 'Cet ordre est déjà le plus court.')
+}
+
+// La liste n'existe que s'il y a des lieux : Sortable est branché à son apparition
+watch(chipList, (el) => {
+  sortable?.destroy()
+  sortable = el
+    ? Sortable.create(el, {
+        draggable: '.poi-chip',
+        // Le bouton « × » reste cliquable, les lieux de départ/arrivée ne bougent pas
+        filter: 'button, .fixed',
+        preventOnFilter: false,
+        // Au doigt : appui long pour attraper, sinon la page ne défile plus
+        delay: 180,
+        delayOnTouchOnly: true,
+        animation: 150,
+        ghostClass: 'chip-ghost',
+        onEnd(evt) {
+          const { item, from, oldIndex, newIndex } = evt
+          if (oldIndex == null || newIndex == null || oldIndex === newIndex) return
+          // Vue garde la main sur la liste : on annule le déplacement fait par Sortable, puis on change les données
+          from.removeChild(item)
+          from.insertBefore(item, from.children[oldIndex] ?? null)
+          const ids = tracePois.value.map(p => p.id)
+          ids.splice(newIndex, 0, ids.splice(oldIndex, 1)[0]!)
+          reorderPois(ids.filter(id => movable.value.has(id)))
+        },
+      })
+    : null
+})
+onBeforeUnmount(() => sortable?.destroy())
 
 // --- Liste des lieux : recherche par nom ou type, filtre par famille, tri par distance ---
 const placeQuery = ref('')
@@ -426,6 +498,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .poi-chip.nature .icon { color: #2f7d4f; }
 .poi-chip button { width: 20px; height: 20px; border: none; border-radius: 50%; background: none; color: var(--text-soft); font-size: 1rem; line-height: 1; cursor: pointer; }
 .poi-chip button:hover { background: var(--bad-bg); color: var(--bad); }
+.poi-list { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.poi-chip:not(.fixed) { cursor: grab; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.poi-chip.chip-ghost { opacity: 0.4; }
+.poi-rank { min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; background: rgb(0 0 0 / 0.08); font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.optimize { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px dashed var(--border-strong); border-radius: 999px; background: transparent; font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--forest); cursor: pointer; }
+.optimize:hover:not(:disabled) { background: var(--forest-soft); border-style: solid; }
+.optimize:disabled { opacity: 0.5; cursor: default; }
+.order-note { font-size: 0.8rem; color: var(--text-soft); }
 .map-wrap { position: relative; height: 62vh; min-height: 420px; border-radius: 10px; overflow: hidden; }
 .map-area { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .map-area.with-list { grid-template-columns: minmax(0, 1fr) 360px; }

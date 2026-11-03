@@ -133,6 +133,124 @@ function removePoi(id: number) {
   if (i >= 0) removePoint(i)
 }
 
+/**
+ * Places des lieux dans le tracé (indices des points), départ et arrivée exclus : ils ne bougent jamais.
+ * Les points sans lieu (posés à la main, points de forme) restent aussi à leur place.
+ */
+function poiSlots(): number[] {
+  const w = waypoints.value
+  return w.flatMap((p, i) => (p.poi && i > 0 && i < w.length - 1 ? [i] : []))
+}
+
+const pointKey = (p: LatLon) => `${p.lat},${p.lon}`
+
+/**
+ * Remplace les points et ne recalcule que les tronçons vraiment nouveaux : un tronçon entre les deux mêmes points
+ * est repris tel quel, même s'il a changé de rang ou se parcourt dans l'autre sens. Important pour une boucle
+ * générée : ses détours (vers un point de vue, par la campagne) sont dans le tronçon, pas dans les points.
+ */
+function applyOrder(next: TracePoint[]) {
+  const old = waypoints.value
+  const known = new Map(legs.value.map((leg, i) => [`${pointKey(old[i]!)}>${pointKey(old[i + 1]!)}`, leg]))
+  legs.value = legs.value.map((leg, i) => {
+    const a = next[i]!
+    const b = next[i + 1]!
+    const same = known.get(`${pointKey(a)}>${pointKey(b)}`)
+    if (same) return same
+    const reverse = known.get(`${pointKey(b)}>${pointKey(a)}`)
+    if (reverse && reverse.status === 'ok') return { ...reverse, id: nextLegId++, coords: [...reverse.coords].reverse() }
+    return makeLeg(a, b, leg.mode)
+  })
+  waypoints.value = next
+}
+
+/** Nouvel ordre de visite des lieux (identifiants dans l'ordre voulu), par glisser-déposer */
+function reorderPois(ids: number[]) {
+  const slots = poiSlots()
+  const byId = new Map(slots.map(i => [waypoints.value[i]!.poi!.id, waypoints.value[i]!]))
+  if (ids.length !== slots.length || ids.some(id => !byId.has(id))) return
+  const next = [...waypoints.value]
+  slots.forEach((slot, k) => (next[slot] = byId.get(ids[k]!)!))
+  if (next.every((p, i) => p === waypoints.value[i])) return
+  snapshot()
+  applyOrder(next)
+}
+
+/** Longueur à vol d'oiseau d'une suite de points */
+function pathLength(points: LatLon[]): number {
+  let d = 0
+  for (let i = 1; i < points.length; i++) d += haversine(points[i - 1]!, points[i]!)
+  return d
+}
+
+/**
+ * Ordre des lieux qui donne le tracé le plus court (à vol d'oiseau), départ, arrivée et points sans lieu fixes.
+ * Recherche locale (échanges, déplacements, inversions) depuis l'ordre actuel et depuis le « plus proche d'abord » :
+ * instantané pour une quinzaine de lieux. Renvoie false si l'ordre actuel était déjà le meilleur trouvé.
+ */
+function optimizeOrder(): boolean {
+  const slots = poiSlots()
+  if (slots.length < 2) return false
+  const base = waypoints.value
+  const pois = slots.map(i => base[i]!)
+  const build = (order: TracePoint[]) => {
+    const next = [...base]
+    slots.forEach((slot, k) => (next[slot] = order[k]!))
+    return next
+  }
+  const cost = (order: TracePoint[]) => pathLength(build(order))
+
+  function improve(start: TracePoint[]): TracePoint[] {
+    let best = [...start]
+    let bestCost = cost(best)
+    let better = true
+    while (better) {
+      better = false
+      for (let i = 0; i < best.length; i++) {
+        for (let j = 0; j < best.length; j++) {
+          if (i === j) continue
+          const tries: TracePoint[][] = []
+          // Échange de deux lieux
+          const swap = [...best]
+          ;[swap[i], swap[j]] = [swap[j]!, swap[i]!]
+          tries.push(swap)
+          // Un lieu déplacé ailleurs dans la suite
+          const move = [...best]
+          move.splice(j, 0, move.splice(i, 1)[0]!)
+          tries.push(move)
+          // Un morceau de la suite parcouru dans l'autre sens
+          if (i < j) tries.push([...best.slice(0, i), ...best.slice(i, j + 1).reverse(), ...best.slice(j + 1)])
+          for (const t of tries) {
+            const c = cost(t)
+            if (c < bestCost - 0.5) {
+              best = t
+              bestCost = c
+              better = true
+            }
+          }
+        }
+      }
+    }
+    return best
+  }
+
+  // Départ « plus proche d'abord » depuis le point qui précède le premier lieu
+  const greedy: TracePoint[] = []
+  const left = [...pois]
+  let from: LatLon = base[slots[0]! - 1]!
+  while (left.length) {
+    left.sort((a, b) => haversine(from, a) - haversine(from, b))
+    from = left.shift()!
+    greedy.push(from as TracePoint)
+  }
+  const candidates = [improve(pois), improve(greedy)]
+  const best = candidates.reduce((a, b) => (cost(b) < cost(a) ? b : a))
+  if (cost(best) >= cost(pois) - 1) return false
+  snapshot()
+  applyOrder(build(best))
+  return true
+}
+
 /** Revient au point de départ pour fermer la boucle */
 function closeLoop() {
   const first = waypoints.value[0]
@@ -260,6 +378,6 @@ export function useTracer() {
   return {
     waypoints, legs, mode, name, history,
     track, profile, isLoop, pending, failed, noElevation,
-    restore, addPoint, insertPoint, movePoint, removePoint, removePoi, closeLoop, undo, clear, gpxText, loadRoute,
+    restore, addPoint, insertPoint, movePoint, removePoint, removePoi, reorderPois, optimizeOrder, closeLoop, undo, clear, gpxText, loadRoute,
   }
 }

@@ -1,4 +1,5 @@
 import { defineConfig } from '@adonisjs/shield'
+import app from '@adonisjs/core/services/app'
 
 const shieldConfig = defineConfig({
   /**
@@ -45,6 +46,8 @@ const shieldConfig = defineConfig({
         'https://www.wikidata.org',
         'https://fr.wikipedia.org',
         'https://commons.wikimedia.org',
+        // Développement : rechargement à chaud de Vite
+        ...(app.inDev ? ['ws://localhost:*'] : []),
       ],
       objectSrc: [`'none'`],
       baseUri: [`'self'`],
