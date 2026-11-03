@@ -8,6 +8,13 @@ Chaque mise en ligne porte un numéro **vMAJEUR.MINEUR.CORRECTIF** (affiché en 
 Mettre en ligne : `ssh alexis@213.32.69.211 /var/www/alpas/scripts/deployer.sh`
 Revenir à la version d'avant : `ssh alexis@213.32.69.211 /var/www/alpas/scripts/revenir-version-precedente.sh`
 
+## v1.0.1 — 2026-11-03
+
+- **Mentions légales** mises à jour : boucles favorites, suppression du compte depuis Mon compte, sauvegardes
+  (14 jours sur le serveur, 30 jours hors serveur), journaux du serveur (14 jours), cadre RGPD (responsable,
+  base légale, données en France), liens courts, téléphone de l'hébergeur, API Découpage administratif.
+- **Polices servies par le site** au lieu de Google Fonts : l'adresse IP des visiteurs n'est plus envoyée à Google.
+
 ## v1.0.0 — 2026-11-03
 
 Première version numérotée : tout ce qui était en ligne à cette date.

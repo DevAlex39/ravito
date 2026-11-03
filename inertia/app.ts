@@ -1,4 +1,11 @@
 import 'leaflet/dist/leaflet.css'
+// Polices servies par le site lui-même (pas de Google Fonts : l'IP des visiteurs n'est pas envoyée à Google)
+import '@fontsource/barlow-condensed/500.css'
+import '@fontsource/barlow-condensed/600.css'
+import '@fontsource/barlow-condensed/700.css'
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
 import './css/app.css'
 import { client } from '~/client'
 import { createInertiaApp } from '@inertiajs/vue3'

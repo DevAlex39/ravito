@@ -3,12 +3,12 @@
     <Head title="Mentions légales et confidentialité" />
     <div class="container legal">
       <h1>Mentions légales et confidentialité</h1>
-      <p class="updated">Mise à jour le 1er novembre 2026</p>
+      <p class="updated">Mise à jour le 3 novembre 2026</p>
 
       <section class="card">
         <h2>Éditeur et hébergeur</h2>
         <p>{{ APP_NAME }} est un site personnel édité par <strong>{{ EDITOR }}</strong>.<br>Contact : <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a></p>
-        <p>Hébergement : OVH SAS, 2 rue Kellermann, 59100 Roubaix, France — <a href="https://www.ovhcloud.com" target="_blank" rel="noopener">ovhcloud.com</a></p>
+        <p>Hébergement : OVH SAS, 2 rue Kellermann, 59100 Roubaix, France — téléphone 1007 — <a href="https://www.ovhcloud.com" target="_blank" rel="noopener">ovhcloud.com</a></p>
       </section>
 
       <section class="card warn">
@@ -32,28 +32,48 @@
         </p>
         <h3>Avec un compte</h3>
         <ul>
-          <li>Ce que nous gardons : ton e-mail, ton nom s'il est fourni, ton mot de passe chiffré (jamais lisible), les parcours que tu enregistres, ceux que tu partages et tes votes.</li>
-          <li>Pourquoi : te permettre de retrouver tes parcours et de partager ceux que tu choisis. Rien n'est vendu ni utilisé à des fins publicitaires.</li>
-          <li>Connexion avec Google ou Strava : ils nous transmettent ton identifiant et ton e-mail ; nous ne lisons pas tes activités.</li>
+          <li>Ce que nous gardons : ton e-mail, ton nom s'il est fourni, ton mot de passe chiffré (jamais lisible), les parcours que tu enregistres, ceux que tu partages, tes boucles favorites et tes votes.</li>
+          <li>Pourquoi : te permettre de retrouver tes parcours et tes boucles, et de partager ceux que tu choisis. Rien n'est vendu ni utilisé à des fins publicitaires.</li>
+          <li>Si tu choisis de te connecter avec Google ou Strava : ils nous transmettent ton identifiant et ton e-mail ; nous ne lisons pas tes activités.</li>
           <li>E-mails : uniquement pour réinitialiser ton mot de passe.</li>
           <li>Durée : tant que ton compte existe. Un parcours partagé reste visible tant que tu ne le retires pas.</li>
           <li>
-            Tes droits (RGPD) : consulter, corriger, exporter ou supprimer tes données, et supprimer ton compte, sur simple demande à
+            Supprimer ton compte : bouton « Supprimer mon compte » dans <a href="/mon-compte">Mon compte</a>. Tout est effacé aussitôt
+            (parcours, partages, favoris, votes), puis disparaît des sauvegardes au bout de 30 jours au plus.
+          </li>
+          <li>
+            Tes droits (RGPD) : consulter, corriger, exporter ou supprimer tes données, sur simple demande à
             <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>. Tu peux aussi saisir la <a href="https://www.cnil.fr/fr/plaintes" target="_blank" rel="noopener">CNIL</a>.
           </li>
         </ul>
-        <h3>Sécurité</h3>
+        <h3>Responsable et cadre</h3>
         <p>
-          Pour bloquer les abus, le serveur compte les requêtes par adresse IP pendant quelques minutes, sans les associer à ton compte.
-          Un cookie de session te garde connecté ; il est indispensable et ne sert à rien d'autre.
+          Responsable du traitement : {{ EDITOR }}, joignable à l'adresse ci-dessus. Les données sont traitées parce qu'elles sont
+          nécessaires au service que tu demandes (créer un compte, enregistrer tes parcours). Elles sont stockées en France chez OVH
+          et ne sont transmises à personne.
         </p>
+        <h3>Sauvegardes</h3>
+        <p>
+          Une copie de la base est faite chaque nuit pour pouvoir réparer le site en cas de panne : elle est gardée 14 jours sur le serveur,
+          puis 30 jours au plus sur un disque personnel de l'éditeur, en France.
+        </p>
+        <h3>Sécurité et journaux</h3>
+        <p>
+          Comme tout site, le serveur note chaque visite (adresse IP, page demandée, date, navigateur) dans un journal technique effacé
+          au bout de 14 jours ; il ne sert qu'à corriger les pannes et à repérer les attaques. Pour bloquer les abus, le serveur compte
+          aussi les requêtes par adresse IP pendant quelques minutes, sans les associer à ton compte.
+          Un cookie de session te garde connecté (30 jours au plus) ; il est indispensable et ne sert à rien d'autre.
+        </p>
+        <h3>Liens courts</h3>
+        <p>Quand tu copies le lien d'une boucle, nous gardons ses réglages (départ, distance, lieux) et le nombre d'ouvertures du lien, sans rien qui te concerne.</p>
         <h3>Services appelés depuis ton navigateur</h3>
         <p>Pour afficher la carte et les informations, ton navigateur contacte directement ces services, qui voient donc ton adresse IP :</p>
         <ul>
           <li>fonds de carte : OpenStreetMap et OpenTopoMap ;</li>
-          <li>recherche d'adresses : Géoplateforme de l'IGN (Base Adresse Nationale) et Nominatim (OpenStreetMap) ;</li>
+          <li>recherche d'adresses et de communes : Géoplateforme de l'IGN (Base Adresse Nationale), API Découpage administratif (geo.api.gouv.fr) et Nominatim (OpenStreetMap) ;</li>
           <li>fiches des lieux : Wikidata, Wikipédia et Wikimedia Commons.</li>
         </ul>
+        <p>Les polices de caractères et les itinéraires sont servis par notre propre serveur.</p>
       </section>
 
       <section class="card">
@@ -66,6 +86,7 @@
           <li>Lieux complémentaires (belvédères, mégalithes, grottes, cascades, lavoirs… absents d'OpenStreetMap) : <a href="https://geoservices.ign.fr/bdtopo" target="_blank" rel="noopener">IGN, BD TOPO</a>, Licence Ouverte 2.0.</li>
           <li>Adresses : <a href="https://adresse.data.gouv.fr" target="_blank" rel="noopener">Base Adresse Nationale</a> et Géoplateforme IGN, Licence Ouverte 2.0.</li>
           <li>Carte interactive : <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a> (licence BSD).</li>
+          <li>Polices : Barlow Condensed et Inter, licence SIL Open Font License.</li>
         </ul>
       </section>
     </div>

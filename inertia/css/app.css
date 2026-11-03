@@ -3,8 +3,6 @@
    Thème clair « carnet de course » : papier, vert forêt, orange balise
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
-
 :root {
   --bg: #f5f2ea;
   --panel: #ffffff;
