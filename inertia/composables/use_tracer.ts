@@ -354,7 +354,7 @@ function restore() {
         const b = waypoints.value[i + 1]
         return l.status === 'loading' && a && b ? makeLeg(a, b, l.mode) : { ...l, id: nextLegId++ }
       })
-      if (saved.mode === 'sentiers' || saved.mode === 'droit') mode.value = saved.mode
+      // Les nouveaux points suivent toujours les sentiers (le choix « Ligne droite » a été retiré) ; les anciens tronçons restent tels quels
       name.value = typeof saved.name === 'string' ? saved.name : ''
     }
   }

@@ -14,14 +14,6 @@
             <PlaceInput v-model="query" class="place" placeholder="Aller à une ville, une adresse…" aria-label="Rechercher un lieu" @pick="onPick" @enter="onSearch" />
             <button class="square" type="button" title="Centrer sur ma position" aria-label="Centrer sur ma position" @click="onLocate"><Icon name="locate" /></button>
           </div>
-          <div class="modes" role="radiogroup" aria-label="Tracé des prochains points">
-            <button type="button" role="radio" :aria-checked="mode === 'sentiers'" :class="{ active: mode === 'sentiers' }" @click="mode = 'sentiers'">
-              <Icon name="route" :size="16" />Suivre les sentiers
-            </button>
-            <button type="button" role="radio" :aria-checked="mode === 'droit'" :class="{ active: mode === 'droit' }" @click="mode = 'droit'">
-              <Icon name="arrow" :size="16" />Ligne droite
-            </button>
-          </div>
           <button type="button" class="places-toggle" :class="{ active: showPlaces }" :aria-pressed="showPlaces" title="Afficher les lieux à voir de la zone, pour les ajouter au parcours" @click="togglePlaces">
             <Icon name="landmark" :size="16" />{{ showPlaces ? 'Masquer les lieux' : 'Afficher les lieux' }}
           </button>
@@ -135,7 +127,7 @@
 
         <p v-if="pending" class="notice">Calcul de l'itinéraire…</p>
         <p v-if="failed" class="notice bad">
-          Aucun sentier trouvé sur un tronçon (en rouge) : déplace un des points, ou passe en « Ligne droite ».
+          Pas de chemin connu sur un tronçon : il est tracé en ligne droite (en pointillés). Déplace un des points si besoin.
         </p>
         <p v-if="noElevation" class="notice">Les lignes droites n'ont pas d'altitude : le dénivelé sera nul sur ces portions.</p>
       </section>
@@ -183,7 +175,7 @@ import type { IconName } from '~/utils/icons'
 import { haversine } from '~/utils/gpx'
 
 const {
-  waypoints, legs, mode, name, history, track, profile, isLoop, pending, failed, noElevation,
+  waypoints, legs, name, history, track, profile, isLoop, pending, failed, noElevation,
   restore, addPoint, insertPoint, movePoint, removePoint, removePoi, reorderPois, optimizeOrder, closeLoop, undo, clear, gpxText,
 } = useTracer()
 restore()
@@ -480,10 +472,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .square { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: none; border-radius: 9px; background: var(--forest-soft); color: var(--forest); cursor: pointer; }
 .square:hover { background: #d3e2d8; }
 
-.modes { display: flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 3px; }
-.modes button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 0.86rem; font-weight: 600; border: none; background: transparent; color: var(--text-soft); padding: 8px 12px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
-.modes button:hover { color: var(--text); }
-.modes button.active { background: var(--forest); color: #fff; }
 
 .places-toggle { display: inline-flex; align-items: center; gap: 6px; height: 46px; padding: 0 14px; font: inherit; font-size: 0.86rem; font-weight: 600; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--panel-2); color: var(--text); cursor: pointer; white-space: nowrap; }
 .places-toggle .icon { color: var(--forest); }
@@ -574,9 +562,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 @media (max-width: 640px) {
   .head h1 { font-size: 2rem; }
   .map-card { padding: 10px; }
-  .modes { width: 100%; }
   .places-toggle { width: 100%; justify-content: center; }
-  .modes button { flex: 1; justify-content: center; }
   .map-wrap { height: 55vh; min-height: 320px; }
   .tools { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
   .tool { flex-direction: column; gap: 3px; font-size: 0.78rem; padding: 6px 4px; text-align: center; }

@@ -144,9 +144,9 @@ function drawLegs() {
     const latlngs = leg.coords.map(c => [c[1], c[0]] as [number, number])
     const style: Leaflet.PolylineOptions
       = leg.status === 'loading' ? { color: '#8a938c', weight: 4, dashArray: '6 8' }
-        : leg.status === 'error' ? { color: '#c9302c', weight: 4, dashArray: '6 8' }
-          : leg.mode === 'droit' ? { color: '#e2672b', weight: 4, dashArray: '2 8', lineCap: 'round' }
-            : { color: '#e2672b', weight: 5 }
+        // Pas de chemin trouvé : le tronçon reste en ligne droite, en pointillés comme une ligne droite voulue
+        : leg.status === 'error' || leg.mode === 'droit' ? { color: '#e2672b', weight: 4, dashArray: '2 8', lineCap: 'round' }
+          : { color: '#e2672b', weight: 5 }
     L.polyline(latlngs, { color: '#fff', weight: (style.weight ?? 4) + 4, opacity: 0.8, interactive: false }).addTo(legLayer)
     L.polyline(latlngs, { ...style, interactive: false }).addTo(legLayer)
   }
