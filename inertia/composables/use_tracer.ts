@@ -134,12 +134,14 @@ function removePoi(id: number) {
 }
 
 /**
- * Places des lieux dans le tracé (indices des points), départ et arrivée exclus : ils ne bougent jamais.
+ * Places des lieux qu'on peut réordonner (indices des points). Le départ ne bouge jamais, ni l'arrivée
+ * d'une boucle (c'est le départ) ; sur un tracé ouvert, le dernier lieu est un lieu comme les autres.
  * Les points sans lieu (posés à la main, points de forme) restent aussi à leur place.
  */
 function poiSlots(): number[] {
   const w = waypoints.value
-  return w.flatMap((p, i) => (p.poi && i > 0 && i < w.length - 1 ? [i] : []))
+  const last = isLoop.value ? w.length - 1 : w.length
+  return w.flatMap((p, i) => (p.poi && i > 0 && i < last ? [i] : []))
 }
 
 const pointKey = (p: LatLon) => `${p.lat},${p.lon}`
@@ -378,6 +380,6 @@ export function useTracer() {
   return {
     waypoints, legs, mode, name, history,
     track, profile, isLoop, pending, failed, noElevation,
-    restore, addPoint, insertPoint, movePoint, removePoint, removePoi, reorderPois, optimizeOrder, closeLoop, undo, clear, gpxText, loadRoute,
+    restore, addPoint, insertPoint, movePoint, removePoint, removePoi, poiSlots, reorderPois, optimizeOrder, closeLoop, undo, clear, gpxText, loadRoute,
   }
 }

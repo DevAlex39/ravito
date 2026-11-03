@@ -176,7 +176,7 @@ import { haversine } from '~/utils/gpx'
 
 const {
   waypoints, legs, name, history, track, profile, isLoop, pending, failed, noElevation,
-  restore, addPoint, insertPoint, movePoint, removePoint, removePoi, reorderPois, optimizeOrder, closeLoop, undo, clear, gpxText,
+  restore, addPoint, insertPoint, movePoint, removePoint, removePoi, poiSlots, reorderPois, optimizeOrder, closeLoop, undo, clear, gpxText,
 } = useTracer()
 restore()
 
@@ -277,11 +277,8 @@ async function loadPlaces() {
 
 /** Lieux posés dans le tracé, dans l'ordre de passage */
 const tracePois = computed(() => waypoints.value.flatMap(w => (w.poi ? [w.poi] : [])))
-/** Lieux dont on peut changer l'ordre : tous sauf un lieu posé en départ ou en arrivée */
-const movable = computed(() => {
-  const w = waypoints.value
-  return new Set(w.flatMap((p, i) => (p.poi && i > 0 && i < w.length - 1 ? [p.poi.id] : [])))
-})
+/** Lieux dont on peut changer l'ordre (voir poiSlots) */
+const movable = computed(() => new Set(poiSlots().map(i => waypoints.value[i]!.poi!.id)))
 
 // --- Ordre de visite des lieux : glisser-déposer des pastilles, ou « Optimiser l'ordre » ---
 const chipList = ref<HTMLElement>()
