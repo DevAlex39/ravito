@@ -66,6 +66,11 @@ async function push() {
       return
     }
     if (res.status === 401) throw new Error('Ta session a expiré : reconnecte-toi pour enregistrer.')
+    if (res.status === 422) {
+      // Limite du compte atteinte (nombre de parcours, place) : le serveur dit quoi faire
+      const { message } = await res.json().catch(() => ({})) as { message?: string }
+      throw new Error(message || 'L\'enregistrement a été refusé.')
+    }
     if (!res.ok) throw new Error('L\'enregistrement a échoué, réessaie dans un instant.')
     const { id: newId } = await res.json() as { id: number }
     lastSent = body.data

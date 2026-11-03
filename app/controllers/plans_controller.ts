@@ -48,6 +48,11 @@ export default class PlansController {
   async store({ request, auth, response }: HttpContext) {
     const payload = await request.validateUsing(planValidator)
     if (!isPlanData(payload.data)) return response.badRequest({ message: 'Plan illisible' })
+    const used = await usage(auth.user!.id)
+    if (used.count >= MAX_PLANS) {
+      return response.unprocessableEntity({ message: `Tu as déjà ${MAX_PLANS} parcours enregistrés : supprimes-en dans « Mes parcours » pour en ajouter.` })
+    }
+    if (used.size + payload.data.length > MAX_STORAGE) return response.unprocessableEntity({ message: FULL })
     const plan = await Plan.create({ ...payload, ...round(payload), ...start(payload.data), userId: auth.user!.id })
     return { id: plan.id }
   }
@@ -56,6 +61,8 @@ export default class PlansController {
     const plan = await Plan.query().where('id', params.id).where('userId', auth.user!.id).firstOrFail()
     const payload = await request.validateUsing(planValidator)
     if (!isPlanData(payload.data)) return response.badRequest({ message: 'Plan illisible' })
+    const used = await usage(auth.user!.id)
+    if (used.size - plan.data.length + payload.data.length > MAX_STORAGE) return response.unprocessableEntity({ message: FULL })
     // La trace peut avoir changé : le point de départ suit (recherche des parcours partagés)
     plan.merge({ ...payload, ...round(payload), ...start(payload.data) })
     await plan.save()
@@ -68,6 +75,20 @@ export default class PlansController {
     session.flash('success', `« ${plan.name} » a été supprimé.`)
     return response.redirect().back()
   }
+}
+
+/**
+ * Limites par compte : un plan garde son GPX complet (jusqu'à 20 Mo pour un ultra enregistré à la seconde),
+ * sans plafond un seul compte pourrait remplir le disque du serveur
+ */
+const MAX_PLANS = 100
+const MAX_STORAGE = 100_000_000
+const FULL = 'Ton espace est plein (100 Mo de parcours) : supprime d\'anciens parcours dans « Mes parcours » pour enregistrer celui-ci.'
+
+/** Nombre de plans du compte et place occupée (caractères des données enregistrées) */
+async function usage(userId: number) {
+  const [row] = await db.from('plans').where('user_id', userId).select(db.raw('COUNT(*) AS n, COALESCE(SUM(CHAR_LENGTH(data)), 0) AS size'))
+  return { count: Number(row?.n ?? 0), size: Number(row?.size ?? 0) }
 }
 
 function start(data: string) {

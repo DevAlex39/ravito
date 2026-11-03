@@ -9,12 +9,48 @@ const shieldConfig = defineConfig({
     /**
      * Enable the Content-Security-Policy header.
      */
-    enabled: false,
+    enabled: true,
 
     /**
      * Per-resource CSP directives.
+     *
+     * Seconde barrière si une faille laissait passer du code dans une page : le navigateur
+     * n'exécute que les scripts du site et ne contacte que les services listés ici.
+     * - cartes : tuiles OpenStreetMap et OpenTopoMap ;
+     * - recherche de lieux : Géoplateforme IGN, geo.api.gouv.fr, Nominatim ;
+     * - fiches des lieux : Wikidata, Wikipédia, photos Wikimedia Commons ;
+     * - itinéraires : BRouter du VPS (même origine en production, appelé depuis le poste en développement).
+     * Styles en ligne autorisés : Leaflet et Vue positionnent les éléments avec l'attribut style.
      */
-    directives: {},
+    directives: {
+      defaultSrc: [`'self'`],
+      scriptSrc: [`'self'`],
+      styleSrc: [`'self'`, `'unsafe-inline'`, 'https://fonts.googleapis.com'],
+      fontSrc: [`'self'`, 'https://fonts.gstatic.com'],
+      imgSrc: [
+        `'self'`,
+        'data:',
+        'blob:',
+        'https://tile.openstreetmap.org',
+        'https://*.tile.opentopomap.org',
+        // Photos : Commons redirige vers upload.…, les miniatures Wikipédia viennent de thumb.…
+        'https://*.wikimedia.org',
+      ],
+      connectSrc: [
+        `'self'`,
+        'https://alpas.alpastudio.fr',
+        'https://data.geopf.fr',
+        'https://geo.api.gouv.fr',
+        'https://nominatim.openstreetmap.org',
+        'https://www.wikidata.org',
+        'https://fr.wikipedia.org',
+        'https://commons.wikimedia.org',
+      ],
+      objectSrc: [`'none'`],
+      baseUri: [`'self'`],
+      frameAncestors: [`'none'`],
+      formAction: [`'self'`],
+    },
 
     /**
      * Report violations without blocking resources.
