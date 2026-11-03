@@ -86,7 +86,7 @@ const RETRACE_SHARE_MAX = 0.15
 const RETRACE_FREE = 200
 const retraced = new WeakMap<Loop, number>()
 /** Part du tracé parcourue dans les deux sens (les deux passages comptent), hors abords du départ */
-function retraceShare(l: Loop): number {
+export function retraceShare(l: Loop): number {
   if (retraced.has(l)) return retraced.get(l)!
   const c = l.coords
   const key = (a: Coord, b: Coord) => `${a[0].toFixed(6)},${a[1].toFixed(6)}>${b[0].toFixed(6)},${b[1].toFixed(6)}`
@@ -512,8 +512,16 @@ export interface AvoidOptions {
 
 /** Poids gardé par un lieu déjà visité par une boucle montrée : on préfère en découvrir d'autres */
 const SEEN_STOP_WEIGHT = 0.3
-/** Part du tracé déjà parcourue par une boucle montrée au-delà de laquelle une boucle est jugée « la même » */
+/** Part du tracé commune avec UNE boucle montrée au-delà de laquelle la nouvelle est jugée « la même » */
 const MAX_OVERLAP = 0.6
+/**
+ * Part du tracé déjà parcourue par l'ensemble des boucles montrées au-delà de laquelle la nouvelle n'apporte rien.
+ * Plus large que MAX_OVERLAP : après quelques tirages, presque tous les chemins autour du départ ont été vus,
+ * mais une boucle qui les enchaîne autrement reste une nouvelle boucle.
+ */
+const MAX_OVERLAP_ALL = 0.85
+/** Directions de départ essayées : 12 au premier tirage, deux fois plus pour « D'autres boucles » */
+const DIRECTIONS = 12
 
 /** Cases d'environ 50 m traversées par un tracé, pour comparer deux boucles */
 function cellsOf(coords: Coord[]): Set<string> {
@@ -537,9 +545,13 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
   const seenStops = new Set(avoid?.shown.flatMap(l => l.stops.map(p => p.id)) ?? [])
   const pois = balance(allPois).map(p => (seenStops.has(p.id) ? { ...p, weight: (p.weight ?? 0) * SEEN_STOP_WEIGHT } : p))
   const known = avoid ? cellsOf(avoid.shown.flatMap(l => l.coords)) : null
-  // Nouveau tirage : directions décalées d'une fraction de 30° différente à chaque fois (nombre d'or)
-  const offset = avoid ? ((avoid.variant * 0.618034) % 1) * (Math.PI / 6) : 0
-  const remaining = Array.from({ length: 12 }, (_, i) => fitCandidate(start, pois, target, offset + (i * Math.PI) / 6))
+  const knownEach = avoid ? avoid.shown.map(l => cellsOf(l.coords)) : []
+  const tooClose = (l: Loop) => !!known && (overlap(l, known) > MAX_OVERLAP_ALL || knownEach.some(k => overlap(l, k) > MAX_OVERLAP))
+  // Nouveau tirage : plus de directions, décalées d'une fraction différente à chaque fois (nombre d'or)
+  const directions = avoid ? DIRECTIONS * 2 : DIRECTIONS
+  const step = (2 * Math.PI) / directions
+  const offset = avoid ? ((avoid.variant * 0.618034) % 1) * step : 0
+  const remaining = Array.from({ length: directions }, (_, i) => fitCandidate(start, pois, target, offset + i * step))
     .sort((a, b) => b.quality - a.quality)
 
   // Moins de dénivelé : on calcule deux fois plus de boucles pour garder celles qui montent le moins
@@ -554,7 +566,8 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
   const weak: { direction: number, loop: Loop }[] = []
   let lastError: unknown
   // Une direction peut échouer (point de forme dans un lac, zone sans chemin) : on essaie alors la suivante
-  for (let round = 0; round < 3 && loops.length < wanted && remaining.length; round++) {
+  // Plus d'essais pour « D'autres boucles » : beaucoup sont écartées, trop proches des boucles déjà vues
+  for (let round = 0; round < (avoid ? 5 : 3) && loops.length < wanted && remaining.length; round++) {
     // Des boucles qui partent dans des directions vraiment différentes
     const picked: Candidate[] = []
     for (const c of [...remaining]) {
@@ -570,7 +583,7 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
     results.forEach((r, i) => {
       if (r.status === 'rejected') lastError = r.reason
       // Trop semblable à une boucle déjà montrée : on n'en veut pas
-      else if (known && overlap(r.value, known) > MAX_OVERLAP) return
+      else if (tooClose(r.value)) return
       else if (Math.abs(r.value.distance - target) / target > TOLERANCE * 1.5 || busyShare(r.value) > BUSY_SHARE_MAX || retraceShare(r.value) > RETRACE_SHARE_MAX) weak.push({ direction: picked[i]!.direction, loop: r.value })
       else loops.push({ direction: picked[i]!.direction, loop: r.value })
     })

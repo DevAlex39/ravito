@@ -441,12 +441,22 @@ const PRIORITY_OPTIONS: PickOption<Priority>[] = PRIORITIES.map(p => ({ value: p
 /** Réglages d'itinéraire communs à tous les calculs */
 const routeOpts = computed<RouteOptions>(() => ({ terrain: terrain.value, priority: priority.value }))
 
-/** « 65 % sentiers · 3 % grandes routes » (grandes routes masquées sous 1 %) */
+/**
+ * « 65 % sentiers · 32 % petites routes · 3 % départementales » : le total fait toujours 100
+ * (petites routes = le reste ; une part sous 1 % n'est pas affichée)
+ */
 function surfaceText(loop: Loop): string {
   const { total, trail, bigRoad } = loop.surface
   if (!total) return ''
   const pct = (x: number) => Math.round((100 * x) / total)
-  return [`${pct(trail)} % sentiers`, pct(bigRoad) >= 1 ? `${pct(bigRoad)} % grandes routes` : ''].filter(Boolean).join(' · ')
+  const trails = pct(trail)
+  const roads = pct(bigRoad)
+  const lanes = Math.max(0, 100 - trails - roads)
+  return [
+    trails >= 1 ? `${trails} % sentiers` : '',
+    lanes >= 1 ? `${lanes} % petites routes` : '',
+    roads >= 1 ? `${roads} % départementales` : '',
+  ].filter(Boolean).join(' · ')
 }
 
 const loops = ref<Loop[]>([])

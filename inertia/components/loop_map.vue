@@ -213,7 +213,8 @@ function drawHover() {
 }
 
 watch(() => props.start, drawStart)
-watch(() => [props.loops, props.selected], drawLoops)
+// Copie de la liste : une boucle remplacée (Moins de D+, retour à l'origine) redessine aussi la carte
+watch(() => [...props.loops, props.selected], drawLoops)
 watch(() => props.hover, drawHover)
 watch(() => props.highlight, drawHighlight)
 watch(() => props.amenities, drawAmenities)
