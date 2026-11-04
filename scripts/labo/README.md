@@ -13,10 +13,14 @@ La prod n'est pas concernée : elle suit `master`, le labo vit sur la branche `v
 └── <continent>/<pays>/
     ├── source/        carte OSM et contour .poly (Geofabrik)
     ├── lieux/         lieux candidats prêts à importer
-    └── fond-de-carte/ <pays>.pmtiles (tuiles vectorielles Protomaps)
+    ├── fond-de-carte/ <pays>.pmtiles (tuiles vectorielles Protomaps)
+    ├── adresses/      base Photon (recherche d'adresses et de lieux)
+    └── fiches/photos/ miniatures des photos Wikimedia des fiches de lieux
 ```
 
-Les pays connus (continent, chemin Geofabrik, tuiles BRouter) sont décrits dans `commun.sh`.
+Les pays connus (dossier, code ISO, continent, chemin Geofabrik, élément Wikidata, langues) sont décrits dans
+`config/pays.json`, lu à la fois par ces scripts et par les commandes d'import du site.
+Les tuiles BRouter nécessaires sont déduites du contour du pays.
 
 ## Scripts
 
@@ -32,8 +36,19 @@ wsl -d Ubuntu --exec bash "/mnt/d/Perso/Site web/Ravito/scripts/labo/preparer-pa
 | `preparer-pays.sh <pays>` | Carte OSM, contour, tuiles BRouter manquantes, lieux candidats ; affiche la commande d'import |
 | `extraire-carte.sh <pays>` | Fond de carte du pays, découpé dans la dernière carte mondiale Protomaps |
 | `demarrer-brouter.sh` | BRouter sur le port 17777, profil `alpas` lu dans le dépôt |
+| `photon.sh telecharger <pays\|europe>` | Base Photon (GraphHopper) décompressée dans `adresses/` |
+| `photon.sh demarrer <pays\|europe> <port>` | Photon sur le port choisi (ex. 2323) |
+| `europe.ps1` (PowerShell) | Prépare et importe tous les pays d'Europe de `config/pays.json`, journal dans `~/alpast-data/europe/journal.txt` |
 | `servir-carte.sh` | Données + démo du fond de carte sur http://localhost:8090/demo/ |
 
-Import d'un pays dans la base locale (depuis Windows, à la racine du projet) : commande affichée à la fin de `preparer-pays.sh`.
+Import d'un pays dans la base locale (depuis Windows, à la racine du projet) :
+
+```powershell
+node ace import:lieux "<lieux .geojsonseq>" "<contour .poly>" --pays=<code>   # commande affichée par preparer-pays.sh
+node ace import:wikidata --pays=<dossier>                                       # lieux remarquables Wikidata
+node ace import:fiches --pays=<dossier>                                         # textes Wikipédia + photos, stockés en local
+```
+
+Le nettoyage de `import:lieux` et `import:wikidata` ne touche que les lieux du pays importé.
 
 Le site local utilise le BRouter du labo si `.env` contient `VITE_BROUTER_URL=http://localhost:17777` (sinon celui de la prod, France seulement).
