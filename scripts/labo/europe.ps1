@@ -1,4 +1,4 @@
-# Prépare et importe dans la base locale tous les pays d'Europe de config/pays.json (sauf la France, traitée à part).
+﻿# Prépare et importe dans la base locale tous les pays d'Europe de config/pays.json (sauf la France, traitée à part).
 # Reprend là où il s'était arrêté : un pays déjà importé (fichier lieux/.importe) est sauté.
 # Une erreur sur un pays est notée dans le journal et n'arrête pas les suivants.
 #   powershell -File scripts/labo/europe.ps1 [pays ...]
@@ -16,9 +16,9 @@ function Noter($texte) {
   Add-Content -Encoding utf8 $journal $ligne
 }
 
-$pays = (Get-Content -Raw -Encoding utf8 "$depot\config\pays.json" | ConvertFrom-Json).pays |
-  Where-Object { $_.continent -eq 'europe' -and $_.dossier -ne 'france' }
-if ($Seulement) { $pays = $pays | Where-Object { $Seulement -contains $_.dossier } }
+$pays = @((Get-Content -Raw -Encoding utf8 "$depot\config\pays.json" | ConvertFrom-Json).pays |
+  Where-Object { $_.continent -eq 'europe' -and $_.dossier -ne 'france' })
+if ($Seulement) { $pays = @($pays | Where-Object { $Seulement -contains $_.dossier }) }
 
 Noter "Début : $($pays.Count) pays"
 foreach ($p in $pays) {
