@@ -10,6 +10,14 @@ export interface ApiDefinition {
     around: typeof routes['pois.around']
     amenities: typeof routes['pois.amenities']
   }
+  cards: {
+    photo: typeof routes['cards.photo']
+    show: typeof routes['cards.show']
+  }
+  links: {
+    store: typeof routes['links.store']
+    show: typeof routes['links.show']
+  }
   shared: {
     around: typeof routes['shared.around']
     show: typeof routes['shared.show']
@@ -32,7 +40,7 @@ export interface ApiDefinition {
     callback: typeof routes['sso.callback']
   }
   logout: typeof routes['logout']
-  account: {
+  account: typeof routes['account'] & {
     destroy: typeof routes['account.destroy']
   }
   plans: {
@@ -42,5 +50,10 @@ export interface ApiDefinition {
     update: typeof routes['plans.update']
     share: typeof routes['plans.share']
     destroy: typeof routes['plans.destroy']
+  }
+  favorites: {
+    index: typeof routes['favorites.index']
+    store: typeof routes['favorites.store']
+    destroy: typeof routes['favorites.destroy']
   }
 }

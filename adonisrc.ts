@@ -124,6 +124,11 @@ export default defineConfig({
       pattern: 'public/**',
       reloadServer: false,
     },
+    // Pays importables (imports de lieux, fiches), lu aussi par scripts/labo
+    {
+      pattern: 'config/pays.json',
+      reloadServer: false,
+    },
   ],
 
   hooks: {

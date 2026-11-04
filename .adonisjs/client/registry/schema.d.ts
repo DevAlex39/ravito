@@ -86,6 +86,58 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/pois_controller').default['amenities']>>>
     }
   }
+  'cards.photo': {
+    methods: ["GET","HEAD"]
+    pattern: '/fiches/photos/*'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { '*': ParamValue[] }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/place_cards_controller').default['photo']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/place_cards_controller').default['photo']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/place_cards_controller').default['photo']>>>
+    }
+  }
+  'cards.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/fiches/:wikidata'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { wikidata: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/place_cards_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/place_cards_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/place_cards_controller').default['show']>>>
+    }
+  }
+  'links.store': {
+    methods: ["POST"]
+    pattern: '/liens'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/short_links_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/short_links_controller').default['store']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/short_links_controller').default['store']>>>
+    }
+  }
+  'links.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/b/:code'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { code: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/short_links_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/short_links_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/short_links_controller').default['show']>>>
+    }
+  }
   'shared.around': {
     methods: ["GET","HEAD"]
     pattern: '/partages'
@@ -255,6 +307,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/auth_controller').default['logout']>>>
     }
   }
+  'account': {
+    methods: ["GET","HEAD"]
+    pattern: '/mon-compte'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+      rawResponse: ExtractRawResponse<unknown>
+    }
+  }
   'account.destroy': {
     methods: ["DELETE"]
     pattern: '/compte'
@@ -357,6 +422,45 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/plans_controller').default['destroy']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/plans_controller').default['destroy']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/plans_controller').default['destroy']>>>
+    }
+  }
+  'favorites.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/favoris'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/favorite_loops_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/favorite_loops_controller').default['index']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/favorite_loops_controller').default['index']>>>
+    }
+  }
+  'favorites.store': {
+    methods: ["POST"]
+    pattern: '/favoris'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/favorite_loops_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/favorite_loops_controller').default['store']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/favorite_loops_controller').default['store']>>>
+    }
+  }
+  'favorites.destroy': {
+    methods: ["DELETE"]
+    pattern: '/favoris/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/favorite_loops_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/favorite_loops_controller').default['destroy']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/favorite_loops_controller').default['destroy']>>>
     }
   }
 }

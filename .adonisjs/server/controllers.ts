@@ -5,7 +5,10 @@
 
 export const controllers = {
   Auth: () => import('#controllers/auth_controller'),
+  FavoriteLoops: () => import('#controllers/favorite_loops_controller'),
   Plans: () => import('#controllers/plans_controller'),
   Pois: () => import('#controllers/pois_controller'),
   SharedPlans: () => import('#controllers/shared_plans_controller'),
+  ShortLinks: () => import('#controllers/short_links_controller'),
+  PlaceCards: () => import('#controllers/place_cards_controller'),
 }

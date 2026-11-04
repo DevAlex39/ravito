@@ -44,6 +44,30 @@ const routes = {
     tokens: [[0,"equipements"]],
     types: placeholder as Registry['pois.amenities']['types'],
   },
+  'cards.photo': {
+    methods: ["GET","HEAD"],
+    pattern: '/fiches/photos/*',
+    tokens: [[0,"fiches"],[0,"photos"],[2,"*"]],
+    types: placeholder as Registry['cards.photo']['types'],
+  },
+  'cards.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/fiches/:wikidata',
+    tokens: [[0,"fiches"],[1,"wikidata"]],
+    types: placeholder as Registry['cards.show']['types'],
+  },
+  'links.store': {
+    methods: ["POST"],
+    pattern: '/liens',
+    tokens: [[0,"liens"]],
+    types: placeholder as Registry['links.store']['types'],
+  },
+  'links.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/b/:code',
+    tokens: [[0,"b"],[1,"code"]],
+    types: placeholder as Registry['links.show']['types'],
+  },
   'shared.around': {
     methods: ["GET","HEAD"],
     pattern: '/partages',
@@ -122,6 +146,12 @@ const routes = {
     tokens: [[0,"deconnexion"]],
     types: placeholder as Registry['logout']['types'],
   },
+  'account': {
+    methods: ["GET","HEAD"],
+    pattern: '/mon-compte',
+    tokens: [[0,"mon-compte"]],
+    types: placeholder as Registry['account']['types'],
+  },
   'account.destroy': {
     methods: ["DELETE"],
     pattern: '/compte',
@@ -169,6 +199,24 @@ const routes = {
     pattern: '/parcours/:id',
     tokens: [[0,"parcours"],[1,"id"]],
     types: placeholder as Registry['plans.destroy']['types'],
+  },
+  'favorites.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/favoris',
+    tokens: [[0,"favoris"]],
+    types: placeholder as Registry['favorites.index']['types'],
+  },
+  'favorites.store': {
+    methods: ["POST"],
+    pattern: '/favoris',
+    tokens: [[0,"favoris"]],
+    types: placeholder as Registry['favorites.store']['types'],
+  },
+  'favorites.destroy': {
+    methods: ["DELETE"],
+    pattern: '/favoris/:id',
+    tokens: [[0,"favoris"],[1,"id"]],
+    types: placeholder as Registry['favorites.destroy']['types'],
   },
 } as const satisfies Record<string, AdonisEndpoint>
 

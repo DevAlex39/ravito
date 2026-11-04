@@ -8,12 +8,14 @@ set -euo pipefail
 pays_connu "$1"
 mkdir -p "$SOURCE" "$DOSSIER/lieux" "$ITINERAIRES/segments4"
 
-contour >/dev/null
+poly=$(contour)
 # Geofabrik redirige vers le fichier daté du jour : -L obligatoire ; -z : seulement s'il y a plus récent
 curl -sfSL -z "$SOURCE/$BASE-latest.osm.pbf" -o "$SOURCE/$BASE-latest.osm.pbf" "https://download.geofabrik.de/$GEOFABRIK-latest.osm.pbf"
 
-for t in $TUILES_BROUTER; do
-  [ -s "$ITINERAIRES/segments4/$t.rd5" ] || curl -sfSL -o "$ITINERAIRES/segments4/$t.rd5" "https://brouter.de/brouter/segments4/$t.rd5"
+# Tuiles BRouter qui recouvrent le pays ; celles qui n'existent pas (pleine mer) répondent 404 et sont ignorées
+for t in $(tuiles_brouter "$poly"); do
+  [ -s "$ITINERAIRES/segments4/$t.rd5" ] || curl -sfL -o "$ITINERAIRES/segments4/$t.rd5" "https://brouter.de/brouter/segments4/$t.rd5" \
+    || rm -f "$ITINERAIRES/segments4/$t.rd5"
 done
 
 cd "$DOSSIER/lieux"

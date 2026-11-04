@@ -1,30 +1,28 @@
 #!/usr/bin/env bash
 # Réglages partagés des scripts du labo : rangement des données et description de chaque pays.
-#   ~/alpast-data/<continent>/<pays>/{source,lieux,fond-de-carte,…}
+#   ~/alpast-data/<continent>/<pays>/{source,lieux,fond-de-carte,fiches,adresses}
 #   ~/alpast-data/monde/itineraires/  BRouter et sa réserve de tuiles (des carrés de 5° qui chevauchent les frontières)
+# Les pays sont décrits dans config/pays.json (lu aussi par les imports du site).
 DATA=~/alpast-data
 ITINERAIRES=$DATA/monde/itineraires
+DEPOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 
-# Pour chaque pays : continent, chemin chez Geofabrik, tuiles BRouter qui le couvrent
+set +u; source ~/.nvm/nvm.sh >/dev/null; set -u
+
+# Liste des pays (noms de dossier), dans l'ordre du fichier
+tous_les_pays() {
+  node -e "for (const p of require(process.argv[1]).pays) console.log(p.dossier)" "$DEPOT/config/pays.json"
+}
+
+# Charge la description d'un pays : PAYS, CODE, CONTINENT, GEOFABRIK, DOSSIER, SOURCE, BASE
 pays_connu() {
-  case $1 in
-    france)
-      CODE=fr
-      CONTINENT=europe
-      GEOFABRIK=europe/france
-      TUILES_BROUTER="E0_N40 E0_N45 E0_N50 E5_N40 E5_N45 W10_N45 W5_N40 W5_N45"
-      ;;
-    japon)
-      CODE=jp
-      CONTINENT=asie
-      GEOFABRIK=asia/japan
-      TUILES_BROUTER="E125_N25 E125_N30 E130_N30 E130_N35 E135_N30 E135_N35 E140_N35 E140_N40 E140_N45 E145_N40 E145_N45"
-      ;;
-    *)
-      echo "Pays inconnu : $1 (à décrire dans scripts/labo/commun.sh)" >&2
-      exit 1
-      ;;
-  esac
+  local champs
+  champs=$(node -e "
+    const p = require(process.argv[1]).pays.find(p => p.dossier === process.argv[2])
+    if (!p) process.exit(1)
+    console.log([p.code, p.continent, p.geofabrik].join(' '))" "$DEPOT/config/pays.json" "$1") \
+    || { echo "Pays inconnu : $1 (voir config/pays.json)" >&2; exit 1; }
+  read -r CODE CONTINENT GEOFABRIK <<< "$champs"
   PAYS=$1
   DOSSIER=$DATA/$CONTINENT/$PAYS
   SOURCE=$DOSSIER/source
@@ -37,4 +35,13 @@ contour() {
   mkdir -p "$SOURCE"
   [ -s "$SOURCE/$BASE.poly" ] || curl -sfSL -o "$SOURCE/$BASE.poly" "https://download.geofabrik.de/$GEOFABRIK.poly"
   echo "$SOURCE/$BASE.poly"
+}
+
+# Tuiles BRouter (carrés de 5°, nommés par leur coin sud-ouest : E5_N45, W10_N35) qui recouvrent le contour
+tuiles_brouter() {
+  awk 'NR > 1 && NF == 2 && $1 !~ /^!/ { x = $1 + 0; y = $2 + 0
+         if (!n++ || x < x0) x0 = x; if (x > x1) x1 = x; if (n == 1 || y < y0) y0 = y; if (y > y1) y1 = y }
+       function f(v) { return v >= 0 ? int(v / 5) * 5 : -int((-v + 4.999999) / 5) * 5 }
+       END { for (x = f(x0); x <= f(x1); x += 5) for (y = f(y0); y <= f(y1); y += 5)
+               printf "%s%d_%s%d\n", x < 0 ? "W" : "E", x < 0 ? -x : x, y < 0 ? "S" : "N", y < 0 ? -y : y }' "$1"
 }

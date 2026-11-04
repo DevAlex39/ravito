@@ -10,6 +10,10 @@ export type ScannedRoutes = {
     'legal': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
     'pois.amenities': { paramsTuple?: []; params?: {} }
+    'cards.photo': { paramsTuple: [...ParamValue[]]; params: {'*': ParamValue[]} }
+    'cards.show': { paramsTuple: [ParamValue]; params: {'wikidata': ParamValue} }
+    'links.store': { paramsTuple?: []; params?: {} }
+    'links.show': { paramsTuple: [ParamValue]; params: {'code': ParamValue} }
     'shared.around': { paramsTuple?: []; params?: {} }
     'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }
@@ -23,6 +27,7 @@ export type ScannedRoutes = {
     'sso.redirect': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
     'sso.callback': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
     'logout': { paramsTuple?: []; params?: {} }
+    'account': { paramsTuple?: []; params?: {} }
     'account.destroy': { paramsTuple?: []; params?: {} }
     'plans.index': { paramsTuple?: []; params?: {} }
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -31,6 +36,9 @@ export type ScannedRoutes = {
     'plans.share': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'shared.vote': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'favorites.index': { paramsTuple?: []; params?: {} }
+    'favorites.store': { paramsTuple?: []; params?: {} }
+    'favorites.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   GET: {
     'home': { paramsTuple?: []; params?: {} }
@@ -39,6 +47,9 @@ export type ScannedRoutes = {
     'legal': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
     'pois.amenities': { paramsTuple?: []; params?: {} }
+    'cards.photo': { paramsTuple: [...ParamValue[]]; params: {'*': ParamValue[]} }
+    'cards.show': { paramsTuple: [ParamValue]; params: {'wikidata': ParamValue} }
+    'links.show': { paramsTuple: [ParamValue]; params: {'code': ParamValue} }
     'shared.around': { paramsTuple?: []; params?: {} }
     'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }
@@ -47,8 +58,10 @@ export type ScannedRoutes = {
     'password.reset': { paramsTuple: [ParamValue]; params: {'token': ParamValue} }
     'sso.redirect': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
     'sso.callback': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
+    'account': { paramsTuple?: []; params?: {} }
     'plans.index': { paramsTuple?: []; params?: {} }
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'favorites.index': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
     'home': { paramsTuple?: []; params?: {} }
@@ -57,6 +70,9 @@ export type ScannedRoutes = {
     'legal': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
     'pois.amenities': { paramsTuple?: []; params?: {} }
+    'cards.photo': { paramsTuple: [...ParamValue[]]; params: {'*': ParamValue[]} }
+    'cards.show': { paramsTuple: [ParamValue]; params: {'wikidata': ParamValue} }
+    'links.show': { paramsTuple: [ParamValue]; params: {'code': ParamValue} }
     'shared.around': { paramsTuple?: []; params?: {} }
     'shared.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'signup': { paramsTuple?: []; params?: {} }
@@ -65,10 +81,13 @@ export type ScannedRoutes = {
     'password.reset': { paramsTuple: [ParamValue]; params: {'token': ParamValue} }
     'sso.redirect': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
     'sso.callback': { paramsTuple: [ParamValue]; params: {'provider': ParamValue} }
+    'account': { paramsTuple?: []; params?: {} }
     'plans.index': { paramsTuple?: []; params?: {} }
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'favorites.index': { paramsTuple?: []; params?: {} }
   }
   POST: {
+    'links.store': { paramsTuple?: []; params?: {} }
     'auth.signup': { paramsTuple?: []; params?: {} }
     'auth.login': { paramsTuple?: []; params?: {} }
     'auth.forgot': { paramsTuple?: []; params?: {} }
@@ -76,10 +95,12 @@ export type ScannedRoutes = {
     'logout': { paramsTuple?: []; params?: {} }
     'plans.store': { paramsTuple?: []; params?: {} }
     'shared.vote': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'favorites.store': { paramsTuple?: []; params?: {} }
   }
   DELETE: {
     'account.destroy': { paramsTuple?: []; params?: {} }
     'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'favorites.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   PUT: {
     'plans.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

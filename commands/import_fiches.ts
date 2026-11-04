@@ -5,6 +5,7 @@ import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import db from '@adonisjs/lucid/services/db'
 import env from '#start/env'
+import { countryNamed, wikipediaOf } from '#services/countries'
 
 const USER_AGENT = 'Alpast/0.1 (https://alpastudio.fr; contact@alpastudio.fr)'
 /** Largeur des miniatures : une taille standard de Wikimedia (déjà calculée chez eux, et celle de la fiche actuelle) */
@@ -12,11 +13,6 @@ const THUMB = 330
 /** Une fiche est redemandée au bout de ce délai */
 const REFRESH_DAYS = 30
 
-/** Pays : code des lieux en base, dossier des données, langues des fiches (la première sert de repère d'avancement) */
-const PAYS: Record<string, { code: string, dossier: string, langs: string[] }> = {
-  france: { code: 'fr', dossier: 'europe/france', langs: ['fr', 'en'] },
-  japon: { code: 'jp', dossier: 'asie/japon', langs: ['fr', 'en', 'ja'] },
-}
 
 interface Entity { photo: string | null, descriptions: Map<string, string>, articles: Map<string, string> }
 interface Article { extract: string | null, image: string | null }
@@ -31,7 +27,7 @@ export default class ImportFiches extends BaseCommand {
   static description = 'Stocke les fiches des lieux (résumés Wikipédia, descriptions Wikidata, miniatures Commons)'
   static options: CommandOptions = { startApp: true }
 
-  @flags.string({ description: `Pays (${Object.keys(PAYS).join(', ')})`, default: 'france' })
+  @flags.string({ description: 'Pays, tel que nommé dans config/pays.json (france, japon…)', default: 'france' })
   declare pays: string
 
   @flags.boolean({ description: 'Textes seulement, sans télécharger les photos' })
@@ -43,12 +39,14 @@ export default class ImportFiches extends BaseCommand {
   private lastCall = 0
 
   async run() {
-    const pays = PAYS[this.pays]
-    if (!pays) {
-      this.logger.error(`Pays inconnu : ${this.pays}`)
+    const country = countryNamed(this.pays)
+    if (!country) {
+      this.logger.error(`Pays inconnu : ${this.pays} (voir config/pays.json)`)
       this.exitCode = 1
       return
     }
+    // Langues des fiches : la première sert de repère d'avancement
+    const pays = { code: country.code, dossier: `${country.continent}/${country.dossier}`, langs: country.langues }
     const root = env.get('FICHES_PHOTOS')
     if (!this.sansPhotos && !root) {
       this.logger.error('FICHES_PHOTOS manquant dans .env (racine des données par pays), ou --sans-photos')
@@ -95,7 +93,7 @@ export default class ImportFiches extends BaseCommand {
     for (let k = 0; k < ids.length; k += 50) {
       const params = new URLSearchParams({
         action: 'wbgetentities', ids: ids.slice(k, k + 50).join('|'), props: 'descriptions|claims|sitelinks',
-        languages: langs.join('|'), sitefilter: langs.map(l => `${l}wiki`).join('|'), format: 'json', maxlag: '5',
+        languages: langs.join('|'), sitefilter: langs.map(l => `${wikipediaOf(l)}wiki`).join('|'), format: 'json', maxlag: '5',
       })
       const json = await this.fetchJson(`https://www.wikidata.org/w/api.php?${params}`) as {
         entities?: Record<string, {
@@ -111,7 +109,7 @@ export default class ImportFiches extends BaseCommand {
         for (const lang of langs) {
           const desc = raw.descriptions?.[lang]?.value
           if (desc) entity.descriptions.set(lang, desc)
-          const title = raw.sitelinks?.[`${lang}wiki`]?.title
+          const title = raw.sitelinks?.[`${wikipediaOf(lang)}wiki`]?.title
           if (title) entity.articles.set(lang, title)
         }
       }
@@ -128,7 +126,7 @@ export default class ImportFiches extends BaseCommand {
         action: 'query', prop: 'extracts|pageimages', exintro: '1', explaintext: '1', exlimit: '20',
         piprop: 'name', redirects: '1', titles: batch.join('|'), format: 'json', formatversion: '2', maxlag: '5',
       })
-      const json = await this.fetchJson(`https://${lang}.wikipedia.org/w/api.php?${params}`) as {
+      const json = await this.fetchJson(`https://${wikipediaOf(lang)}.wikipedia.org/w/api.php?${params}`) as {
         query?: {
           normalized?: { from: string, to: string }[]
           redirects?: { from: string, to: string }[]
@@ -160,7 +158,7 @@ export default class ImportFiches extends BaseCommand {
         lang,
         description: e.descriptions.get(lang)?.slice(0, 500) ?? null,
         extract,
-        article_url: title ? `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}` : null,
+        article_url: title ? `https://${wikipediaOf(lang)}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}` : null,
         fetched_at: now,
       }
     }))

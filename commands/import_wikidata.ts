@@ -4,6 +4,7 @@ import db from '@adonisjs/lucid/services/db'
 import type { Knex } from 'knex'
 import { savePois, type NewPoi } from '#services/poi_service'
 import { Grid, keepNew, type Place } from '#services/place_twins'
+import { countryNamed } from '#services/countries'
 
 /**
  * QLever (université de Fribourg) : même contenu que le service officiel de Wikidata, mais il répond
@@ -53,14 +54,8 @@ const NEEDS_FAME = new Set(['monument', 'fountain', 'bridge', 'tower'])
 const CLASSE = 'Q10387684'
 const INSCRIT = 'Q10387575'
 
-/**
- * Pays importables : élément Wikidata du pays, code enregistré sur les lieux, langues du nom par ordre de préférence.
- * France : nom français obligatoire (comme avant). Ailleurs : français, sinon anglais, sinon langue du pays.
- */
-const PAYS: Record<string, { qid: string, code: string, langs: string[] }> = {
-  france: { qid: 'Q142', code: 'fr', langs: ['fr'] },
-  japon: { qid: 'Q17', code: 'jp', langs: ['fr', 'en', 'ja'] },
-}
+/** Service officiel : plus lent (coupe à 60 s), en secours quand QLever refuse ou ne répond pas */
+const WDQS = 'https://query.wikidata.org/sparql'
 
 interface Row { item: string, type: string, label: string, coord: string, sl?: string, h?: string }
 
@@ -75,16 +70,22 @@ export default class ImportWikidata extends BaseCommand {
   static description = 'Complète les lieux avec Wikidata (châteaux, chapelles, musées, cascades…) absents d\'OpenStreetMap et de l\'IGN'
   static options: CommandOptions = { startApp: true }
 
-  @flags.string({ description: `Pays à importer (${Object.keys(PAYS).join(', ')})`, default: 'france' })
+  @flags.string({ description: 'Pays à importer, tel que nommé dans config/pays.json (france, japon…)', default: 'france' })
   declare pays: string
 
   async run() {
-    const pays = PAYS[this.pays]
-    if (!pays) {
-      this.logger.error(`Pays inconnu : ${this.pays} (connus : ${Object.keys(PAYS).join(', ')})`)
+    const country = countryNamed(this.pays)
+    if (!country) {
+      this.logger.error(`Pays inconnu : ${this.pays} (voir config/pays.json)`)
       this.exitCode = 1
       return
     }
+    if (!country.wikidata) {
+      this.logger.info(`${this.pays} : lieux Wikidata déjà couverts par un autre pays, rien à faire`)
+      return
+    }
+    // France : nom français obligatoire (comme avant) ; ailleurs, la première langue disponible
+    const pays = { qid: country.wikidata, code: country.code, langs: country.code === 'fr' ? ['fr'] : country.langues }
     const startedAt = new Date()
     const rows = await this.query(pays)
     this.logger.info(`${rows.length} réponses de Wikidata`)
@@ -129,14 +130,16 @@ SELECT ?item ?type ?label ?coord ?sl ?h WHERE {
 }`
     let lastError: unknown
     for (let attempt = 1; attempt <= 4; attempt++) {
+      // Essais 1 et 3 : QLever ; 2 et 4 : service officiel
+      const endpoint = attempt % 2 ? QLEVER : WDQS
       try {
-        const res = await fetch(QLEVER, {
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'User-Agent': USER_AGENT, 'Accept': 'application/sparql-results+json', 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({ query }),
           signal: AbortSignal.timeout(300_000),
         })
-        if (!res.ok) throw new Error(`QLever ${res.status}`)
+        if (!res.ok) throw new Error(`${endpoint === QLEVER ? 'QLever' : 'Wikidata'} ${res.status}`)
         const json = await res.json() as { results: { bindings: Record<keyof Row, { value: string } | undefined>[] } }
         return json.results.bindings.map(b => ({
           item: b.item!.value,
@@ -149,7 +152,7 @@ SELECT ?item ?type ?label ?coord ?sl ?h WHERE {
       }
       catch (e) {
         lastError = e
-        this.logger.warning(`Wikidata (QLever) indisponible (essai ${attempt}/4) : ${String(e)}`)
+        this.logger.warning(`Wikidata indisponible (essai ${attempt}/4) : ${String(e)}`)
         await new Promise(r => setTimeout(r, attempt * 30_000))
       }
     }
