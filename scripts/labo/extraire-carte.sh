@@ -2,9 +2,14 @@
 # Fond de carte d'un pays : découpe la dernière carte mondiale Protomaps (tuiles vectorielles, données OSM)
 # selon le contour du pays. Seuls les morceaux utiles sont téléchargés, pas les ~140 Go du monde.
 #   extraire-carte.sh france  →  ~/alpast-data/europe/france/fond-de-carte/france.pmtiles
+#   extraire-carte.sh europe  →  ~/alpast-data/europe/fond-de-carte/europe.pmtiles (tout le continent d'un coup)
 set -euo pipefail
 . "$(dirname "$0")/commun.sh"
-pays_connu "$1"
+if [ "$1" = europe ]; then
+  PAYS=europe GEOFABRIK=europe BASE=europe DOSSIER=$DATA/europe SOURCE=$DATA/europe/source
+else
+  pays_connu "$1"
+fi
 outil=$DATA/monde/outils/pmtiles
 if [ ! -x "$outil" ]; then
   mkdir -p "$(dirname "$outil")"
