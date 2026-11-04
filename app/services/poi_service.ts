@@ -390,18 +390,30 @@ async function fetchSitelinks(ids: string[], onProgress?: (done: number, total: 
   const result = new Map<string, number>()
   for (let k = 0; k < ids.length; k += 50) {
     const batch = ids.slice(k, k + 50)
-    try {
-      const res = await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${batch.join('|')}&props=sitelinks&format=json`, {
-        headers: { 'User-Agent': USER_AGENT },
-        signal: AbortSignal.timeout(30_000),
-      })
-      const json = await res.json() as { entities?: Record<string, { sitelinks?: Record<string, unknown> }> }
-      for (const [id, entity] of Object.entries(json.entities ?? {})) result.set(id, Object.keys(entity.sitelinks ?? {}).length)
+    // Wikidata répond « trop de requêtes » (429) quand d'autres imports tournent en même temps : on attend et on réessaie
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const res = await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${batch.join('|')}&props=sitelinks&format=json&maxlag=5`, {
+          headers: { 'User-Agent': USER_AGENT },
+          signal: AbortSignal.timeout(30_000),
+        })
+        if (res.status === 429 || res.status >= 500) throw new Error(`HTTP ${res.status}`)
+        const json = await res.json() as { error?: { code: string }, entities?: Record<string, { sitelinks?: Record<string, unknown> }> }
+        if (json.error?.code === 'maxlag') throw new Error('maxlag')
+        for (const [id, entity] of Object.entries(json.entities ?? {})) result.set(id, Object.keys(entity.sitelinks ?? {}).length)
+        break
+      }
+      catch (e) {
+        if (attempt < 6) {
+          await new Promise(r => setTimeout(r, 5_000 * attempt))
+          continue
+        }
+        // Sans Wikidata, les lieux restent classés par type : moins fin, mais utilisable
+        logger.warn({ err: String(e) }, 'Wikidata indisponible')
+        break
+      }
     }
-    catch (e) {
-      // Sans Wikidata, les lieux restent classés par type : moins fin, mais utilisable
-      logger.warn({ err: String(e) }, 'Wikidata indisponible')
-    }
+    await new Promise(r => setTimeout(r, 200))
     onProgress?.(Math.min(k + 50, ids.length), ids.length)
   }
   return result
