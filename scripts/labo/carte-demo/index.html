@@ -1,0 +1,102 @@
+<!doctype html>
+<!--
+  Démo du fond de carte Alpast (labo) : tuiles vectorielles PMTiles servies par nous, dessinées par MapLibre.
+  Servie avec les données par scripts/labo/servir-carte.sh → http://localhost:8090/demo/
+  Pour la démo seulement, les bibliothèques, polices et icônes de carte viennent encore d'unpkg / protomaps.github.io.
+-->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carte Alpast · démo</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+<script src="https://unpkg.com/@protomaps/basemaps@5.7.2/dist/basemaps.js"></script>
+<style>
+  html, body, #map { margin: 0; height: 100%; }
+  body { font-family: system-ui, sans-serif; }
+  .panel { position: absolute; top: 12px; left: 12px; z-index: 2; background: #fffdf8; border: 1px solid #e4ded1;
+    border-radius: 12px; padding: 10px 12px; box-shadow: 0 6px 20px rgba(40, 35, 20, .12); display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 48px); }
+  .panel b { width: 100%; font-size: .85rem; color: #24503c; }
+  button { font: inherit; font-size: .85rem; border: 1px solid #cfc6b3; background: #fff; border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+  button.on { background: #24503c; border-color: #24503c; color: #fff; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+  <b>Carte Alpast — démo labo</b>
+  <button data-go="5.4898,47.0925,13">Dole</button>
+  <button data-go="6.1296,45.8992,13">Annecy</button>
+  <button data-go="6.8652,45.9237,13">Chamonix</button>
+  <button data-go="139.6993,35.6764,14">Tokyo</button>
+  <button data-go="135.7727,35.0037,14">Kyoto</button>
+  <button id="compare">Comparer avec la carte actuelle</button>
+</div>
+<script>
+const protocol = new pmtiles.Protocol()
+maplibregl.addProtocol('pmtiles', protocol.tile)
+
+// Palette Alpast (inertia/css/app.css) posée sur le style « light » de Protomaps
+const alpast = Object.assign({}, basemaps.namedFlavor('light'), {
+  background: '#9fcbe3', earth: '#f4efe1', water: '#9fcbe3', ocean_label: '#3f6f87',
+  park_a: '#cfe8c6', park_b: '#a8d69c', wood_a: '#c4e0b8', wood_b: '#93c787', scrub_a: '#dcebc6', scrub_b: '#c3dea6',
+  sand: '#f3e2ae', beach: '#f5e4a8', glacier: '#ffffff', pedestrian: '#ece3d0', buildings: '#e2d4bd',
+  // Hiérarchie des routes : autoroutes rose brique, routes principales jaunes, petites routes blanches bien cernées
+  highway: '#eba3a0', highway_casing_early: '#b9605c', highway_casing_late: '#b9605c',
+  major: '#f7d76b', major_casing_early: '#c4a03a', major_casing_late: '#c4a03a',
+  link: '#f7d76b', link_casing: '#c4a03a',
+  minor_a: '#ffffff', minor_b: '#ffffff', minor_casing: '#bfb299', minor_service: '#fffdf7', minor_service_casing: '#cfc4ad',
+  other: '#f4efe1', boundaries: '#8e7f66', railway: '#8f8573',
+  bridges_highway: '#eba3a0', bridges_highway_casing: '#b9605c', bridges_major: '#f7d76b', bridges_major_casing: '#c4a03a',
+  bridges_minor: '#ffffff', bridges_minor_casing: '#bfb299', bridges_link: '#f7d76b', bridges_link_casing: '#c4a03a',
+  city_label: '#1d2721', city_label_halo: '#f5f2ea', subplace_label: '#56625a', subplace_label_halo: '#f5f2ea',
+  roads_label_minor: '#56625a', roads_label_minor_halo: '#ffffff', roads_label_major: '#56625a', roads_label_major_halo: '#ffffff',
+  state_label: '#8a938c', state_label_halo: '#f5f2ea', country_label: '#56625a',
+})
+
+const PAYS = { france: '/europe/france/fond-de-carte/france.pmtiles', japon: '/asie/japon/fond-de-carte/japon.pmtiles' }
+const sources = {}
+let layers = []
+for (const [pays, url] of Object.entries(PAYS)) {
+  sources[pays] = { type: 'vector', url: `pmtiles://${location.origin}${url}`, attribution: '© contributeurs OpenStreetMap · Protomaps' }
+  const own = basemaps.layers(pays, alpast, { lang: 'fr' })
+    .filter(l => l.type !== 'background' || pays === 'france')
+    .map(l => ({ ...l, id: `${pays}-${l.id}` }))
+  // Sentiers et chemins mis en valeur : pointillés orange balise, sous les étiquettes
+  const firstLabel = own.findIndex(l => l.type === 'symbol')
+  own.splice(firstLabel, 0, {
+    id: `${pays}-sentiers`, type: 'line', source: pays, 'source-layer': 'roads', minzoom: 12,
+    filter: ['==', ['get', 'kind'], 'path'],
+    paint: { 'line-color': '#d4551a', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1, 16, 2.8], 'line-dasharray': [2, 1.2] },
+  })
+  layers = layers.concat(own)
+}
+
+const style = {
+  version: 8,
+  glyphs: 'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf',
+  sprite: 'https://protomaps.github.io/basemaps-assets/sprites/v4/light',
+  sources: {
+    ...sources,
+    osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© contributeurs OpenStreetMap' },
+  },
+  layers: [...layers, { id: 'osm', type: 'raster', source: 'osm', layout: { visibility: 'none' } }],
+}
+
+const map = new maplibregl.Map({ container: 'map', style, center: [5.4898, 47.0925], zoom: 13, hash: true })
+map.addControl(new maplibregl.NavigationControl(), 'top-right')
+map.addControl(new maplibregl.ScaleControl(), 'bottom-left')
+
+for (const b of document.querySelectorAll('[data-go]')) {
+  b.onclick = () => { const [lon, lat, z] = b.dataset.go.split(',').map(Number); map.jumpTo({ center: [lon, lat], zoom: z }) }
+}
+const compare = document.getElementById('compare')
+compare.onclick = () => {
+  const on = compare.classList.toggle('on')
+  map.setLayoutProperty('osm', 'visibility', on ? 'visible' : 'none')
+}
+</script>
+</body>
+</html>

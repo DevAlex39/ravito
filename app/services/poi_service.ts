@@ -182,6 +182,8 @@ export interface SaveOptions {
   refreshWikidata?: boolean
   /** Notoriété déjà connue par l'appelant (import Wikidata) : pas besoin de la redemander */
   sitelinks?: Map<string, number>
+  /** Pays des lieux importés (fr, jp…) ; absent pour le cache Overpass, qui ne touche alors pas à la colonne */
+  country?: string
 }
 
 /**
@@ -189,7 +191,7 @@ export interface SaveOptions {
  * puis insertion ou mise à jour par identifiant OSM. Renvoie le nombre de lieux gardés.
  * La notoriété déjà connue en base est réutilisée (elle bouge peu) : seuls les nouveaux lieux interrogent Wikidata.
  */
-export async function savePois(candidates: NewPoi[], { onProgress, refreshWikidata = false, sitelinks: given }: SaveOptions = {}): Promise<number> {
+export async function savePois(candidates: NewPoi[], { onProgress, refreshWikidata = false, sitelinks: given, country }: SaveOptions = {}): Promise<number> {
   const pois = dedupe(candidates)
   const ids = [...new Set(pois.map(p => p.wikidata).filter(q => q != null))]
   const sitelinks = given ?? (refreshWikidata ? new Map<string, number>() : await knownSitelinks(ids))
@@ -212,10 +214,12 @@ export async function savePois(candidates: NewPoi[], { onProgress, refreshWikida
       wikidata: p.wikidata,
       sitelinks: p.sitelinks,
       score: p.score,
+      ...(country ? { country } : {}),
       created_at: now,
       updated_at: now,
     }))
-    await knex.table('pois').insert(rows).onConflict('osm_key').merge(['name', 'lat', 'lon', 'kind', 'category', 'wikidata', 'sitelinks', 'score', 'updated_at'])
+    const merged = ['name', 'lat', 'lon', 'kind', 'category', 'wikidata', 'sitelinks', 'score', 'updated_at', ...(country ? ['country'] : [])]
+    await knex.table('pois').insert(rows).onConflict('osm_key').merge(merged)
   }
   return pois.length
 }

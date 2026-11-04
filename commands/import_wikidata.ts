@@ -1,6 +1,7 @@
-import { BaseCommand } from '@adonisjs/core/ace'
+import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import db from '@adonisjs/lucid/services/db'
+import type { Knex } from 'knex'
 import { savePois, type NewPoi } from '#services/poi_service'
 import { Grid, keepNew, type Place } from '#services/place_twins'
 
@@ -52,6 +53,15 @@ const NEEDS_FAME = new Set(['monument', 'fountain', 'bridge', 'tower'])
 const CLASSE = 'Q10387684'
 const INSCRIT = 'Q10387575'
 
+/**
+ * Pays importables : élément Wikidata du pays, code enregistré sur les lieux, langues du nom par ordre de préférence.
+ * France : nom français obligatoire (comme avant). Ailleurs : français, sinon anglais, sinon langue du pays.
+ */
+const PAYS: Record<string, { qid: string, code: string, langs: string[] }> = {
+  france: { qid: 'Q142', code: 'fr', langs: ['fr'] },
+  japon: { qid: 'Q17', code: 'jp', langs: ['fr', 'en', 'ja'] },
+}
+
 interface Row { item: string, type: string, label: string, coord: string, sl?: string, h?: string }
 
 interface Candidate extends NewPoi, Place {}
@@ -65,13 +75,22 @@ export default class ImportWikidata extends BaseCommand {
   static description = 'Complète les lieux avec Wikidata (châteaux, chapelles, musées, cascades…) absents d\'OpenStreetMap et de l\'IGN'
   static options: CommandOptions = { startApp: true }
 
+  @flags.string({ description: `Pays à importer (${Object.keys(PAYS).join(', ')})`, default: 'france' })
+  declare pays: string
+
   async run() {
+    const pays = PAYS[this.pays]
+    if (!pays) {
+      this.logger.error(`Pays inconnu : ${this.pays} (connus : ${Object.keys(PAYS).join(', ')})`)
+      this.exitCode = 1
+      return
+    }
     const startedAt = new Date()
-    const rows = await this.query()
+    const rows = await this.query(pays)
     this.logger.info(`${rows.length} réponses de Wikidata`)
 
     const { candidates, sitelinks } = toCandidates(rows)
-    this.logger.info(`${candidates.length} lieux Wikidata en France`)
+    this.logger.info(`${candidates.length} lieux Wikidata (${this.pays})`)
 
     const { grid, wikidata } = await this.knownPlaces()
     // Déjà en base par son identifiant Wikidata (lieu OpenStreetMap relié à Wikidata) : rien à ajouter
@@ -79,13 +98,18 @@ export default class ImportWikidata extends BaseCommand {
     const kept = keepNew(unlinked, grid)
     this.logger.info(`${candidates.length - unlinked.length} déjà reliés à un lieu en base, ${unlinked.length - kept.length} doublons proches, ${kept.length} nouveaux`)
 
-    const count = await savePois(kept, { sitelinks })
+    const count = await savePois(kept, { sitelinks, country: pays.code })
     this.logger.success(`${count} lieux Wikidata enregistrés`)
-    await this.deleteStale(startedAt, count)
+    await this.deleteStale(pays.code, startedAt, count)
   }
 
-  /** Une seule requête pour toute la France : chaque élément, son type, son nom français, sa position, sa notoriété */
-  private async query(): Promise<Row[]> {
+  /** Une seule requête pour tout le pays : chaque élément, son type, son nom, sa position, sa notoriété */
+  private async query({ qid, langs }: { qid: string, langs: string[] }): Promise<Row[]> {
+    // Une seule langue : nom obligatoire dans cette langue ; plusieurs : la première disponible
+    const label = langs.length === 1
+      ? `?item rdfs:label ?label . FILTER(LANG(?label) = "${langs[0]}")`
+      : langs.map((l, i) => `OPTIONAL { ?item rdfs:label ?l${i} . FILTER(LANG(?l${i}) = "${l}") }`).join('\n  ')
+        + `\n  BIND(COALESCE(${langs.map((_, i) => `?l${i}`).join(', ')}) AS ?label)\n  FILTER(BOUND(?label))`
     const query = `PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX wikibase: <http://wikiba.se/ontology#>
@@ -93,8 +117,8 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 SELECT ?item ?type ?label ?coord ?sl ?h WHERE {
   VALUES ?type { ${TYPES.map(([q]) => `wd:${q}`).join(' ')} }
   ?item wdt:P31/wdt:P279* ?type .
-  ?item wdt:P17 wd:Q142 ; wdt:P625 ?coord .
-  ?item rdfs:label ?label . FILTER(LANG(?label) = "fr")
+  ?item wdt:P17 wd:${qid} ; wdt:P625 ?coord .
+  ${label}
   OPTIONAL { ?item wikibase:sitelinks ?sl }
   MINUS { ?item wdt:P31 wd:Q575759 }
   MINUS { ?item wdt:P576 ?gone }
@@ -145,15 +169,20 @@ SELECT ?item ?type ?label ?coord ?sl ?h WHERE {
     return { grid, wikidata }
   }
 
-  /** Lieux Wikidata disparus, ou désormais reliés à un lieu OpenStreetMap (même garde-fou que les autres imports) */
-  private async deleteStale(startedAt: Date, imported: number) {
+  /**
+   * Lieux Wikidata du pays disparus, ou désormais reliés à un lieu OpenStreetMap (même garde-fou que les autres imports).
+   * Les lieux importés avant la colonne « country » (sans pays) sont tous français.
+   */
+  private async deleteStale(code: string, startedAt: Date, imported: number) {
     const knex = db.connection().getWriteClient()
-    const [{ total }] = await knex.from('pois').where('osm_key', 'like', 'wd:%').count({ total: '*' }) as { total: number }[]
+    const ofCountry = (q: Knex.QueryBuilder) => q.where('osm_key', 'like', 'wd:%')
+      .where(w => code === 'fr' ? w.where('country', code).orWhereNull('country') : w.where('country', code))
+    const [{ total }] = await ofCountry(knex.from('pois')).count({ total: '*' }) as { total: number }[]
     if (imported < Number(total) * 0.7) {
       this.logger.warning(`Seulement ${imported} lieux Wikidata pour ${total} en base : suppression des anciens annulée par prudence`)
       return
     }
-    const removed = await knex.from('pois').where('osm_key', 'like', 'wd:%').where('updated_at', '<', startedAt).delete()
+    const removed = await ofCountry(knex.from('pois')).where('updated_at', '<', startedAt).delete()
     this.logger.success(`${removed} lieux Wikidata retirés (disparus ou repris par OpenStreetMap)`)
   }
 }

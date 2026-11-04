@@ -31,6 +31,9 @@ export default class ImportLieux extends BaseCommand {
   @flags.boolean({ description: 'Redemande à Wikidata la notoriété de tous les lieux (sinon seulement des nouveaux)' })
   declare rafraichirWikidata: boolean
 
+  @flags.string({ description: 'Code du pays importé (fr, jp…), enregistré sur chaque lieu', default: 'fr' })
+  declare pays: string
+
   async run() {
     const startedAt = new Date()
     const zone = toZone(parsePoly(await readFile(this.poly, 'utf8')))
@@ -41,6 +44,7 @@ export default class ImportLieux extends BaseCommand {
     let lastShown = 0
     const count = await savePois(candidates, {
       refreshWikidata: this.rafraichirWikidata,
+      country: this.pays,
       onProgress: (done, total) => {
         if (done - lastShown >= 5000 || done === total) {
           lastShown = done

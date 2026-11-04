@@ -153,9 +153,51 @@ function osmUrl(osmKey: string) {
   return `https://www.openstreetmap.org/${type}/${osmKey.slice(1)}`
 }
 
+/** Langues des fiches stockées, par ordre de préférence (la langue du site d'abord) */
+const CARD_LANGS = ['fr', 'en']
+
+interface StoredCard {
+  cards: { lang: string, description: string | null, extract: string | null, articleUrl: string | null }[]
+  photo: { url: string, author: string | null, license: string | null, page: string } | null
+}
+
+/** Fiche stockée sur notre serveur (import:fiches) ; null si le lieu n'en a pas encore */
+async function storedDetails(wikidata: string, details: PlaceDetails): Promise<PlaceDetails | null> {
+  const res = await fetch(`/fiches/${wikidata}`, { headers: { Accept: 'application/json' } })
+  if (!res.ok) return null
+  const { cards, photo } = await res.json() as StoredCard
+  // Résumé Wikipédia dans la première langue qui en a un, sinon la description Wikidata ; sinon n'importe quelle langue
+  const order = [...CARD_LANGS, ...cards.map(c => c.lang).filter(l => !CARD_LANGS.includes(l))]
+  const byLang = new Map(cards.map(c => [c.lang, c]))
+  const withExtract = order.map(l => byLang.get(l)).find(c => c?.extract)
+  const withDescription = order.map(l => byLang.get(l)).find(c => c?.description)
+  const local = byLang.get(CARD_LANGS[0]!)
+  if (withExtract && (!local?.description || withExtract.lang === local.lang)) {
+    details.description = withExtract.extract
+    details.fromWikipedia = true
+    details.wikipedia = withExtract.articleUrl
+  }
+  else {
+    details.description = (local ?? withDescription)?.description ?? null
+    details.wikipedia = order.map(l => byLang.get(l)?.articleUrl).find(Boolean) ?? null
+  }
+  if (photo) {
+    details.image = photo.url
+    details.credit = { author: photo.author, license: photo.license, page: photo.page }
+  }
+  return details
+}
+
 async function loadDetails({ wikidata, osmKey }: Pick<Poi, 'wikidata' | 'osmKey'>): Promise<PlaceDetails> {
   const details: PlaceDetails = { description: null, image: null, credit: null, fromWikipedia: false, wikipedia: null, osm: osmUrl(osmKey), fromIgn: osmKey.startsWith('ign:') }
   if (!wikidata) return details
+  try {
+    const stored = await storedDetails(wikidata, details)
+    if (stored) return stored
+  }
+  catch {
+    // Notre serveur ne répond pas : on tente Wikipédia en direct
+  }
   try {
     // origin=* : autorise l'appel depuis le navigateur
     const url = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidata}&props=descriptions|claims|sitelinks/urls&languages=fr&sitefilter=frwiki&format=json&origin=*`

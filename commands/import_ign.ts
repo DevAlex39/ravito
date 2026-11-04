@@ -91,7 +91,7 @@ export default class ImportIgn extends BaseCommand {
 
     const kept = keepNew(candidates, known)
     this.logger.info(`${candidates.length} lieux IGN lus, ${kept.length} absents d'OpenStreetMap`)
-    const count = await savePois(kept)
+    const count = await savePois(kept, { country: 'fr' })
     this.logger.success(`${count} lieux IGN enregistrés`)
     await this.deleteStale(startedAt, count)
   }
