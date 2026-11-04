@@ -51,6 +51,40 @@ export class FavoriteLoopSchema extends BaseModel {
   declare userId: number
 }
 
+export class PlaceCardSchema extends BaseModel {
+  static $columns = ['articleUrl', 'description', 'extract', 'fetchedAt', 'lang', 'wikidata'] as const
+  $columns = PlaceCardSchema.$columns
+  @column()
+  declare articleUrl: string | null
+  @column()
+  declare description: string | null
+  @column()
+  declare extract: string | null
+  @column.dateTime()
+  declare fetchedAt: DateTime
+  @column()
+  declare lang: string
+  @column({ isPrimary: true })
+  declare wikidata: string
+}
+
+export class PlacePhotoSchema extends BaseModel {
+  static $columns = ['author', 'fetchedAt', 'file', 'license', 'path', 'wikidata'] as const
+  $columns = PlacePhotoSchema.$columns
+  @column()
+  declare author: string | null
+  @column.dateTime()
+  declare fetchedAt: DateTime
+  @column()
+  declare file: string
+  @column()
+  declare license: string | null
+  @column()
+  declare path: string
+  @column({ isPrimary: true })
+  declare wikidata: string
+}
+
 export class PlanVoteSchema extends BaseModel {
   static $columns = ['createdAt', 'planId', 'userId'] as const
   $columns = PlanVoteSchema.$columns
@@ -103,10 +137,12 @@ export class PoiCellSchema extends BaseModel {
 }
 
 export class PoisSchema extends BaseModel {
-  static $columns = ['category', 'createdAt', 'id', 'kind', 'lat', 'lon', 'name', 'osmKey', 'score', 'sitelinks', 'updatedAt', 'wikidata'] as const
+  static $columns = ['category', 'country', 'createdAt', 'id', 'kind', 'lat', 'lon', 'name', 'osmKey', 'score', 'sitelinks', 'updatedAt', 'wikidata'] as const
   $columns = PoisSchema.$columns
   @column()
   declare category: string
+  @column()
+  declare country: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column({ isPrimary: true })
