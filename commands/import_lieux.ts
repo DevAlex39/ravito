@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { BaseCommand, args, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import db from '@adonisjs/lucid/services/db'
+import type { Knex } from 'knex'
 import { CELL, savePois, toPoi, type NewPoi } from '#services/poi_service'
 import { saveAmenities, toAmenity, type NewAmenity } from '#services/amenity_service'
 
@@ -32,6 +33,7 @@ export default class ImportLieux extends BaseCommand {
 
   async run() {
     const startedAt = new Date()
+    const zone = toZone(parsePoly(await readFile(this.poly, 'utf8')))
     const { candidates, amenities } = await this.readCandidates()
     this.logger.info(`${await saveAmenities(amenities)} points d'eau et toilettes enregistrés`)
     this.logger.info(`${candidates.length} lieux retenus, récupération de la notoriété des nouveaux lieux sur Wikidata…`)
@@ -48,44 +50,44 @@ export default class ImportLieux extends BaseCommand {
     })
     this.logger.success(`${count} lieux enregistrés`)
 
-    const cells = await this.markCells()
+    const cells = await this.markCells(zone)
     this.logger.success(`${cells} secteurs marqués comme couverts par l'import`)
 
-    await this.deleteStale(startedAt, count)
-    await this.deleteStaleAmenities(startedAt, amenities.length)
+    await this.deleteStale(zone, startedAt, count)
+    await this.deleteStaleAmenities(zone, startedAt, amenities.length)
   }
 
-  /** Points d'eau et toilettes disparus de la carte (même garde-fou que pour les lieux) */
-  private async deleteStaleAmenities(startedAt: Date, imported: number) {
+  /** Points d'eau et toilettes disparus de la carte, dans la zone importée seulement (même garde-fou que pour les lieux) */
+  private async deleteStaleAmenities(zone: Zone, startedAt: Date, imported: number) {
     const knex = db.connection().getWriteClient()
-    const [{ total }] = await knex.from('amenities').count({ total: '*' }) as { total: number }[]
-    if (imported < Number(total) * 0.7) {
-      this.logger.warning(`Seulement ${imported} points d'eau et toilettes pour ${total} en base : suppression annulée par prudence`)
+    const rows = await inZone(zone, knex.from('amenities').select('id', 'lat', 'lon', 'updated_at'))
+    if (imported < rows.length * 0.7) {
+      this.logger.warning(`Seulement ${imported} points d'eau et toilettes pour ${rows.length} en base dans la zone : suppression annulée par prudence`)
       return
     }
-    const removed = await knex.from('amenities').where('updated_at', '<', startedAt).delete()
+    const removed = await deleteIds(knex, 'amenities', rows.filter(r => r.updated_at < startedAt).map(r => r.id))
     this.logger.success(`${removed} points d'eau et toilettes disparus supprimés`)
   }
 
   /**
    * Lieux des secteurs importés qui n'apparaissent plus dans l'extrait (supprimés ou modifiés dans OSM).
+   * Seulement dans la zone de l'import : un autre pays déjà en base n'est jamais touché.
    * Garde-fou : si l'import paraît incomplet (fichier tronqué…), on ne supprime rien.
    */
-  private async deleteStale(startedAt: Date, imported: number) {
+  private async deleteStale(zone: Zone, startedAt: Date, imported: number) {
     const knex = db.connection().getWriteClient()
     // Lieux OpenStreetMap seulement : ceux de l'IGN (« ign:… ») et de Wikidata (« wd:… ») ont leur propre import
-    const [{ total }] = await knex.from('pois').whereNot('osm_key', 'like', '%:%').count({ total: '*' }) as { total: number }[]
-    if (imported < Number(total) * 0.7) {
-      this.logger.warning(`Seulement ${imported} lieux importés pour ${total} en base : suppression des anciens lieux annulée par prudence`)
+    const rows = await inZone(zone, knex.from('pois as p')
+      .join('poi_cells as c', 'c.cell', knex.raw(`CONCAT(FLOOR(p.lat / ?), ':', FLOOR(p.lon / ?))`, [CELL, CELL]))
+      .where('c.source', 'import')
+      .whereNot('p.osm_key', 'like', '%:%')
+      .select('p.id', 'p.lat', 'p.lon', 'p.updated_at'))
+    if (imported < rows.length * 0.7) {
+      this.logger.warning(`Seulement ${imported} lieux importés pour ${rows.length} en base dans la zone : suppression des anciens lieux annulée par prudence`)
       return
     }
-    const [result] = await knex.raw(
-      `DELETE p FROM pois p
-       JOIN poi_cells c ON c.cell = CONCAT(FLOOR(p.lat / ?), ':', FLOOR(p.lon / ?))
-       WHERE c.source = 'import' AND p.updated_at < ? AND p.osm_key NOT LIKE '%:%'`,
-      [CELL, CELL, startedAt],
-    ) as [{ affectedRows: number }]
-    this.logger.success(`${result.affectedRows} lieux disparus de la carte supprimés`)
+    const removed = await deleteIds(knex, 'pois', rows.filter(r => r.updated_at < startedAt).map(r => r.id))
+    this.logger.success(`${removed} lieux disparus de la carte supprimés`)
   }
 
   /** Lit le fichier ligne par ligne (une entité GeoJSON par ligne) : lieux voulus, points d'eau et toilettes */
@@ -111,13 +113,7 @@ export default class ImportLieux extends BaseCommand {
   }
 
   /** Marque les cases entièrement à l'intérieur du contour (celles à cheval sur la frontière restent à Overpass) */
-  private async markCells(): Promise<number> {
-    const rings = parsePoly(await readFile(this.poly, 'utf8'))
-    const all = rings.flat()
-    const [minLon, maxLon] = [Math.min(...all.map(p => p[0])), Math.max(...all.map(p => p[0]))]
-    const [minLat, maxLat] = [Math.min(...all.map(p => p[1])), Math.max(...all.map(p => p[1]))]
-    const inside = (lon: number, lat: number) => rings.some(r => pointInRing(lon, lat, r))
-
+  private async markCells({ minLon, maxLon, minLat, maxLat, inside }: Zone): Promise<number> {
     const knex = db.connection().getWriteClient()
     const now = new Date()
     let batch: { cell: string, fetched_at: Date, source: string }[] = []
@@ -173,6 +169,39 @@ function bboxCenter(coords: unknown): [number, number] | null {
   }
   walk(coords)
   return Number.isFinite(minX) ? [(minX + maxX) / 2, (minY + maxY) / 2] : null
+}
+
+/** Zone couverte par un import : contour du pays et rectangle englobant (pour filtrer d'abord en base) */
+type Zone = { minLon: number, maxLon: number, minLat: number, maxLat: number, inside: (lon: number, lat: number) => boolean }
+
+function toZone(rings: Ring[]): Zone {
+  let [minLon, maxLon, minLat, maxLat] = [Infinity, -Infinity, Infinity, -Infinity]
+  for (const [lon, lat] of rings.flat()) {
+    minLon = Math.min(minLon, lon)
+    maxLon = Math.max(maxLon, lon)
+    minLat = Math.min(minLat, lat)
+    maxLat = Math.max(maxLat, lat)
+  }
+  return { minLon, maxLon, minLat, maxLat, inside: (lon, lat) => rings.some(r => pointInRing(lon, lat, r)) }
+}
+
+type Located = { id: number, lat: number, lon: number, updated_at: Date }
+
+/** Lignes de la requête situées dans la zone : rectangle englobant en base, puis contour exact */
+async function inZone(zone: Zone, query: Knex.QueryBuilder): Promise<Located[]> {
+  const rows = await query
+    .whereBetween('lat', [zone.minLat, zone.maxLat])
+    .whereBetween('lon', [zone.minLon, zone.maxLon]) as Located[]
+  return rows.filter(r => zone.inside(Number(r.lon), Number(r.lat)))
+}
+
+/** Suppression par paquets (une liste de plusieurs dizaines de milliers d'identifiants ne tient pas en une requête) */
+async function deleteIds(knex: Knex, table: string, ids: number[]): Promise<number> {
+  let removed = 0
+  for (let i = 0; i < ids.length; i += 5000) {
+    removed += await knex.from(table).whereIn('id', ids.slice(i, i + 5000)).delete()
+  }
+  return removed
 }
 
 /** Format .poly (Osmosis/Geofabrik) : anneaux extérieurs uniquement, les trous (« !… ») sont ignorés */

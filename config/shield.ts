@@ -46,8 +46,8 @@ const shieldConfig = defineConfig({
         'https://www.wikidata.org',
         'https://fr.wikipedia.org',
         'https://commons.wikimedia.org',
-        // Développement : rechargement à chaud de Vite
-        ...(app.inDev ? ['ws://localhost:*'] : []),
+        // Développement : rechargement à chaud de Vite, BRouter du labo (Ubuntu/WSL, voir VITE_BROUTER_URL)
+        ...(app.inDev ? ['ws://localhost:*', 'http://localhost:17777'] : []),
       ],
       objectSrc: [`'none'`],
       baseUri: [`'self'`],
