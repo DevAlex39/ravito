@@ -70,10 +70,10 @@ body::before {
 @media (max-width: 700px) {
   /* Bande dessinée seule (image recadrée), jamais plus haute que 30 % de l'écran : elle ne remonte pas derrière le texte */
   body::before {
-    height: min(56vw, 30vh);
+    height: min(56vw, 38vh);
     background-image: url('../images/fond-mobile.png');
     background-size: contain;
-    opacity: 0.3;
+    opacity: 0.45;
     -webkit-mask-image: none;
     mask-image: none;
   }
