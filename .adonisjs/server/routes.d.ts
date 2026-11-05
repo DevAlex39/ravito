@@ -8,6 +8,7 @@ export type ScannedRoutes = {
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
     'legal': { paramsTuple?: []; params?: {} }
+    'addresses.search': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
     'pois.amenities': { paramsTuple?: []; params?: {} }
     'cards.photo': { paramsTuple: [...ParamValue[]]; params: {'*': ParamValue[]} }
@@ -45,6 +46,7 @@ export type ScannedRoutes = {
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
     'legal': { paramsTuple?: []; params?: {} }
+    'addresses.search': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
     'pois.amenities': { paramsTuple?: []; params?: {} }
     'cards.photo': { paramsTuple: [...ParamValue[]]; params: {'*': ParamValue[]} }
@@ -68,6 +70,7 @@ export type ScannedRoutes = {
     'tracer': { paramsTuple?: []; params?: {} }
     'loops': { paramsTuple?: []; params?: {} }
     'legal': { paramsTuple?: []; params?: {} }
+    'addresses.search': { paramsTuple?: []; params?: {} }
     'pois.around': { paramsTuple?: []; params?: {} }
     'pois.amenities': { paramsTuple?: []; params?: {} }
     'cards.photo': { paramsTuple: [...ParamValue[]]; params: {'*': ParamValue[]} }

@@ -60,6 +60,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<unknown>
     }
   }
+  'addresses.search': {
+    methods: ["GET","HEAD"]
+    pattern: '/adresses'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/addresses_controller').default['search']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/addresses_controller').default['search']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/addresses_controller').default['search']>>>
+    }
+  }
   'pois.around': {
     methods: ["GET","HEAD"]
     pattern: '/lieux'

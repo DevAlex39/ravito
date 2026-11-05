@@ -32,6 +32,12 @@ const routes = {
     tokens: [[0,"mentions-legales"]],
     types: placeholder as Registry['legal']['types'],
   },
+  'addresses.search': {
+    methods: ["GET","HEAD"],
+    pattern: '/adresses',
+    tokens: [[0,"adresses"]],
+    types: placeholder as Registry['addresses.search']['types'],
+  },
   'pois.around': {
     methods: ["GET","HEAD"],
     pattern: '/lieux',

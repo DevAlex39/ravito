@@ -43,6 +43,8 @@ export const throttleSignup = perIp('signup', 5, '1 hour')
 
 /** Lieux à voir (peut interroger OpenStreetMap) : 60 par minute et par IP */
 export const throttleLieux = perIp('lieux', 60, '1 minute')
+/** Recherche d'adresses : une requête par frappe (avec délai), d'où un quota plus large */
+export const throttleAdresses = perIp('adresses', 150, '1 minute')
 
 /** Liens courts des boucles : 30 par minute et par IP */
 export const throttleLinks = perIp('liens', 30, '1 minute')

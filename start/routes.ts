@@ -9,8 +9,9 @@
 
 import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
-import { throttleAccount, throttleAuth, throttleLieux, throttleLinks, throttleSignup, throttleWrites } from '#start/limiter'
+import { throttleAccount, throttleAdresses, throttleAuth, throttleLieux, throttleLinks, throttleSignup, throttleWrites } from '#start/limiter'
 
+const AddressesController = () => import('#controllers/addresses_controller')
 const AuthController = () => import('#controllers/auth_controller')
 const FavoriteLoopsController = () => import('#controllers/favorite_loops_controller')
 const PlaceCardsController = () => import('#controllers/place_cards_controller')
@@ -23,6 +24,7 @@ router.on('/').renderInertia('home', {}).as('home')
 router.on('/tracer').renderInertia('tracer', {}).as('tracer')
 router.on('/boucles').renderInertia('loops', {}).as('loops')
 router.on('/mentions-legales').renderInertia('legal', {}).as('legal')
+router.get('/adresses', [AddressesController, 'search']).as('addresses.search').use(throttleAdresses)
 router.get('/lieux', [PoisController, 'around']).as('pois.around').use(throttleLieux)
 router.get('/equipements', [PoisController, 'amenities']).as('pois.amenities').use(throttleLieux)
 router.get('/fiches/photos/*', [PlaceCardsController, 'photo']).as('cards.photo')

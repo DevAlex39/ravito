@@ -52,3 +52,4 @@ node ace import:fiches --pays=<dossier>                                         
 Le nettoyage de `import:lieux` et `import:wikidata` ne touche que les lieux du pays importé.
 
 Le site local utilise le BRouter du labo si `.env` contient `VITE_BROUTER_URL=http://localhost:17777` (sinon celui de la prod, France seulement).
+La recherche d'adresses hors France passe par Photon si `.env` contient `PHOTON_URL=http://localhost:2323` (route `/adresses` du site ; sans lui, BAN + Nominatim comme en prod).

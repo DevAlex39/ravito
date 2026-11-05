@@ -46,6 +46,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Racine des données par pays (~/alpast-data), où import:fiches range les miniatures des fiches de lieux ;
   // sans elle, pas de photos stockées (les fiches restent servies par Wikipédia en direct)
   FICHES_PHOTOS: Env.schema.string.optional(),
+  // Photon (recherche d'adresses hors France, voir scripts/labo/photon.sh) ; sans lui, la recherche reste BAN + Nominatim
+  PHOTON_URL: Env.schema.string.optional(),
 
   // Limites de tentatives : en base par défaut (elles survivent à un redémarrage)
   LIMITER_STORE: Env.schema.enum.optional(['database', 'memory'] as const),
