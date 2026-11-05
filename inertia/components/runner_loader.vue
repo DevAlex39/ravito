@@ -44,7 +44,7 @@ onBeforeUnmount(() => clearInterval(timer))
 </script>
 
 <style scoped>
-.runner-loader { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 22px 12px; background: rgba(255, 255, 255, 0.94); border-radius: var(--radius); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14); color: var(--forest); }
+.runner-loader { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 22px 12px; background: color-mix(in srgb, var(--panel) 94%, transparent); border-radius: var(--radius); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14); color: var(--forest); }
 .runner { display: flex; flex-direction: column; align-items: center; }
 .sprite { width: 93px; height: 96px; background: 0 0 / 400% 100% no-repeat; animation: legs 0.48s steps(1) infinite, bob 0.12s ease-in-out infinite alternate; }
 .ground { width: 130px; height: 3px; margin-top: -2px; background: repeating-linear-gradient(90deg, var(--border-strong) 0 14px, transparent 14px 26px); background-size: 26px 3px; animation: ground 0.24s linear infinite; }

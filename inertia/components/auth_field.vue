@@ -70,7 +70,7 @@ label em { font-style: normal; font-weight: 400; color: var(--text-dim); }
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 .box input:hover { border-color: var(--border-strong); }
-.box input:focus { outline: none; background: #fff; border-color: var(--forest); box-shadow: 0 0 0 3px color-mix(in srgb, var(--forest) 18%, transparent); }
+.box input:focus { outline: none; background: var(--field); border-color: var(--forest); box-shadow: 0 0 0 3px color-mix(in srgb, var(--forest) 18%, transparent); }
 /* Œil natif d'Edge : doublon du nôtre */
 .box input::-ms-reveal, .box input::-ms-clear { display: none; }
 .box:focus-within .lead { color: var(--forest); }

@@ -43,7 +43,7 @@ function onPick(e: Event) {
 
 <style scoped>
 .drop { display: flex; flex-direction: column; gap: 14px; transition: background 0.15s; }
-.drop.over { outline: 2px dashed var(--accent); outline-offset: -8px; background: #fff6f0; }
+.drop.over { outline: 2px dashed var(--accent); outline-offset: -8px; background: var(--accent-soft); }
 .buttons { display: flex; gap: 10px; flex-wrap: wrap; }
 .buttons .btn { padding: 11px 18px; font-size: 0.95rem; border-radius: 12px; }
 .hint { font-size: 0.82rem; color: var(--text-soft); }

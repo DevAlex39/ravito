@@ -130,7 +130,7 @@ const enduranceLabel = computed(() => {
 
 <style scoped>
 /* Liste déroulante présentée comme les autres champs du formulaire */
-.field-pick { padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: #fff; font-size: 0.9rem; }
+.field-pick { padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--field); font-size: 0.9rem; }
 .field-pick:focus-within { border-color: var(--forest); }
 .tabs { display: flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; margin-bottom: 14px; }
 .tabs button {
@@ -145,7 +145,7 @@ const enduranceLabel = computed(() => {
   border-radius: 6px;
   cursor: pointer;
 }
-.tabs button.active { background: #fff; color: var(--forest); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+.tabs button.active { background: var(--panel); color: var(--forest); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
 
 .row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .row .field { min-width: 120px; }

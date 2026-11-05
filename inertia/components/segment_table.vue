@@ -106,7 +106,7 @@ td { white-space: nowrap; }
 @media (max-width: 640px) { .opt { display: none; } }
 .pace-edit { display: inline-flex; align-items: center; gap: 4px; }
 .pace { width: 64px; text-align: right; padding: 4px 8px; font-variant-numeric: tabular-nums; }
-.pace.fixed { border-color: var(--accent); background: #fff6f0; font-weight: 600; }
+.pace.fixed { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 .lock { display: grid; place-items: center; background: none; border: none; cursor: pointer; color: var(--accent); padding: 2px; border-radius: 4px; }
 .lock:hover { background: var(--panel-2); }
 .merge { opacity: 0; transition: opacity 0.15s; }

@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Cours et découvre les alentours : Alpast te trace une boucle qui passe par les plus beaux lieux du coin. Prépare aussi tes courses à partir d'un GPX." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {{-- Thème choisi avec le bouton soleil/lune, appliqué avant l'affichage (sans choix : réglage de l'appareil) --}}
+    <script nonce="{{ cspNonce }}">try{var t=localStorage.getItem('alpast:theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}</script>
     <title data-inertia>
       Alpast
     </title>

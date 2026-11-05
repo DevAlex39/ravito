@@ -168,7 +168,7 @@ function removeFavorite(f: FavoriteItem) {
 .foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px 10px 18px; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--panel-2) 50%, transparent); }
 .share { display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text-soft); cursor: pointer; white-space: nowrap; }
 .share:hover { border-color: var(--forest); color: var(--forest); }
-.share.on { background: var(--forest); border-color: var(--forest); color: #fff; }
+.share.on { background: var(--forest-fill); border-color: var(--forest-fill); color: #fff; }
 .public-link { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: 600; color: var(--forest); text-decoration: none; white-space: nowrap; }
 .public-link:hover { text-decoration: underline; }
 .date { color: var(--text-dim); font-size: 0.8rem; margin-left: auto; white-space: nowrap; }

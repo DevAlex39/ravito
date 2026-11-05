@@ -17,6 +17,7 @@
           <Link v-if="user" href="/mes-parcours" :class="{ on: page.url.startsWith('/mes-parcours') }">Mes parcours</Link>
         </nav>
         <nav class="account">
+          <ThemeToggle />
           <AccountMenu v-if="user" :user="user" />
           <Link v-else href="/connexion" class="nav-link pill">Se connecter</Link>
         </nav>
@@ -43,6 +44,7 @@ const APP_VERSION = __APP_VERSION__
 import { usePlan } from '~/composables/use_plan'
 import { useAccount } from '~/composables/use_account'
 import AccountMenu from '~/components/account_menu.vue'
+import ThemeToggle from '~/components/theme_toggle.vue'
 
 const page = usePage()
 const { restore, clearTrack } = usePlan()
@@ -52,7 +54,7 @@ const { user } = useAccount()
 
 <style scoped>
 .app-root { min-height: 100vh; display: flex; flex-direction: column; }
-.topbar { height: var(--header-h); border-bottom: 1px solid var(--border); background: rgba(250, 248, 243, 0.92); backdrop-filter: blur(6px); position: sticky; top: 0; z-index: 1100; }
+.topbar { height: var(--header-h); border-bottom: 1px solid var(--border); background: var(--topbar-bg); backdrop-filter: blur(6px); position: sticky; top: 0; z-index: 1100; }
 .bar { height: 100%; display: flex; align-items: center; gap: 28px; }
 .logo { display: flex; align-items: center; gap: 9px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.75rem; color: var(--text); text-decoration: none; }
 .beta { font-family: 'Inter', system-ui, sans-serif; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: var(--accent); border-radius: 999px; padding: 2px 8px; align-self: center; }

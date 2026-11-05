@@ -1084,7 +1084,7 @@ function useForPlan() {
 .box .place { flex: 1; }
 .box .place :deep(input) { border: none; background: transparent; font-size: 1rem; padding: 12px 0; outline: none; width: 100%; }
 .square { flex: none; width: 38px; height: 38px; display: grid; place-items: center; border: none; border-radius: 10px; background: var(--forest-soft); color: var(--forest); font: inherit; font-size: 1.35rem; line-height: 1; cursor: pointer; }
-.square:hover { background: #d3e2d8; }
+.square:hover { background: var(--hover-soft); }
 .square:disabled { opacity: 0.4; cursor: not-allowed; }
 .stepper { justify-content: space-between; padding: 0 6px; }
 .km { display: flex; align-items: baseline; gap: 4px; font-weight: 500; color: var(--text-soft); }
@@ -1093,11 +1093,11 @@ function useForPlan() {
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chips button { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 15px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel); font: inherit; font-size: 0.93rem; color: var(--text); cursor: pointer; }
 .chips button:hover { border-color: var(--forest); }
-.chips button.on { background: var(--forest); border-color: var(--forest); color: #fff; font-weight: 600; }
+.chips button.on { background: var(--forest-fill); border-color: var(--forest-fill); color: #fff; font-weight: 600; }
 .count { display: flex; padding: 3px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel-2); }
 .count button { min-width: 40px; height: 36px; padding: 0 4px; border: none; border-radius: 999px; background: transparent; font: inherit; font-size: 0.93rem; color: var(--text); cursor: pointer; }
 .count button.wide { padding: 0 14px; }
-.count button.on { background: var(--forest); color: #fff; font-weight: 600; }
+.count button.on { background: var(--forest-fill); color: #fff; font-weight: 600; }
 .more { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--forest); background: none; border: none; cursor: pointer; padding: 2px; }
 .more:hover { text-decoration: underline; }
 .flip { transform: rotate(180deg); }
@@ -1105,8 +1105,8 @@ function useForPlan() {
 .groups-hint { font-size: 0.82rem; color: var(--text-soft); }
 /* Patrimoine et Nature : un bloc chacun, aux couleurs des lieux sur la carte (orange / vert) */
 .families { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
-.family { --fam: #c9561f; --fam-soft: #fbebe1; background: var(--panel); border: 1px solid var(--border); border-top: 3px solid var(--fam); border-radius: 12px; padding: 10px 12px 12px; }
-.family.nature { --fam: #2f7d4f; --fam-soft: #e3f0e7; }
+.family { --fam: var(--heritage); --fam-soft: var(--heritage-soft); background: var(--panel); border: 1px solid var(--border); border-top: 3px solid var(--fam); border-radius: 12px; padding: 10px 12px 12px; }
+.family.nature { --fam: var(--nature); --fam-soft: var(--nature-soft); }
 .family-title { display: flex; align-items: center; gap: 7px; margin: 0 0 9px; font-family: "Barlow Condensed", sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--fam); }
 .family-count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--fam); color: #fff; font-family: "Inter", sans-serif; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; }
 .family-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1144,7 +1144,7 @@ function useForPlan() {
 .pill.pick .caret { pointer-events: none; opacity: 0.6; }
 .pill.pick :deep(.trigger) { align-self: stretch; }
 .summary .btn { height: 40px; padding: 0 16px; border-radius: 10px; }
-.badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--forest); color: #fff; font-size: 0.75rem; }
+.badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--forest-fill); color: #fff; font-size: 0.75rem; }
 
 .notice { font-size: 0.9rem; color: var(--text-soft); }
 .notice.bad { color: var(--bad); }
@@ -1209,18 +1209,18 @@ button.loop:hover { border-color: var(--border-strong); }
 .stats span { font-size: 0.75rem; color: var(--text-soft); }
 .climb-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .amenities-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; border: 1px dashed var(--border-strong); border-radius: 10px; background: none; font: inherit; font-size: 0.88rem; color: var(--text); text-align: left; cursor: pointer; }
-.amenities-line:hover { border-color: #2f7fb5; }
+.amenities-line:hover { border-color: var(--water); }
 .amenities-line span { display: inline-flex; align-items: center; gap: 5px; }
-.amenities-line .icon { color: #2f7fb5; }
-.amenities-line .toggle { margin-left: auto; font-weight: 600; color: #2f7fb5; }
-.amenity-toggle { position: absolute; top: 10px; left: 56px; z-index: 500; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 2px solid rgba(0, 0, 0, 0.2); border-radius: 8px; background: #fff; background-clip: padding-box; font: inherit; font-size: 0.85rem; font-weight: 600; color: #2f7fb5; cursor: pointer; }
-.amenity-toggle.on { background: #2f7fb5; color: #fff; }
+.amenities-line .icon { color: var(--water); }
+.amenities-line .toggle { margin-left: auto; font-weight: 600; color: var(--water); }
+.amenity-toggle { position: absolute; top: 10px; left: 56px; z-index: 500; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 2px solid rgba(0, 0, 0, 0.2); border-radius: 8px; background: var(--panel); background-clip: padding-box; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--water); cursor: pointer; }
+.amenity-toggle.on { background: var(--water); color: #fff; }
 .stops { list-style: none; display: flex; flex-direction: column; }
 .stops li + li { border-top: 1px solid var(--border); }
 .stop { width: 100%; display: flex; align-items: center; gap: 11px; padding: 9px 4px; border: none; border-radius: 8px; background: none; font: inherit; text-align: left; color: var(--text); cursor: pointer; }
 .stop:hover, .stop.on, .stop.hl { background: var(--panel-2); }
 .stop .n { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--accent); color: var(--accent-strong); font-size: 0.75rem; font-weight: 700; }
-.stop.nature .n { border-color: #2f7d4f; color: #2f7d4f; }
+.stop.nature .n { border-color: var(--nature); color: var(--nature); }
 .kind-icon { color: var(--forest); }
 /* Fiche du lieu dans la colonne des boucles : la photo passe au-dessus du texte */
 .detail-anchor :deep(.detail) { flex-direction: column; margin-top: 4px; }
@@ -1235,7 +1235,7 @@ button.loop:hover { border-color: var(--border-strong); }
 .map-card { border-radius: 18px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow); background: var(--panel); }
 .map-wrap { position: relative; height: 58vh; min-height: 380px; }
 .layout.split .map-wrap { height: 540px; }
-.loading { position: absolute; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.35); pointer-events: none; }
+.loading { position: absolute; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--bg) 40%, transparent); pointer-events: none; }
 .overlay {
   position: absolute;
   top: 14px;

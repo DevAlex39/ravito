@@ -25,7 +25,8 @@ const shieldConfig = defineConfig({
      */
     directives: {
       defaultSrc: [`'self'`],
-      scriptSrc: [`'self'`],
+      // @nonce : seul le petit script du thème (inertia_layout.edge) est autorisé en ligne
+      scriptSrc: [`'self'`, '@nonce'],
       styleSrc: [`'self'`, `'unsafe-inline'`],
       fontSrc: [`'self'`],
       imgSrc: [

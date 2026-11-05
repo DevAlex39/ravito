@@ -357,7 +357,7 @@ function clearPrint() {
 .box .place :deep(input) { border: none; background: transparent; font-size: 1rem; padding: 12px 0; outline: none; width: 100%; }
 .box .place :deep(input.picked::placeholder) { color: var(--forest); font-weight: 600; opacity: 1; }
 .square { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border: none; border-radius: 10px; background: var(--forest-soft); color: var(--forest); font: inherit; font-size: 1.35rem; line-height: 1; cursor: pointer; }
-.square:hover { background: #d3e2d8; }
+.square:hover { background: var(--hover-soft); }
 .square:disabled { opacity: 0.4; cursor: not-allowed; }
 .stepper { justify-content: space-between; padding: 0 6px; }
 .km { display: flex; align-items: baseline; gap: 4px; font-weight: 500; color: var(--text-soft); }
@@ -366,7 +366,7 @@ function clearPrint() {
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chips button { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel); font: inherit; font-size: 0.95rem; color: var(--text); cursor: pointer; }
 .chips button:hover { border-color: var(--forest); }
-.chips button.on { background: var(--forest); border-color: var(--forest); color: #fff; font-weight: 600; }
+.chips button.on { background: var(--forest-fill); border-color: var(--forest-fill); color: #fff; font-weight: 600; }
 .go { margin-left: auto; height: 52px; padding: 0 24px; font-size: 1.05rem; border-radius: 12px; gap: 10px; }
 .go:disabled { opacity: 0.5; cursor: not-allowed; }
 .alt { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 0.92rem; font-weight: 500; color: var(--forest); background: none; border: none; cursor: pointer; padding: 2px; }
@@ -415,7 +415,7 @@ function clearPrint() {
 .stat span .icon.down { transform: scaleY(-1); }
 .stat span .icon.up { transform: rotate(-90deg); }
 .stat strong { font-family: 'Barlow Condensed', sans-serif; font-size: 1.55rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.stat.main { background: var(--forest); border-color: var(--forest); color: #fff; }
+.stat.main { background: var(--forest-fill); border-color: var(--forest-fill); color: #fff; }
 .stat.main span, .stat.main span .icon { color: #b9d2c3; }
 .stat.warn strong { color: var(--accent); font-size: 1.2rem; white-space: normal; }
 .stat.wide { grid-column: span 2; }

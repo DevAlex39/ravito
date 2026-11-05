@@ -67,7 +67,7 @@ onBeforeUnmount(close)
 .trigger { display: flex; align-items: center; gap: 4px; padding: 3px 6px 3px 3px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel); cursor: pointer; color: var(--text-soft); }
 .trigger:hover { border-color: var(--text-dim); }
 .trigger:focus-visible { outline: 2px solid color-mix(in srgb, var(--forest) 35%, transparent); outline-offset: 2px; }
-.avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--forest); color: #fff; font-size: 0.82rem; font-weight: 700; }
+.avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--forest-fill); color: #fff; font-size: 0.82rem; font-weight: 700; }
 .caret { transition: transform 0.15s; }
 .flip { transform: rotate(180deg); }
 .panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 1200; min-width: 230px; padding: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(40, 35, 20, 0.16), 0 2px 6px rgba(40, 35, 20, 0.08); display: flex; flex-direction: column; animation: menu-in 0.12s ease-out; }

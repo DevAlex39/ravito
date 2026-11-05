@@ -55,7 +55,7 @@ function deleteAccount() {
 .account-page { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
 h1 { font-size: 2.2rem; margin: 0; }
 .who { display: flex; align-items: center; gap: 16px; padding: 20px; }
-.avatar { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--forest); color: #fff; font-weight: 700; font-size: 1.3rem; text-transform: uppercase; }
+.avatar { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--forest-fill); color: #fff; font-weight: 700; font-size: 1.3rem; text-transform: uppercase; }
 .who-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .who-text strong { font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; }
 .who-text span { color: var(--text-soft); font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; }

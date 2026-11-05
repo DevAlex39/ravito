@@ -281,5 +281,5 @@ defineExpose({ flyTo, locate, fitAll, focusPlace })
 :deep(.wp-poi.place-nature) { color: #2f7d4f; }
 :deep(.place-pop) { display: flex; flex-direction: column; gap: 2px; min-width: 160px; font: 13px 'Inter', sans-serif; }
 :deep(.place-pop small) { color: var(--text-soft); margin-bottom: 6px; }
-:deep(.place-add) { font: 600 12px 'Inter', sans-serif; border: none; background: var(--forest); color: #fff; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+:deep(.place-add) { font: 600 12px 'Inter', sans-serif; border: none; background: var(--forest-fill); color: #fff; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
 </style>

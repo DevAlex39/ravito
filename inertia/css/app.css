@@ -38,6 +38,112 @@
   --radius-sm: 8px;
   --shadow: 0 1px 2px rgba(40, 35, 20, 0.05), 0 6px 20px rgba(40, 35, 20, 0.06);
   --header-h: 60px;
+
+  /* Vert des fonds de boutons et pastilles (texte blanc dessus) ; --forest sert au texte et aux bordures */
+  --forest-fill: #24503c;
+  /* Champs de saisie, survols, surlignages */
+  --field: #ffffff;
+  --hover-soft: #d3e2d8;
+  --accent-soft: #fff6f0;
+  --topbar-bg: rgba(250, 248, 243, 0.92);
+  --overlay-bg: rgba(255, 255, 255, 0.85);
+  --drawing-opacity: 0.4;
+  --drawing-filter: none;
+  /* Familles de lieux et points d'eau (pastilles, icônes, textes) */
+  --nature: #2f7d4f;
+  --nature-soft: #e3f0e7;
+  --heritage: #c9561f;
+  --heritage-soft: #fbebe1;
+  --water: #2f7fb5;
+  --map-filter: none;
+  color-scheme: light;
+}
+
+/* ============================================================
+   Thème sombre : suit le réglage de l'appareil, ou le choix fait avec le bouton soleil/lune
+   (data-theme sur <html>). Même palette dans les deux blocs : garder les deux à jour.
+   ============================================================ */
+:root[data-theme='dark'] {
+  --bg: #161c19;
+  --panel: #1f2622;
+  --panel-2: #1a201d;
+  --border: #2f3833;
+  --border-strong: #414c45;
+  --text: #ebe7dd;
+  --text-soft: #b5bcb4;
+  --text-dim: #868f88;
+  --forest: #86c4a1;
+  --forest-soft: #233229;
+  --forest-fill: #2e6a4e;
+  --accent: #f0814a;
+  --accent-strong: #c9561f;
+  --accent-hover: #dc6630;
+  --up: #f0814f;
+  --down: #64a8e3;
+  --flat: #74c381;
+  --ok: #62c788;
+  --ok-bg: #1d3626;
+  --warn: #e4ab45;
+  --warn-bg: #3a3017;
+  --bad: #f0706a;
+  --bad-bg: #3d1f1e;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+  --field: #151b18;
+  --hover-soft: #2a3b31;
+  --accent-soft: #3a281d;
+  --topbar-bg: rgba(22, 28, 25, 0.92);
+  --overlay-bg: rgba(22, 28, 25, 0.82);
+  --drawing-opacity: 0.22;
+  --drawing-filter: brightness(2.2);
+  --nature: #3f9a66;
+  --nature-soft: #1f3328;
+  --heritage: #d9682f;
+  --heritage-soft: #3a281d;
+  --water: #3d8fcc;
+  --map-filter: brightness(0.78) contrast(1.08) saturate(0.85);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #161c19;
+    --panel: #1f2622;
+    --panel-2: #1a201d;
+    --border: #2f3833;
+    --border-strong: #414c45;
+    --text: #ebe7dd;
+    --text-soft: #b5bcb4;
+    --text-dim: #868f88;
+    --forest: #86c4a1;
+    --forest-soft: #233229;
+    --forest-fill: #2e6a4e;
+    --accent: #f0814a;
+    --accent-strong: #c9561f;
+    --accent-hover: #dc6630;
+    --up: #f0814f;
+    --down: #64a8e3;
+    --flat: #74c381;
+    --ok: #62c788;
+    --ok-bg: #1d3626;
+    --warn: #e4ab45;
+    --warn-bg: #3a3017;
+    --bad: #f0706a;
+    --bad-bg: #3d1f1e;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+    --field: #151b18;
+    --hover-soft: #2a3b31;
+    --accent-soft: #3a281d;
+    --topbar-bg: rgba(22, 28, 25, 0.92);
+    --overlay-bg: rgba(22, 28, 25, 0.82);
+    --drawing-opacity: 0.22;
+    --drawing-filter: brightness(2.2);
+    --nature: #3f9a66;
+    --nature-soft: #1f3328;
+    --heritage: #d9682f;
+    --heritage-soft: #3a281d;
+    --water: #3d8fcc;
+    --map-filter: brightness(0.78) contrast(1.08) saturate(0.85);
+    color-scheme: dark;
+  }
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -60,7 +166,8 @@ body::before {
   bottom: 0;
   height: min(34vw, 60vh);
   background: url('../images/fond-pc.png') center bottom / 100% auto no-repeat;
-  opacity: 0.4;
+  opacity: var(--drawing-opacity);
+  filter: var(--drawing-filter);
   pointer-events: none;
   z-index: -1;
   /* Fondu sur les côtés et vers le haut pour ne pas finir net au bord de l'écran */
@@ -73,7 +180,7 @@ body::before {
     height: min(56vw, 38vh);
     background-image: url('../images/fond-mobile.png');
     background-size: contain;
-    opacity: 0.45;
+    opacity: calc(var(--drawing-opacity) * 1.12);
     -webkit-mask-image: none;
     mask-image: none;
   }
@@ -154,7 +261,7 @@ input[type='text'], input[type='number'], input[type='time'], input[type='email'
   padding: 7px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--field);
   color: var(--text);
   min-width: 0;
 }
@@ -207,20 +314,61 @@ td.r, th.r { text-align: right; }
   border-radius: 999px;
   white-space: nowrap;
 }
-.badge.montee { background: color-mix(in srgb, var(--up) 14%, #fff); color: var(--up); }
-.badge.descente { background: color-mix(in srgb, var(--down) 14%, #fff); color: var(--down); }
-.badge.plat { background: color-mix(in srgb, var(--flat) 14%, #fff); color: var(--flat); }
+.badge.montee { background: color-mix(in srgb, var(--up) 14%, var(--panel)); color: var(--up); }
+.badge.descente { background: color-mix(in srgb, var(--down) 14%, var(--panel)); color: var(--down); }
+.badge.plat { background: color-mix(in srgb, var(--flat) 14%, var(--panel)); color: var(--flat); }
 
 .margin { font-weight: 600; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
 .margin.ok { background: var(--ok-bg); color: var(--ok); }
 .margin.warn { background: var(--warn-bg); color: var(--warn); }
 .margin.bad { background: var(--bad-bg); color: var(--bad); }
 
+/* ---------- Cartes Leaflet ---------- */
+
+/* Tuiles OpenStreetMap / OpenTopoMap : on ne peut pas changer leurs couleurs, seulement les assombrir en thème sombre */
+.leaflet-tile-pane { filter: var(--map-filter); }
+.leaflet-bar a,
+.leaflet-control-layers,
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip { background: var(--panel); color: var(--text); }
+.leaflet-bar a { border-bottom-color: var(--border); }
+.leaflet-bar a:hover { background: var(--panel-2); }
+.leaflet-container .leaflet-control-attribution { background: color-mix(in srgb, var(--panel) 80%, transparent); color: var(--text-soft); }
+.leaflet-container .leaflet-control-attribution a { color: var(--forest); }
+
 /* ---------- Impression ---------- */
 
 .print-only { display: none; }
 
 @media print {
+  /* Toujours imprimé en clair, même si l'écran est en thème sombre (#print gagne sur les deux blocs du thème) */
+  :root:not(#print) {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --panel-2: #faf8f3;
+    --border: #e4ded1;
+    --border-strong: #cfc6b3;
+    --text: #1d2721;
+    --text-soft: #56625a;
+    --text-dim: #8a938c;
+    --forest: #24503c;
+    --forest-soft: #e3ece6;
+    --forest-fill: #24503c;
+    --accent: #e2672b;
+    --up: #d9572b;
+    --down: #2b78bd;
+    --flat: #4f9a5c;
+    --ok: #2e9152;
+    --ok-bg: #e2f2e7;
+    --warn: #b97a06;
+    --warn-bg: #fcf0d4;
+    --bad: #c9302c;
+    --bad-bg: #fbe3e1;
+    --field: #ffffff;
+    --map-filter: none;
+    --drawing-opacity: 0;
+    color-scheme: light;
+  }
   @page { size: A4; margin: 12mm; }
   body { background: #fff; font-size: 10pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .screen-only { display: none !important; }
