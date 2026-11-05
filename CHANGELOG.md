@@ -8,6 +8,14 @@ Chaque mise en ligne porte un numéro **vMAJEUR.MINEUR.CORRECTIF** (affiché en 
 Mettre en ligne : `ssh alexis@213.32.69.211 /var/www/alpas/scripts/deployer.sh`
 Revenir à la version d'avant : `ssh alexis@213.32.69.211 /var/www/alpas/scripts/revenir-version-precedente.sh`
 
+## v1.0.2 — 2026-11-05
+
+- **Import des lieux plus fiable** : quand Wikidata refuse des requêtes (« trop de requêtes »), l'import attend et
+  réessaie au lieu d'enregistrer les lieux sans leur notoriété (ils remontaient moins bien dans les boucles).
+- **Doublons Wikidata retirés** : les anciens lieux Wikidata devenus doublons d'un lieu OpenStreetMap sont maintenant
+  supprimés à l'import mensuel (le garde-fou comptait seulement les nouveaux lieux et bloquait la suppression).
+- Un type de lieu saisi à la main dans OpenStreetMap ne fait plus échouer l'import (il devient « lieu »).
+
 ## v1.0.1 — 2026-11-03
 
 - **Mentions légales** mises à jour : boucles favorites, suppression du compte depuis Mon compte, sauvegardes
