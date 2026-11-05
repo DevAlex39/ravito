@@ -37,7 +37,7 @@ wsl -d Ubuntu --exec bash "/mnt/d/Perso/Site web/Ravito/scripts/labo/preparer-pa
 | `extraire-carte.sh <pays>` | Fond de carte du pays, découpé dans la dernière carte mondiale Protomaps |
 | `demarrer-brouter.sh` | BRouter sur le port 17777, profil `alpas` lu dans le dépôt |
 | `photon.sh telecharger <pays\|europe>` | Base Photon (GraphHopper) décompressée dans `adresses/` |
-| `photon.sh demarrer <pays\|europe> <port>` | Photon sur le port choisi (ex. 2323) |
+| `photon.sh demarrer <pays\|europe> <port>` | Photon sur le port choisi (ex. 2323) — un seul à la fois : chacun démarre son moteur interne sur le port 9201 |
 | `europe.ps1` (PowerShell) | Prépare et importe tous les pays d'Europe de `config/pays.json`, journal dans `~/alpast-data/europe/journal.txt` |
 | `servir-carte.sh` | Données + démo du fond de carte sur http://localhost:8090/demo/ |
 
