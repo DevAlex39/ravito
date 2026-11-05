@@ -1,4 +1,4 @@
-import 'leaflet/dist/leaflet.css'
+import 'maplibre-gl/dist/maplibre-gl.css'
 // Polices servies par le site lui-même (pas de Google Fonts : l'IP des visiteurs n'est pas envoyée à Google)
 import '@fontsource/barlow-condensed/500.css'
 import '@fontsource/barlow-condensed/600.css'

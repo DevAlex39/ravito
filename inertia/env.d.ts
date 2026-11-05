@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
   /** Adresse du calcul d'itinéraires (BRouter) ; serveur public par défaut */
   readonly VITE_BROUTER_URL?: string
+  /** Où sont servis nos fonds de carte (.pmtiles), polices et icônes ; sans elle, tuiles OpenStreetMap */
+  readonly VITE_CARTE_URL?: string
 }
 
 interface ImportMeta {

@@ -21,7 +21,8 @@ const shieldConfig = defineConfig({
      * - recherche de lieux : Géoplateforme IGN, geo.api.gouv.fr, Nominatim ;
      * - fiches des lieux : Wikidata, Wikipédia, photos Wikimedia Commons ;
      * - itinéraires : BRouter du VPS (même origine en production, appelé depuis le poste en développement).
-     * Styles en ligne autorisés : Leaflet et Vue positionnent les éléments avec l'attribut style.
+     * Styles en ligne autorisés : MapLibre et Vue positionnent les éléments avec l'attribut style.
+     * MapLibre charge les tuiles par fetch (connect-src) et calcule la carte dans un worker créé depuis un blob.
      */
     directives: {
       defaultSrc: [`'self'`],
@@ -47,9 +48,14 @@ const shieldConfig = defineConfig({
         'https://www.wikidata.org',
         'https://fr.wikipedia.org',
         'https://commons.wikimedia.org',
-        // Développement : rechargement à chaud de Vite, BRouter du labo (Ubuntu/WSL, voir VITE_BROUTER_URL)
-        ...(app.inDev ? ['ws://localhost:*', 'http://localhost:17777'] : []),
+        // Tuiles des cartes (fond Plan sans notre fond vectoriel, fond Topographique)
+        'https://tile.openstreetmap.org',
+        'https://*.tile.opentopomap.org',
+        // Développement : rechargement à chaud de Vite, BRouter et fonds de carte du labo (Ubuntu/WSL, voir VITE_BROUTER_URL et VITE_CARTE_URL)
+        ...(app.inDev ? ['ws://localhost:*', 'http://localhost:17777', 'http://localhost:8090'] : []),
       ],
+      workerSrc: [`'self'`, 'blob:'],
+      childSrc: ['blob:'],
       objectSrc: [`'none'`],
       baseUri: [`'self'`],
       frameAncestors: [`'none'`],

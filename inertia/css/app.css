@@ -55,7 +55,7 @@
   --heritage: #c9561f;
   --heritage-soft: #fbebe1;
   --water: #2f7fb5;
-  --map-filter: none;
+  --map-icon-filter: none;
   color-scheme: light;
 }
 
@@ -100,7 +100,7 @@
   --heritage: #d9682f;
   --heritage-soft: #3a281d;
   --water: #3d8fcc;
-  --map-filter: brightness(0.78) contrast(1.08) saturate(0.85);
+  --map-icon-filter: invert(1);
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -141,7 +141,7 @@
     --heritage: #d9682f;
     --heritage-soft: #3a281d;
     --water: #3d8fcc;
-    --map-filter: brightness(0.78) contrast(1.08) saturate(0.85);
+    --map-icon-filter: invert(1);
     color-scheme: dark;
   }
 }
@@ -323,18 +323,30 @@ td.r, th.r { text-align: right; }
 .margin.warn { background: var(--warn-bg); color: var(--warn); }
 .margin.bad { background: var(--bad-bg); color: var(--bad); }
 
-/* ---------- Cartes Leaflet ---------- */
+/* ---------- Cartes (MapLibre, voir inertia/utils/map.ts) ---------- */
 
-/* Tuiles OpenStreetMap / OpenTopoMap : on ne peut pas changer leurs couleurs, seulement les assombrir en thème sombre */
-.leaflet-tile-pane { filter: var(--map-filter); }
-.leaflet-bar a,
-.leaflet-control-layers,
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip { background: var(--panel); color: var(--text); }
-.leaflet-bar a { border-bottom-color: var(--border); }
-.leaflet-bar a:hover { background: var(--panel-2); }
-.leaflet-container .leaflet-control-attribution { background: color-mix(in srgb, var(--panel) 80%, transparent); color: var(--text-soft); }
-.leaflet-container .leaflet-control-attribution a { color: var(--forest); }
+/* Le fond lui-même change de couleurs avec le thème (style de carte clair ou sombre) : seuls les contrôles suivent ici */
+.maplibregl-map { font: 13px 'Inter', sans-serif; }
+.maplibregl-ctrl-group { background: var(--panel); }
+.maplibregl-ctrl-group button + button { border-top-color: var(--border); }
+.maplibregl-ctrl-group button:not(:disabled):hover { background-color: var(--panel-2); }
+.maplibregl-ctrl-group .maplibregl-ctrl-icon { filter: var(--map-icon-filter); }
+.maplibregl-popup-content { background: var(--panel); color: var(--text); padding: 8px 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: var(--panel); }
+.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: var(--panel); }
+.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--panel); }
+.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--panel); }
+.maplibregl-popup.tip { pointer-events: none; }
+.maplibregl-popup.tip .maplibregl-popup-content { padding: 5px 8px; font-size: 12px; }
+.maplibregl-ctrl-attrib { background: color-mix(in srgb, var(--panel) 80%, transparent) !important; color: var(--text-soft); }
+.maplibregl-ctrl-attrib a { color: var(--forest); }
+.maplibregl-ctrl-attrib-button { background-color: var(--panel); }
+.maplibregl-ctrl-scale { background: color-mix(in srgb, var(--panel) 75%, transparent); border-color: var(--text-soft); color: var(--text); }
+/* Choix du fond : Plan / Topo */
+.fond-switch { display: flex; }
+.maplibregl-ctrl-group.fond-switch button { width: auto; height: 29px; padding: 0 9px; font: 600 12px 'Inter', sans-serif; color: var(--text); }
+.maplibregl-ctrl-group.fond-switch button + button { border-top: none; border-left: 1px solid var(--border); }
+.maplibregl-ctrl-group.fond-switch button.on { background: var(--forest-fill); color: #fff; }
 
 /* ---------- Impression ---------- */
 
@@ -365,7 +377,7 @@ td.r, th.r { text-align: right; }
     --bad: #c9302c;
     --bad-bg: #fbe3e1;
     --field: #ffffff;
-    --map-filter: none;
+    --map-icon-filter: none;
     --drawing-opacity: 0;
     color-scheme: light;
   }
@@ -383,6 +395,6 @@ td.r, th.r { text-align: right; }
 
 /* ---------- Infobulles de la carte (lieux) ---------- */
 
-.leaflet-tooltip .tip-name { display: flex; align-items: center; gap: 5px; font-weight: 600; }
-.leaflet-tooltip .tip-name svg { flex: none; }
-.leaflet-tooltip small { display: block; color: var(--text-soft); }
+.maplibregl-popup .tip-name { display: flex; align-items: center; gap: 5px; font-weight: 600; }
+.maplibregl-popup .tip-name svg { flex: none; }
+.maplibregl-popup small { display: block; color: var(--text-soft); }

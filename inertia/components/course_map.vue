@@ -4,9 +4,11 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type * as Maplibre from 'maplibre-gl'
 import { pointAt } from '~/utils/gpx'
 import { formatKm } from '~/utils/format'
-import type * as Leaflet from 'leaflet'
+import { addLayer, collection, createMap, fitPoints, hoverTip, line, markerEl, setData } from '~/utils/map'
+import type { LonLat, SiteMap } from '~/utils/map'
 import type { Track } from '~/utils/gpx'
 import type { Segment } from '~/utils/segments'
 
@@ -22,33 +24,29 @@ const emit = defineEmits<{ 'update:hover': [number | null] }>()
 const COLORS: Record<Segment['type'], string> = { montee: '#d9572b', descente: '#2b78bd', plat: '#4f9a5c' }
 
 const el = ref<HTMLElement>()
-let L: typeof Leaflet | null = null
-let map: Leaflet.Map | null = null
-let routeLayer: Leaflet.LayerGroup | null = null
-let markerLayer: Leaflet.LayerGroup | null = null
-let hoverMarker: Leaflet.CircleMarker | null = null
+let site: SiteMap | null = null
+let ends: Maplibre.Marker[] = []
+let ravitos: Maplibre.Marker[] = []
+let hoverMarker: Maplibre.Marker | null = null
 
 onMounted(async () => {
-  const mod = await import('leaflet')
-  L = (mod as unknown as { default?: typeof Leaflet }).default ?? mod
-  map = L.map(el.value!, { scrollWheelZoom: false })
-  const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-    maxZoom: 17,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, SRTM | © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
+  site = await createMap(el.value!, { scrollZoom: false })
+  const { map } = site
+  await site.ready
+  setRoute()
+  addLayer(map, { id: 'a-route-halo', type: 'line', source: 'a-route', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#fff', 'line-width': 8, 'line-opacity': 0.9 } })
+  addLayer(map, { id: 'a-segments', type: 'line', source: 'a-segments', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } })
+  map.on('mousemove', 'a-segments', (e) => {
+    const f = e.features?.[0]
+    const seg = props.segments[Number(f?.properties?.i)]
+    if (seg) emit('update:hover', nearestD(seg, e.lngLat.lat, e.lngLat.lng))
   })
-  const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  })
-  osm.addTo(map)
-  L.control.layers({ Plan: osm, Topographique: topo }).addTo(map)
-  routeLayer = L.layerGroup().addTo(map)
-  markerLayer = L.layerGroup().addTo(map)
+  map.on('mouseleave', 'a-segments', () => emit('update:hover', null))
   drawRoute(true)
   drawMarkers()
 })
 
-onBeforeUnmount(() => map?.remove())
+onBeforeUnmount(() => site?.destroy())
 
 function nearestD(seg: Segment, lat: number, lon: number): number {
   let best = seg.start
@@ -62,54 +60,67 @@ function nearestD(seg: Segment, lat: number, lon: number): number {
   return best
 }
 
-function drawRoute(fit: boolean) {
-  if (!L || !map || !routeLayer) return
-  routeLayer.clearLayers()
-  const all: Leaflet.LatLngExpression[] = props.track.points.map(p => [p.lat, p.lon])
-  L.polyline(all, { color: '#fff', weight: 8, opacity: 0.9 }).addTo(routeLayer)
-  for (const seg of props.segments) {
-    const pts: Leaflet.LatLngExpression[] = []
+/** Trace entière (liseré blanc) et segments colorés montée / descente / plat */
+function setRoute() {
+  if (!site) return
+  const { map } = site
+  const all: LonLat[] = props.track.points.map(p => [p.lon, p.lat])
+  const segs = props.segments.map((seg, i) => {
     const a = pointAt(props.track, seg.start)
-    pts.push([a.lat, a.lon])
-    for (const p of props.track.points) if (p.d > seg.start && p.d < seg.end) pts.push([p.lat, p.lon])
     const b = pointAt(props.track, seg.end)
-    pts.push([b.lat, b.lon])
-    const line = L.polyline(pts, { color: COLORS[seg.type], weight: 5 }).addTo(routeLayer)
-    line.on('mousemove', (e: Leaflet.LeafletMouseEvent) => emit('update:hover', nearestD(seg, e.latlng.lat, e.latlng.lng)))
-    line.on('mouseout', () => emit('update:hover', null))
-  }
-  const start = props.track.points[0]!
-  const end = props.track.points[props.track.points.length - 1]!
-  L.circleMarker([start.lat, start.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#24503c', fillOpacity: 1 })
-    .bindTooltip('Départ').addTo(routeLayer)
-  L.circleMarker([end.lat, end.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#1d2721', fillOpacity: 1 })
-    .bindTooltip('Arrivée').addTo(routeLayer)
-  if (fit) map.fitBounds(L.latLngBounds(all), { padding: [20, 20] })
+    const pts: LonLat[] = [[a.lon, a.lat]]
+    for (const p of props.track.points) if (p.d > seg.start && p.d < seg.end) pts.push([p.lon, p.lat])
+    pts.push([b.lon, b.lat])
+    return line(pts, { i, color: COLORS[seg.type] })
+  })
+  setData(map, 'a-route', line(all))
+  setData(map, 'a-segments', collection(segs))
+  return all
 }
 
+function drawRoute(fit: boolean) {
+  if (!site) return
+  const { ml, map } = site
+  const all = setRoute() ?? []
+  for (const m of ends) m.remove()
+  const start = props.track.points[0]!
+  const end = props.track.points[props.track.points.length - 1]!
+  ends = [[start, 'Départ', 'dot dot-start'], [end, 'Arrivée', 'dot dot-end']].map(([p, label, cls]) => {
+    const pt = p as typeof start
+    const m = new ml.Marker({ element: markerEl(cls as string, '', 14) }).setLngLat([pt.lon, pt.lat]).addTo(map)
+    hoverTip(ml, map, m, label as string, 8)
+    return m
+  })
+  if (fit) fitPoints(ml, map, all, 20, false)
+}
+
+/** Ravitos : rond blanc et étiquette toujours visible */
 function drawMarkers() {
-  if (!L || !markerLayer) return
-  markerLayer.clearLayers()
-  for (const m of props.markers) {
+  if (!site) return
+  const { ml, map } = site
+  for (const m of ravitos) m.remove()
+  ravitos = props.markers.map((m) => {
     const p = pointAt(props.track, m.d)
-    L.circleMarker([p.lat, p.lon], { radius: 6, color: '#24503c', weight: 2, fillColor: '#fff', fillOpacity: 1 })
-      .bindTooltip(`${m.label} · km ${formatKm(m.d)}`, { permanent: true, direction: 'top', offset: [0, -6], className: 'ravito-tip' })
-      .addTo(markerLayer)
-  }
+    const node = markerEl('ravito')
+    const label = document.createElement('span')
+    label.className = 'ravito-tip'
+    label.textContent = `${m.label} · km ${formatKm(m.d)}`
+    node.appendChild(label)
+    return new ml.Marker({ element: node }).setLngLat([p.lon, p.lat]).addTo(map)
+  })
 }
 
 function drawHover() {
-  if (!L || !map) return
+  if (!site) return
+  const { ml, map } = site
   if (props.hover == null) {
     hoverMarker?.remove()
     hoverMarker = null
     return
   }
   const p = pointAt(props.track, props.hover)
-  if (!hoverMarker) {
-    hoverMarker = L.circleMarker([p.lat, p.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#e2672b', fillOpacity: 1, interactive: false }).addTo(map)
-  }
-  else hoverMarker.setLatLng([p.lat, p.lon])
+  hoverMarker ??= new ml.Marker({ element: markerEl('dot dot-hover', '', 14) }).setLngLat([p.lon, p.lat]).addTo(map)
+  hoverMarker.setLngLat([p.lon, p.lat])
 }
 
 watch(() => props.track, () => drawRoute(true))
@@ -120,11 +131,25 @@ watch(() => props.hover, drawHover)
 
 <style scoped>
 .map { width: 100%; height: 100%; min-height: 320px; border-radius: var(--radius-sm); z-index: 0; }
+:deep(.dot) { border-radius: 50%; border: 2px solid #fff; box-sizing: border-box; }
+:deep(.dot-start) { background: #24503c; }
+:deep(.dot-end) { background: #1d2721; }
+:deep(.dot-hover) { background: #e2672b; pointer-events: none; }
+:deep(.ravito) { width: 12px; height: 12px; box-sizing: border-box; border-radius: 50%; border: 2px solid #24503c; background: #fff; }
 :deep(.ravito-tip) {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
   font-family: 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 600;
   color: var(--forest);
+  background: var(--panel);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   padding: 2px 6px;
+  pointer-events: none;
 }
 </style>

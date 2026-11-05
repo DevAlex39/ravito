@@ -1,17 +1,18 @@
 <template>
-  <!-- Pas de :class ici : Vue écraserait les classes que Leaflet pose sur cet élément -->
   <div ref="el" class="map" />
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type * as Leaflet from 'leaflet'
+import type * as Maplibre from 'maplibre-gl'
 import type { Track } from '~/utils/gpx'
 import { pointAt } from '~/utils/gpx'
 import type { LatLon } from '~/utils/routing'
 import type { Amenity, Loop, Poi } from '~/utils/loops'
 import { kindOf } from '~/utils/places'
 import { iconSvg } from '~/utils/icons'
+import { addLayer, collection, createMap, escapeHtml, fitPoints, hoverTip, line, markerEl, onMapClick, setData, z } from '~/utils/map'
+import type { LonLat, SiteMap } from '~/utils/map'
 
 const props = defineProps<{
   start: LatLon | null
@@ -33,183 +34,176 @@ const emit = defineEmits<{
 }>()
 
 const el = ref<HTMLElement>()
-let L: typeof Leaflet | null = null
-let map: Leaflet.Map | null = null
-let loopLayer: Leaflet.LayerGroup | null = null
-let amenityLayer: Leaflet.LayerGroup | null = null
-let startMarker: Leaflet.Marker | null = null
-let hoverMarker: Leaflet.CircleMarker | null = null
+let site: SiteMap | null = null
+let startMarker: Maplibre.Marker | null = null
+let hoverMarker: Maplibre.Marker | null = null
+let amenityMarkers: Maplibre.Marker[] = []
 /** Marqueurs des lieux de la boucle choisie, par identifiant de lieu */
-const stopMarkers = new Map<number, Leaflet.Marker>()
+const stopMarkers = new Map<number, { marker: Maplibre.Marker, tip: ReturnType<typeof hoverTip> }>()
 /**
- * La page change la taille de la carte (colonne des boucles qui apparaît) : Leaflet doit recalculer ses
- * tuiles, et un cadrage demandé juste avant est refait à la nouvelle taille.
+ * La page change la taille de la carte (colonne des boucles qui apparaît) : la carte doit se redimensionner,
+ * et un cadrage demandé juste avant est refait à la nouvelle taille.
  */
 let refitUntil = 0
 const resize = new ResizeObserver(() => {
-  map?.invalidateSize()
+  site?.map.resize()
   if (Date.now() < refitUntil) fitAll()
 })
 
 onMounted(async () => {
-  const mod = await import('leaflet')
-  L = (mod as unknown as { default?: typeof Leaflet }).default ?? mod
-  map = L.map(el.value!, { doubleClickZoom: false })
-  const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | lieux <a href="https://www.wikidata.org">Wikidata</a>, <a href="https://geoservices.ign.fr/bdtopo">IGN</a> | itinéraires <a href="https://brouter.de">BRouter</a>',
+  site = await createMap(el.value!, {
+    center: props.start ? [props.start.lon, props.start.lat] : undefined,
+    zoom: props.start ? 14 : 6,
+    attribution: 'lieux <a href="https://www.wikidata.org">Wikidata</a>, <a href="https://geoservices.ign.fr/bdtopo">IGN</a> | itinéraires <a href="https://brouter.de">BRouter</a>',
   })
-  const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-    maxZoom: 17,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, SRTM | © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
+  const { ml, map } = site
+  await site.ready
+  setLoops()
+  addLayer(map, { id: 'a-others', type: 'line', source: 'a-others', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#8a938c', 'line-width': 4, 'line-opacity': 0.7 } })
+  addLayer(map, { id: 'a-loop-halo', type: 'line', source: 'a-loop', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#fff', 'line-width': 9, 'line-opacity': 0.85 } })
+  addLayer(map, { id: 'a-loop', type: 'line', source: 'a-loop', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#e2672b', 'line-width': 5 } })
+
+  // Les autres propositions : cliquables, nom au survol
+  const tip = new ml.Popup({ closeButton: false, closeOnClick: false, className: 'tip', offset: 10 })
+  map.on('mousemove', 'a-others', (e) => {
+    map.getCanvas().style.cursor = 'pointer'
+    tip.setLngLat(e.lngLat).setText(`Boucle ${Number(e.features?.[0]?.properties?.i) + 1}`).addTo(map)
   })
-  // En ville, le plan se lit mieux que la carte topographique
-  osm.addTo(map)
-  L.control.layers({ Plan: osm, Topographique: topo }).addTo(map)
-  loopLayer = L.layerGroup().addTo(map)
-  amenityLayer = L.layerGroup().addTo(map)
-
-  if (props.start) map.setView([props.start.lat, props.start.lon], 14)
-  else map.setView([46.6, 2.5], 6)
-
-  map.on('click', (e: Leaflet.LeafletMouseEvent) => emit('pick', { lat: e.latlng.lat, lon: e.latlng.lng }))
+  map.on('mouseleave', 'a-others', () => {
+    map.getCanvas().style.cursor = ''
+    tip.remove()
+  })
+  onMapClick(map, (e) => {
+    const [other] = map.queryRenderedFeatures(e.point, { layers: ['a-others'] })
+    if (other) emit('select', Number(other.properties.i))
+    else emit('pick', { lat: e.lngLat.lat, lon: e.lngLat.lng })
+  })
   drawStart()
-  drawLoops()
+  drawStops()
   drawAmenities()
   resize.observe(el.value!)
 })
 
 onBeforeUnmount(() => {
   resize.disconnect()
-  map?.remove()
+  site?.destroy()
 })
 
 function drawStart() {
-  if (!L || !map) return
+  if (!site) return
+  const { ml, map } = site
   if (!props.start) {
     startMarker?.remove()
     startMarker = null
     return
   }
-  const ll: [number, number] = [props.start.lat, props.start.lon]
+  const ll: LonLat = [props.start.lon, props.start.lat]
   if (!startMarker) {
-    startMarker = L.marker(ll, {
-      icon: L.divIcon({ className: 'wp wp-start', html: 'D', iconSize: [26, 26], iconAnchor: [13, 13] }),
-      draggable: true,
-      title: 'Point de départ (glisse pour le déplacer)',
-      zIndexOffset: 1000,
-    }).addTo(map)
+    const node = markerEl('wp wp-start', 'D', 26)
+    node.title = 'Point de départ (glisse pour le déplacer)'
+    startMarker = new ml.Marker({ element: node, draggable: true }).setLngLat(ll).addTo(map)
     startMarker.on('dragend', () => {
-      const p = startMarker!.getLatLng()
+      const p = startMarker!.getLngLat()
       emit('pick', { lat: p.lat, lon: p.lng })
     })
   }
-  else startMarker.setLatLng(ll)
+  else startMarker.setLngLat(ll)
+}
+
+/** Tracés : les autres propositions en gris, la boucle choisie en orange par-dessus */
+function setLoops() {
+  if (!site) return
+  const coords = (l: Loop) => l.coords.map(c => [c[0], c[1]] as LonLat)
+  setData(site.map, 'a-others', collection(props.loops.flatMap((l, i) => i === props.selected ? [] : [line(coords(l), { i })])))
+  const loop = props.loops[props.selected]
+  setData(site.map, 'a-loop', collection(loop ? [line(coords(loop))] : []))
 }
 
 function drawLoops() {
-  if (!L || !loopLayer) return
-  loopLayer.clearLayers()
+  setLoops()
+  drawStops()
+}
+
+/** Lieux de la boucle choisie, numérotés dans l'ordre du parcours */
+function drawStops() {
+  if (!site) return
+  const { ml, map } = site
+  for (const { marker } of stopMarkers.values()) marker.remove()
   stopMarkers.clear()
-  // Les autres propositions en gris (cliquables), la boucle choisie par-dessus
-  props.loops.forEach((loop, i) => {
-    if (i === props.selected) return
-    const line = L!.polyline(loop.coords.map(c => [c[1], c[0]] as [number, number]), { color: '#8a938c', weight: 4, opacity: 0.7 })
-    line.on('click', (e) => {
-      L!.DomEvent.stopPropagation(e)
-      emit('select', i)
-    })
-    line.bindTooltip(`Boucle ${i + 1}`, { sticky: true })
-    line.addTo(loopLayer!)
-  })
+  highlighted = null
   const loop = props.loops[props.selected]
-  if (!loop) return
-  const latlngs = loop.coords.map(c => [c[1], c[0]] as [number, number])
-  L.polyline(latlngs, { color: '#fff', weight: 9, opacity: 0.85, interactive: false }).addTo(loopLayer)
-  L.polyline(latlngs, { color: '#e2672b', weight: 5, interactive: false }).addTo(loopLayer)
-  loop.stops.forEach((s, k) => {
+  loop?.stops.forEach((s, k) => {
     const kind = kindOf(s)
-    const marker = L!.marker([s.lat, s.lon], {
-      icon: L!.divIcon({ className: `stop stop-${s.category}`, html: String(k + 1), iconSize: [22, 22], iconAnchor: [11, 11] }),
-      keyboard: false,
-    })
-      .bindTooltip(`<span class="tip-name">${iconSvg(kind.icon, 15)} ${s.name}</span><small>${kind.label} · clique pour en savoir plus</small>`, { direction: 'top', offset: [0, -10] })
-      .on('click', (e) => {
-        L!.DomEvent.stopPropagation(e)
-        emit('stop', s)
-      })
-      .on('mouseover', () => emit('hoverStop', s.id))
-      .on('mouseout', () => emit('hoverStop', null))
-      .addTo(loopLayer!)
-    stopMarkers.set(s.id, marker)
+    const node = markerEl(`stop stop-${s.category}`, String(k + 1), 22)
+    const marker = new ml.Marker({ element: node }).setLngLat([s.lon, s.lat]).addTo(map)
+    const tip = hoverTip(ml, map, marker, `<span class="tip-name">${iconSvg(kind.icon, 15)} ${escapeHtml(s.name)}</span><small>${kind.label} · clique pour en savoir plus</small>`)
+    node.addEventListener('click', () => emit('stop', s))
+    node.addEventListener('mouseenter', () => emit('hoverStop', s.id))
+    node.addEventListener('mouseleave', () => emit('hoverStop', null))
+    stopMarkers.set(s.id, { marker, tip })
   })
   drawHighlight()
 }
 
-/** Le lieu survolé grossit, passe devant les autres et montre son nom */
-let highlighted: Leaflet.Marker | null = null
+/** Le lieu survolé dans la liste grossit, passe devant les autres et montre son nom */
+let highlighted: number | null = null
 function drawHighlight() {
-  const next = props.highlight == null ? null : stopMarkers.get(props.highlight) ?? null
+  const next = props.highlight != null && stopMarkers.has(props.highlight) ? props.highlight : null
   if (next === highlighted) return
-  if (highlighted) {
-    highlighted.getElement()?.classList.remove('stop-hl')
-    highlighted.setZIndexOffset(0)
-    highlighted.closeTooltip()
+  const old = highlighted == null ? null : stopMarkers.get(highlighted)
+  if (old) {
+    old.marker.getElement().classList.remove('stop-hl')
+    old.marker.getElement().style.zIndex = ''
+    old.tip.hide()
   }
   highlighted = next
-  if (next) {
-    next.getElement()?.classList.add('stop-hl')
-    next.setZIndexOffset(900)
-    next.openTooltip()
+  const now = next == null ? null : stopMarkers.get(next)
+  if (now) {
+    now.marker.getElement().classList.add('stop-hl')
+    now.marker.getElement().style.zIndex = '5'
+    now.tip.show()
   }
 }
 
 /** Points d'eau (goutte bleue) et toilettes (gris), sous les lieux de la boucle */
 function drawAmenities() {
-  if (!L || !amenityLayer) return
-  amenityLayer.clearLayers()
-  for (const a of props.amenities ?? []) {
+  if (!site) return
+  const { ml, map } = site
+  for (const m of amenityMarkers) m.remove()
+  amenityMarkers = (props.amenities ?? []).map((a) => {
     const water = a.kind === 'water'
     const label = water ? 'Eau potable' : 'Toilettes'
-    L.marker([a.lat, a.lon], {
-      icon: L.divIcon({ className: `amenity amenity-${a.kind}`, html: iconSvg(water ? 'droplet' : 'toilets', 13), iconSize: [22, 22], iconAnchor: [11, 11] }),
-      keyboard: false,
-      zIndexOffset: -500,
-    })
-      .bindTooltip(a.name && a.name !== label ? `<strong>${label}</strong> · ${escapeHtml(a.name)}` : `<strong>${label}</strong>`, { direction: 'top', offset: [0, -10] })
-      .addTo(amenityLayer)
-  }
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
+    const node = markerEl(`amenity amenity-${a.kind}`, iconSvg(water ? 'droplet' : 'toilets', 13), 22)
+    node.style.zIndex = '-1'
+    const marker = new ml.Marker({ element: node }).setLngLat([a.lon, a.lat]).addTo(map)
+    hoverTip(ml, map, marker, a.name && a.name !== label ? `<strong>${label}</strong> · ${escapeHtml(a.name)}` : `<strong>${label}</strong>`)
+    return marker
+  })
 }
 
 /** Cadre toutes les propositions */
 function fitLoops() {
   refitUntil = Date.now() + 1500
-  map?.invalidateSize()
+  site?.map.resize()
   fitAll()
 }
 
 function fitAll() {
-  if (!L || !map || !props.loops.length) return
-  const pts = props.loops.flatMap(l => l.coords.map(c => [c[1], c[0]] as [number, number]))
-  map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], animate: false })
+  if (!site || !props.loops.length) return
+  fitPoints(site.ml, site.map, props.loops.flatMap(l => l.coords.map(c => [c[0], c[1]] as LonLat)), 30, false)
 }
 
 function drawHover() {
-  if (!L || !map) return
+  if (!site) return
+  const { ml, map } = site
   if (props.hover == null || !props.track) {
     hoverMarker?.remove()
     hoverMarker = null
     return
   }
   const p = pointAt(props.track, props.hover)
-  if (!hoverMarker) {
-    hoverMarker = L.circleMarker([p.lat, p.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#24503c', fillOpacity: 1, interactive: false }).addTo(map)
-  }
-  else hoverMarker.setLatLng([p.lat, p.lon])
+  hoverMarker ??= new ml.Marker({ element: markerEl('dot-hover', '', 14) }).setLngLat([p.lon, p.lat]).addTo(map)
+  hoverMarker.setLngLat([p.lon, p.lat])
 }
 
 watch(() => props.start, drawStart)
@@ -221,20 +215,21 @@ watch(() => props.amenities, drawAmenities)
 
 /** Centre la carte sur un lieu (recherche) */
 function flyTo(lat: number, lon: number, zoom = 14) {
-  map?.setView([lat, lon], zoom)
+  site?.map.jumpTo({ center: [lon, lat], zoom: z(zoom) })
 }
 
 defineExpose({ flyTo, fitLoops })
 </script>
 
 <style scoped>
-.map { width: 100%; height: 100%; min-height: 380px; border-radius: var(--radius-sm); z-index: 0; cursor: crosshair; }
-:deep(.leaflet-grab) { cursor: crosshair; }
-:deep(.leaflet-dragging .leaflet-grab) { cursor: grabbing; }
+.map { width: 100%; height: 100%; min-height: 380px; border-radius: var(--radius-sm); z-index: 0; }
+.map :deep(.maplibregl-canvas-container) { cursor: crosshair; }
+.map :deep(.maplibregl-canvas-container:active) { cursor: grabbing; }
 :deep(.wp) {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   border-radius: 50%;
   border: 2px solid #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
@@ -242,11 +237,12 @@ defineExpose({ flyTo, fitLoops })
   color: #fff;
   cursor: grab;
 }
-:deep(.wp-start) { background: #24503c; }
+:deep(.wp-start) { background: #24503c; z-index: 6; }
 :deep(.stop) {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   border-radius: 50%;
   background: #fff;
   border: 2px solid #e2672b;
@@ -256,9 +252,10 @@ defineExpose({ flyTo, fitLoops })
   cursor: pointer;
 }
 :deep(.stop-nature) { border-color: #2f7d4f; color: #2f7d4f; }
-:deep(.amenity) { display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); color: #fff; }
+:deep(.amenity) { display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); color: #fff; }
 :deep(.amenity-water) { background: #2f7fb5; }
 :deep(.amenity-toilets) { background: #6b7a72; }
-:deep(.stop.stop-hl) { background: #e2672b; color: #fff; transform-origin: center; box-shadow: 0 0 0 4px rgba(226, 103, 43, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3); }
+:deep(.stop.stop-hl) { background: #e2672b; color: #fff; box-shadow: 0 0 0 4px rgba(226, 103, 43, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3); }
 :deep(.stop-nature.stop-hl) { background: #2f7d4f; box-shadow: 0 0 0 4px rgba(47, 125, 79, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3); }
+:deep(.dot-hover) { box-sizing: border-box; border-radius: 50%; border: 2px solid #fff; background: #24503c; pointer-events: none; }
 </style>

@@ -9,6 +9,7 @@ La prod n'est pas concernée : elle suit `master`, le labo vit sur la branche `v
 ~/alpast-data/                         (Explorateur Windows : \\wsl.localhost\Ubuntu\home\alexis\alpast-data)
 ├── monde/
 │   ├── itineraires/   BRouter + réserve de tuiles .rd5 (carrés de 5° qui chevauchent les frontières)
+│   ├── carte-assets/  polices et icônes du fond de carte (Protomaps basemaps-assets)
 │   └── outils/        pmtiles
 └── <continent>/<pays>/
     ├── source/        carte OSM et contour .poly (Geofabrik)
@@ -39,7 +40,7 @@ wsl -d Ubuntu --exec bash "/mnt/d/Perso/Site web/Ravito/scripts/labo/preparer-pa
 | `photon.sh telecharger <pays\|europe>` | Base Photon (GraphHopper) décompressée dans `adresses/` |
 | `photon.sh demarrer <pays\|europe> <port>` | Photon sur le port choisi (ex. 2323) — un seul à la fois : chacun démarre son moteur interne sur le port 9201 |
 | `europe.ps1` (PowerShell) | Prépare et importe tous les pays d'Europe de `config/pays.json`, journal dans `~/alpast-data/europe/journal.txt` |
-| `servir-carte.sh` | Données + démo du fond de carte sur http://localhost:8090/demo/ |
+| `servir-carte.sh` | Données, polices et icônes + démo du fond de carte sur http://localhost:8090/demo/ |
 
 Import d'un pays dans la base locale (depuis Windows, à la racine du projet) :
 
@@ -53,3 +54,4 @@ Le nettoyage de `import:lieux` et `import:wikidata` ne touche que les lieux du p
 
 Le site local utilise le BRouter du labo si `.env` contient `VITE_BROUTER_URL=http://localhost:17777` (sinon celui de la prod, France seulement).
 La recherche d'adresses hors France passe par Photon si `.env` contient `PHOTON_URL=http://localhost:2323` (route `/adresses` du site ; sans lui, BAN + Nominatim comme en prod).
+Les cartes du site local utilisent notre fond vectoriel (Europe + Japon, clair ou sombre selon le thème) si `.env` contient `VITE_CARTE_URL=http://localhost:8090` et que `servir-carte.sh` tourne (sans lui, tuiles OpenStreetMap comme en prod).

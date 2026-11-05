@@ -85,7 +85,7 @@
           <li>Notoriété des lieux, et lieux complémentaires absents d'OpenStreetMap (châteaux, chapelles, musées…) : <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a> (CC0). Résumés : Wikipédia (CC BY-SA). Photos : Wikimedia Commons, auteur et licence indiqués sous chaque photo.</li>
           <li>Lieux complémentaires (belvédères, mégalithes, grottes, cascades, lavoirs… absents d'OpenStreetMap) : <a href="https://geoservices.ign.fr/bdtopo" target="_blank" rel="noopener">IGN, BD TOPO</a>, Licence Ouverte 2.0.</li>
           <li>Adresses : <a href="https://adresse.data.gouv.fr" target="_blank" rel="noopener">Base Adresse Nationale</a> et Géoplateforme IGN, Licence Ouverte 2.0.</li>
-          <li>Carte interactive : <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a> (licence BSD).</li>
+          <li>Carte interactive : <a href="https://maplibre.org" target="_blank" rel="noopener">MapLibre</a> (licence BSD) ; fond de carte <a href="https://protomaps.com" target="_blank" rel="noopener">Protomaps</a> (données OpenStreetMap, polices Noto, licence SIL Open Font License).</li>
           <li>Polices : Barlow Condensed et Inter, licence SIL Open Font License.</li>
         </ul>
       </section>
