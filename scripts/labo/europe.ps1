@@ -1,7 +1,8 @@
 ﻿# Prépare et importe dans la base locale tous les pays d'Europe de config/pays.json (sauf la France, traitée à part).
 # Reprend là où il s'était arrêté : un pays déjà importé (fichier lieux/.importe) est sauté.
 # Une erreur sur un pays est notée dans le journal et n'arrête pas les suivants.
-#   powershell -File scripts/labo/europe.ps1 [pays ...]
+#   powershell -File scripts/labo/europe.ps1                        tous les pays
+#   & .\scripts\labo\europe.ps1 -Seulement pologne,suisse          (depuis PowerShell : -File ne passe qu'un seul nom)
 param([string[]]$Seulement)
 $ErrorActionPreference = 'Continue'
 $depot = Resolve-Path "$PSScriptRoot\..\.."

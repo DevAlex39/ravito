@@ -101,7 +101,9 @@ export default class ImportWikidata extends BaseCommand {
 
     const count = await savePois(kept, { sitelinks, country: pays.code })
     this.logger.success(`${count} lieux Wikidata enregistrés`)
-    await this.deleteStale(pays.code, startedAt, count)
+    // Garde-fou contre une réponse tronquée : on compare tout ce que Wikidata a renvoyé (pas seulement les nouveaux,
+    // sinon les anciens lieux devenus doublons d'un lieu OpenStreetMap ne seraient jamais retirés)
+    await this.deleteStale(pays.code, startedAt, candidates.length)
   }
 
   /** Une seule requête pour tout le pays : chaque élément, son type, son nom, sa position, sa notoriété */
@@ -176,13 +178,13 @@ SELECT ?item ?type ?label ?coord ?sl ?h WHERE {
    * Lieux Wikidata du pays disparus, ou désormais reliés à un lieu OpenStreetMap (même garde-fou que les autres imports).
    * Les lieux importés avant la colonne « country » (sans pays) sont tous français.
    */
-  private async deleteStale(code: string, startedAt: Date, imported: number) {
+  private async deleteStale(code: string, startedAt: Date, found: number) {
     const knex = db.connection().getWriteClient()
     const ofCountry = (q: Knex.QueryBuilder) => q.where('osm_key', 'like', 'wd:%')
       .where(w => code === 'fr' ? w.where('country', code).orWhereNull('country') : w.where('country', code))
     const [{ total }] = await ofCountry(knex.from('pois')).count({ total: '*' }) as { total: number }[]
-    if (imported < Number(total) * 0.7) {
-      this.logger.warning(`Seulement ${imported} lieux Wikidata pour ${total} en base : suppression des anciens annulée par prudence`)
+    if (found < Number(total) * 0.7) {
+      this.logger.warning(`Seulement ${found} lieux renvoyés par Wikidata pour ${total} en base : suppression des anciens annulée par prudence`)
       return
     }
     const removed = await ofCountry(knex.from('pois')).where('updated_at', '<', startedAt).delete()
