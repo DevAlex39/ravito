@@ -344,8 +344,8 @@ function transliterate(text: string): string {
   }).join('')
 }
 
-/** Écritures que le promeneur ne lit pas (grec, cyrillique, hébreu, arabe, japonais, chinois, coréen) */
-const NON_LATIN = /[\u0370-\u03FF\u0400-\u04FF\u0590-\u06FF\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]/
+/** Écritures que le promeneur ne lit pas (grec, cyrillique, hébreu, arabe, thaï, japonais, chinois, coréen) */
+const NON_LATIN = /[\u0370-\u03FF\u0400-\u04FF\u0590-\u06FF\u0E00-\u0E7F\u1100-\u11FF\u3040-\u30FF\u3130-\u318F\u3400-\u9FFF\uAC00-\uD7AF]/
 
 /** Nom local lisible : en écriture non latine, sa transcription ou le nom anglais s'il y en a un */
 function readableName(t: Record<string, string>): string | undefined {

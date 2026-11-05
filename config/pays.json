@@ -49,6 +49,17 @@
     { "dossier": "suede", "code": "se", "continent": "europe", "geofabrik": "europe/sweden", "wikidata": "Q34", "langues": ["fr", "en", "sv"] },
     { "dossier": "suisse", "code": "ch", "continent": "europe", "geofabrik": "europe/switzerland", "wikidata": "Q39", "langues": ["fr", "en", "de", "it"] },
     { "dossier": "tchequie", "code": "cz", "continent": "europe", "geofabrik": "europe/czech-republic", "wikidata": "Q213", "langues": ["fr", "en", "cs"] },
-    { "dossier": "ukraine", "code": "ua", "continent": "europe", "geofabrik": "europe/ukraine", "wikidata": "Q212", "langues": ["fr", "en", "uk"] }
+    { "dossier": "ukraine", "code": "ua", "continent": "europe", "geofabrik": "europe/ukraine", "wikidata": "Q212", "langues": ["fr", "en", "uk"] },
+
+    { "dossier": "coree-du-sud", "code": "kr", "continent": "asie", "geofabrik": "asia/south-korea", "wikidata": "Q884", "langues": ["fr", "en", "ko"] },
+    { "dossier": "taiwan", "code": "tw", "continent": "asie", "geofabrik": "asia/taiwan", "wikidata": "Q865", "langues": ["fr", "en", "zh"] },
+    { "dossier": "thailande", "code": "th", "continent": "asie", "geofabrik": "asia/thailand", "wikidata": "Q869", "langues": ["fr", "en", "th"] },
+    { "dossier": "vietnam", "code": "vn", "continent": "asie", "geofabrik": "asia/vietnam", "wikidata": "Q881", "langues": ["fr", "en", "vi"] },
+
+    { "dossier": "australie", "code": "au", "continent": "oceanie", "geofabrik": "australia-oceania/australia", "wikidata": "Q408", "langues": ["fr", "en"] },
+    { "dossier": "nouvelle-zelande", "code": "nz", "continent": "oceanie", "geofabrik": "australia-oceania/new-zealand", "wikidata": "Q664", "langues": ["fr", "en"] },
+
+    { "dossier": "canada", "code": "ca", "continent": "amerique-du-nord", "geofabrik": "north-america/canada", "wikidata": "Q16", "langues": ["fr", "en"] },
+    { "dossier": "etats-unis", "code": "us", "continent": "amerique-du-nord", "geofabrik": "north-america/us", "wikidata": "Q30", "langues": ["fr", "en"] }
   ]
 }

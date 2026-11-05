@@ -37,8 +37,9 @@ wsl -d Ubuntu --exec bash "/mnt/d/Perso/Site web/Ravito/scripts/labo/preparer-pa
 | `preparer-pays.sh <pays>` | Carte OSM, contour, tuiles BRouter manquantes, lieux candidats ; affiche la commande d'import |
 | `extraire-carte.sh <pays>` | Fond de carte du pays, découpé dans la dernière carte mondiale Protomaps |
 | `demarrer-brouter.sh` | BRouter sur le port 17777, profil `alpas` lu dans le dépôt |
-| `photon.sh telecharger <pays\|europe>` | Base Photon (GraphHopper) décompressée dans `adresses/` |
+| `photon.sh telecharger <pays|europe|monde>` | Base Photon (GraphHopper) décompressée dans `adresses/` ; `monde` (~63 Go) : un seul Photon pour tous les pays |\|europe>` | Base Photon (GraphHopper) décompressée dans `adresses/` |
 | `photon.sh demarrer <pays\|europe> <port>` | Photon sur le port choisi (ex. 2323) — un seul à la fois : chacun démarre son moteur interne sur le port 9201 |
+| `pays.ps1 -Seulement a,b` (PowerShell) | Pays demandés de bout en bout : préparation, lieux OSM + Wikidata, fond de carte (hors Europe), fiches ; reprise par marqueurs, journal dans `~/alpast-data/journal.txt` |
 | `europe.ps1` (PowerShell) | Prépare et importe tous les pays d'Europe de `config/pays.json`, journal dans `~/alpast-data/europe/journal.txt` |
 | `servir-carte.sh` | Données, polices et icônes + démo du fond de carte sur http://localhost:8090/demo/ |
 
