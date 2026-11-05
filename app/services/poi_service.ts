@@ -194,12 +194,24 @@ export interface SaveOptions {
 export async function savePois(candidates: NewPoi[], { onProgress, refreshWikidata = false, sitelinks: given, country }: SaveOptions = {}): Promise<number> {
   const pois = dedupe(candidates)
   const ids = [...new Set(pois.map(p => p.wikidata).filter(q => q != null))]
-  const sitelinks = given ?? (refreshWikidata ? new Map<string, number>() : await knownSitelinks(ids))
+  const known = refreshWikidata ? new Map<string, Known>() : await knownWikidata(ids)
+  const sitelinks = given ?? new Map([...known].map(([q, k]) => [q, k.sitelinks]))
   const fetched = await fetchSitelinks(ids.filter(q => !sitelinks.has(q)), onProgress)
   for (const [q, n] of fetched) sitelinks.set(q, n)
+  // Noms français et anglais, et « est-ce une personne ? », une fois par élément (mémorisés dans wikidata_fr / _en)
+  const labels = new Map([...known].filter(([, k]) => k.fr != null && k.en != null).map(([q, k]) => [q, { fr: k.fr!, en: k.en! }]))
+  for (const [q, info] of await fetchLabels(ids.filter(q => !labels.has(q)))) {
+    // Tombe, buste, plaque… reliés à la fiche de la personne : ni son nom ni sa célébrité ne sont ceux du lieu
+    labels.set(q, info.person ? { fr: '', en: '' } : info)
+    if (info.person) sitelinks.set(q, 0)
+  }
   for (const p of pois) {
     p.sitelinks = p.wikidata ? sitelinks.get(p.wikidata) ?? 0 : 0
     p.score = score(p.kind, p.sitelinks, p.wikidata != null, p.heritage)
+    const label = p.wikidata ? labels.get(p.wikidata) : undefined
+    p.wikidataFr = label?.fr ?? null
+    p.wikidataEn = label?.en ?? null
+    if (p.localName && country && country !== 'fr') p.name = localName(p.name, label)
   }
   const knex = db.connection().getWriteClient()
   const now = new Date()
@@ -213,23 +225,30 @@ export async function savePois(candidates: NewPoi[], { onProgress, refreshWikida
       category: categoryOf(p.kind),
       wikidata: p.wikidata,
       sitelinks: p.sitelinks,
+      wikidata_fr: p.wikidataFr?.slice(0, 255) ?? null,
+      wikidata_en: p.wikidataEn?.slice(0, 255) ?? null,
       score: p.score,
       ...(country ? { country } : {}),
       created_at: now,
       updated_at: now,
     }))
-    const merged = ['name', 'lat', 'lon', 'kind', 'category', 'wikidata', 'sitelinks', 'score', 'updated_at', ...(country ? ['country'] : [])]
+    const merged = ['name', 'lat', 'lon', 'kind', 'category', 'wikidata', 'sitelinks', 'wikidata_fr', 'wikidata_en', 'score', 'updated_at', ...(country ? ['country'] : [])]
     await knex.table('pois').insert(rows).onConflict('osm_key').merge(merged)
   }
   return pois.length
 }
 
-/** Notoriété déjà enregistrée pour ces éléments Wikidata */
-async function knownSitelinks(ids: string[]): Promise<Map<string, number>> {
-  const result = new Map<string, number>()
+interface Known { sitelinks: number, fr: string | null, en: string | null }
+
+/** Notoriété et noms déjà enregistrés pour ces éléments Wikidata */
+async function knownWikidata(ids: string[]): Promise<Map<string, Known>> {
+  const result = new Map<string, Known>()
   for (let k = 0; k < ids.length; k += 1000) {
-    const rows = await db.from('pois').select('wikidata', 'sitelinks').whereIn('wikidata', ids.slice(k, k + 1000))
-    for (const r of rows as { wikidata: string, sitelinks: number }[]) result.set(r.wikidata, r.sitelinks)
+    const rows = await db.from('pois').select('wikidata', 'sitelinks', 'wikidata_fr', 'wikidata_en').whereIn('wikidata', ids.slice(k, k + 1000))
+    for (const r of rows as { wikidata: string, sitelinks: number, wikidata_fr: string | null, wikidata_en: string | null }[]) {
+      // Un même élément sur plusieurs lieux : on garde la ligne qui connaît déjà les noms
+      if (!result.has(r.wikidata) || r.wikidata_en != null) result.set(r.wikidata, { sitelinks: r.sitelinks, fr: r.wikidata_fr, en: r.wikidata_en })
+    }
   }
   return result
 }
@@ -293,6 +312,65 @@ export interface NewPoi {
   heritage: number
   sitelinks: number
   score: number
+  /** Nom local (pas de name:fr) : remplacé par le nom français de Wikidata hors de France */
+  localName: boolean
+  wikidataFr?: string | null
+  wikidataEn?: string | null
+}
+
+/**
+ * Nom affiché d'un lieu hors de France sans name:fr : le nom français de Wikidata ; sinon, si le nom local est
+ * illisible pour nous, le nom anglais de Wikidata, puis une transcription (grec, cyrillique) ; sinon le nom local.
+ */
+function localName(name: string, label?: { fr: string, en: string }): string {
+  if (label?.fr) return capitalize(label.fr)
+  if (!NON_LATIN.test(name)) return name
+  if (label?.en) return capitalize(label.en)
+  return transliterate(name)
+}
+
+/** Transcription lettre à lettre du grec et du cyrillique (les autres écritures restent telles quelles) */
+const LETTERS: Record<string, string> = Object.fromEntries([
+  ...'α:a β:v γ:g δ:d ε:e ζ:z η:i θ:th ι:i κ:k λ:l μ:m ν:n ξ:x ο:o π:p ρ:r σ:s ς:s τ:t υ:y φ:f χ:ch ψ:ps ω:o ά:a έ:e ή:i ί:i ό:o ύ:y ώ:o ϊ:i ϋ:y ΐ:i ΰ:y'.split(' '),
+  ...'а:a б:b в:v г:g ґ:g д:d ђ:dj е:e ё:io є:ie ж:zh з:z ѕ:dz и:i і:i ї:i й:i ј:j к:k л:l љ:lj м:m н:n њ:nj о:o п:p р:r с:s т:t ћ:c ќ:kj у:u ў:u ф:f х:kh ц:ts ч:ch џ:dzh ш:sh щ:shch ъ:a ы:y ь: э:e ю:iu я:ia ѓ:gj'.split(' '),
+].map(pair => pair.split(':') as [string, string]))
+
+function transliterate(text: string): string {
+  return [...text].map((ch) => {
+    const low = ch.toLowerCase()
+    const out = LETTERS[low]
+    if (out === undefined) return ch
+    return ch === low ? out : capitalize(out)
+  }).join('')
+}
+
+/** Écritures que le promeneur ne lit pas (grec, cyrillique, hébreu, arabe, japonais, chinois, coréen) */
+const NON_LATIN = /[\u0370-\u03FF\u0400-\u04FF\u0590-\u06FF\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]/
+
+/** Nom local lisible : en écriture non latine, sa transcription ou le nom anglais s'il y en a un */
+function readableName(t: Record<string, string>): string | undefined {
+  if (!t.name || !NON_LATIN.test(t.name)) return t.name
+  const latn = Object.entries(t).find(([k]) => /^name:[a-z]{2,3}[-_](Latn|rm)$/.test(k))?.[1]
+  return t['name:en'] ?? latn ?? t.int_name ?? t.name
+}
+
+/** Belvédère sans nom : son altitude quand elle est connue (« Point de vue (812 m) ») */
+function viewpointName(t: Record<string, string>): string {
+  const ele = Number.parseFloat((t.ele ?? '').replace(',', '.'))
+  return Number.isFinite(ele) && ele > 0 && ele < 9000 ? `Point de vue (${Math.round(ele)} m)` : 'Point de vue'
+}
+
+/** Plusieurs noms séparés par « ; » : le premier ; un nom tout en capitales (« HARRIET BACKER ») : en minuscules */
+function cleanName(name: string): string {
+  const first = name.split(';')[0]!.trim()
+  if (/\s/.test(first) && first === first.toUpperCase() && first !== first.toLowerCase()) {
+    return first.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase())
+  }
+  return first
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 /** Monument historique (base Mérimée, reprise dans OpenStreetMap) : bonus de note */
@@ -349,7 +427,8 @@ export function toPoi(el: OverpassElement): NewPoi | null {
   const lat = el.lat ?? el.center?.lat
   const lon = el.lon ?? el.center?.lon
   // Seul un belvédère peut être sans nom (voir isWanted)
-  const name = t['name:fr'] ?? t.name ?? (t.tourism === 'viewpoint' ? 'Point de vue' : null)
+  const raw = t['name:fr'] ?? readableName(t) ?? (t.tourism === 'viewpoint' ? viewpointName(t) : null)
+  const name = raw ? cleanName(raw) : ''
   if (!name || lat == null || lon == null) return null
   const heritage = heritageBonus(t)
   const kind = (t.historic && !/^(building|church|yes)$/.test(t.historic) ? t.historic : null)
@@ -372,6 +451,7 @@ export function toPoi(el: OverpassElement): NewPoi | null {
     wikidata: /^Q\d+$/.test(t.wikidata ?? '') ? t.wikidata! : null,
     sitelinks: 0,
     score: 0,
+    localName: !t['name:fr'] && !!t.name,
   }
 }
 
@@ -416,6 +496,51 @@ async function fetchSitelinks(ids: string[], onProgress?: (done: number, total: 
     }
     await new Promise(r => setTimeout(r, 200))
     onProgress?.(Math.min(k + 50, ids.length), ids.length)
+  }
+  return result
+}
+
+/**
+ * Noms français et anglais et nature (personne ou non) des éléments Wikidata, par paquets de 250 (une requête SPARQL).
+ * Personne : humain ou famille. Les éléments sans réponse (service indisponible) seront redemandés au prochain import.
+ */
+async function fetchLabels(ids: string[]): Promise<Map<string, { fr: string, en: string, person: boolean }>> {
+  const result = new Map<string, { fr: string, en: string, person: boolean }>()
+  for (let k = 0; k < ids.length; k += 250) {
+    const batch = ids.slice(k, k + 250)
+    const query = `SELECT ?item ?fr ?en ?person WHERE {
+  VALUES ?item { ${batch.map(q => `wd:${q}`).join(' ')} }
+  OPTIONAL { ?item rdfs:label ?fr FILTER(LANG(?fr) = "fr") }
+  OPTIONAL { ?item rdfs:label ?en FILTER(LANG(?en) = "en") }
+  BIND(EXISTS { ?item wdt:P31 ?c . VALUES ?c { wd:Q5 wd:Q8436 wd:Q13417114 } } AS ?person)
+}`
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const res = await fetch('https://query.wikidata.org/sparql', {
+          method: 'POST',
+          body: new URLSearchParams({ query }),
+          headers: { 'User-Agent': USER_AGENT, 'Accept': 'application/sparql-results+json' },
+          signal: AbortSignal.timeout(60_000),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        type Value = { value: string }
+        const json = await res.json() as { results: { bindings: { item: Value, fr?: Value, en?: Value, person: Value }[] } }
+        for (const b of json.results.bindings) {
+          const q = b.item.value.split('/').pop()!
+          result.set(q, { fr: b.fr?.value.trim() ?? '', en: b.en?.value.trim() ?? '', person: b.person.value === 'true' })
+        }
+        break
+      }
+      catch (e) {
+        if (attempt < 6) {
+          await new Promise(r => setTimeout(r, 5_000 * attempt))
+          continue
+        }
+        logger.warn({ err: String(e) }, 'Wikidata (noms des lieux) indisponible')
+        break
+      }
+    }
+    await new Promise(r => setTimeout(r, 300))
   }
   return result
 }

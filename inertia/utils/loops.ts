@@ -652,6 +652,17 @@ export async function lowerClimb(loop: Loop, start: LatLon, target: number, allP
 const PASS_BY = 75
 /** Deux lieux plus proches que ça (m) sont le même endroit (une église et son entrée « monument historique ») */
 const SAME_SPOT = 50
+/** Même début de nom à moins de cette distance (m) : même lieu (le bâtiment et le musée qu'il abrite, à deux fiches) */
+const SAME_NAME_SPOT = 200
+
+/** Début de nom sans accents ni ponctuation (« Musée d'histoire culturelle d'Oslo » ≈ « Musée d’histoire culturelle ») */
+const nameKey = (name: string) => name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 16)
+
+function sameSpot(a: Poi, b: Poi): boolean {
+  const d = haversine(a, b)
+  return d < SAME_SPOT || (d < SAME_NAME_SPOT && nameKey(a.name).length >= 8 && nameKey(a.name) === nameKey(b.name))
+}
+
 /** Lieux annoncés au plus par boucle (ceux visés sont toujours gardés) : au-delà, la liste et la carte deviennent illisibles */
 const MAX_STOPS = 15
 
@@ -683,7 +694,7 @@ export function withPassedPlaces(loop: Loop, pool: Poi[]): Loop {
   const byWeight = [...pool].sort((a, b) => (b.weight ?? b.score) - (a.weight ?? a.score))
   for (const p of byWeight) {
     if (stops.length >= MAX_STOPS) break
-    if (stops.some(s => s.p.id === p.id || haversine(s.p, p) < SAME_SPOT)) continue
+    if (stops.some(s => s.p.id === p.id || sameSpot(s.p, p))) continue
     const q = toXY(p)
     if (q.x < box.x0 || q.x > box.x1 || q.y < box.y0 || q.y > box.y1) continue
     const near = closest(p)

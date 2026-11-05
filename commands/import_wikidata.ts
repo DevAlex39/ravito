@@ -228,6 +228,7 @@ function toCandidates(rows: Row[]): { candidates: Candidate[], sitelinks: Map<st
       heritage,
       sitelinks: fame,
       score: 0,
+      localName: false,
     })
   }
   return { candidates, sitelinks }

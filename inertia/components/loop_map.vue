@@ -54,7 +54,7 @@ onMounted(async () => {
   site = await createMap(el.value!, {
     center: props.start ? [props.start.lon, props.start.lat] : undefined,
     zoom: props.start ? 14 : 6,
-    attribution: 'lieux <a href="https://www.wikidata.org">Wikidata</a>, <a href="https://geoservices.ign.fr/bdtopo">IGN</a> | itinéraires <a href="https://brouter.de">BRouter</a>',
+    attribution: 'lieux <a href="https://www.wikidata.org">Wikidata</a>, <a href="https://geoservices.ign.fr/bdtopo">IGN</a> (France) | itinéraires <a href="https://brouter.de">BRouter</a>',
   })
   const { ml, map } = site
   await site.ready

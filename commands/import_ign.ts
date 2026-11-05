@@ -175,6 +175,7 @@ function toPoi(f: IgnFeature, q: IgnQuery): NewPoi | null {
     heritage: 0,
     sitelinks: 0,
     score: 0,
+    localName: false,
   }
 }
 
