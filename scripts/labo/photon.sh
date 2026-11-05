@@ -26,11 +26,23 @@ case $1 in
     mkdir -p "$(dirname "$jar")" "$DOSSIER_ADRESSES"
     [ -s "$jar" ] || curl -sfSL -o "$jar" "https://github.com/komoot/photon/releases/download/$VERSION/photon-$VERSION.jar"
     cd "$DOSSIER_ADRESSES"
-    # Décompressé au fil du téléchargement : pas besoin de garder l'archive
+    # L'archive est d'abord enregistrée : le serveur est lent (~0,5 Mo/s), une coupure reprend là où elle s'est arrêtée
+    archive=$(basename "$FICHIER")
+    url="https://download1.graphhopper.com/public/$FICHIER"
+    until curl -fSL -C - --retry 10 --retry-delay 60 --retry-all-errors -o "$archive" "$url"; do
+      echo "$(date '+%F %T') téléchargement interrompu, reprise dans 2 min" >&2
+      sleep 120
+    done
+    # Somme de contrôle publiée à côté de l'archive
+    if curl -sfL -o "$archive.md5" "$url.md5"; then
+      [ "$(cut -d' ' -f1 "$archive.md5")" = "$(md5sum "$archive" | cut -d' ' -f1)" ] \
+        || { echo "Archive abîmée (MD5 différent) : supprimer $DOSSIER_ADRESSES/$archive et relancer" >&2; exit 1; }
+    fi
     rm -rf photon_data.nouveau && mkdir photon_data.nouveau
     # lbzip2 (s'il est installé) décompresse sur tous les cœurs ; bzip2 sur un seul
-    curl -sfSL "https://download1.graphhopper.com/public/$FICHIER" | "$(command -v lbzip2 || echo bzip2)" -dc | tar -x -C photon_data.nouveau
+    "$(command -v lbzip2 || echo bzip2)" -dc "$archive" | tar -x -C photon_data.nouveau
     rm -rf photon_data && mv photon_data.nouveau/photon_data photon_data && rmdir photon_data.nouveau
+    rm -f "$archive" "$archive.md5"
     du -sh photon_data
     ;;
   demarrer)
