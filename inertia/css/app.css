@@ -68,9 +68,12 @@ body::before {
   mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
 }
 @media (max-width: 700px) {
+  /* Bande dessinée seule (image recadrée), jamais plus haute que 30 % de l'écran : elle ne remonte pas derrière le texte */
   body::before {
-    height: 100vh;
+    height: min(56vw, 30vh);
     background-image: url('../images/fond-mobile.png');
+    background-size: contain;
+    opacity: 0.3;
     -webkit-mask-image: none;
     mask-image: none;
   }
