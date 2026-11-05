@@ -362,7 +362,8 @@ export function toPoi(el: OverpassElement): NewPoi | null {
     // Bâtiment remarquable sans autre précision : « Monument historique » s'il est protégé
     ?? (heritage ? 'heritage' : null)
   return {
-    kind: kind ?? 'lieu',
+    // Les étiquettes OSM sont du texte libre : une valeur saisie à la main (« Ruine du château de … ») devient « lieu »
+    kind: kind && /^[a-z_:]{1,40}$/.test(kind) ? kind : 'lieu',
     heritage,
     osmKey: `${el.type[0]}${el.id}`,
     name,
