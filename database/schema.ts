@@ -137,7 +137,7 @@ export class PoiCellSchema extends BaseModel {
 }
 
 export class PoisSchema extends BaseModel {
-  static $columns = ['category', 'country', 'createdAt', 'id', 'kind', 'lat', 'lon', 'name', 'osmKey', 'score', 'sitelinks', 'updatedAt', 'wikidata'] as const
+  static $columns = ['category', 'country', 'createdAt', 'id', 'kind', 'lat', 'lon', 'name', 'osmKey', 'score', 'sitelinks', 'updatedAt', 'wikidata', 'wikidataEn', 'wikidataFr'] as const
   $columns = PoisSchema.$columns
   @column()
   declare category: string
@@ -165,6 +165,10 @@ export class PoisSchema extends BaseModel {
   declare updatedAt: DateTime | null
   @column()
   declare wikidata: string | null
+  @column()
+  declare wikidataEn: string | null
+  @column()
+  declare wikidataFr: string | null
 }
 
 export class RateLimitSchema extends BaseModel {
