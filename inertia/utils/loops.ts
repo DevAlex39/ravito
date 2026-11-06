@@ -22,8 +22,8 @@ export interface Amenity extends LatLon {
   name: string | null
 }
 
-/** Points d'eau et toilettes à moins de `within` mètres du tracé */
-export function amenitiesAlong(loop: Loop, list: Amenity[], within = 60): Amenity[] {
+/** Points d'eau et toilettes à moins de `within` mètres du tracé (au bord du parcours, places et rues larges comprises) */
+export function amenitiesAlong(loop: Loop, list: Amenity[], within = 30): Amenity[] {
   if (!list.length || !loop.coords.length) return []
   const lats = loop.coords.map(c => c[1])
   const lons = loop.coords.map(c => c[0])
