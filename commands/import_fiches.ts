@@ -120,8 +120,7 @@ export default class ImportFiches extends BaseCommand {
   /** Résumé (introduction en texte brut) et image principale de chaque article : 20 articles par requête */
   private async articles(lang: string, titles: string[]): Promise<Map<string, Article>> {
     const result = new Map<string, Article>()
-    for (let k = 0; k < titles.length; k += 20) {
-      const batch = titles.slice(k, k + 20)
+    for (const batch of batches(titles, 20)) {
       const params = new URLSearchParams({
         action: 'query', prop: 'extracts|pageimages', exintro: '1', explaintext: '1', exlimit: '20',
         piprop: 'name', redirects: '1', titles: batch.join('|'), format: 'json', formatversion: '2', maxlag: '5',
@@ -207,8 +206,7 @@ export default class ImportFiches extends BaseCommand {
   /** Adresse de la miniature, auteur et licence de chaque fichier Commons : 50 fichiers par requête */
   private async photoInfos(files: string[]): Promise<Map<string, { url: string, author: string | null, license: string | null }>> {
     const result = new Map<string, { url: string, author: string | null, license: string | null }>()
-    for (let k = 0; k < files.length; k += 50) {
-      const batch = files.slice(k, k + 50)
+    for (const batch of batches(files, 50)) {
       const params = new URLSearchParams({
         action: 'query', prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: String(THUMB),
         iiextmetadatafilter: 'Artist|LicenseShortName', titles: batch.map(f => `File:${f}`).join('|'),
@@ -294,4 +292,26 @@ function plain(html?: string): string | null {
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;/g, '\'').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/\s+/g, ' ').trim()
   return text || null
+}
+
+/**
+ * Paquets d'au plus `max` titres et d'une adresse raisonnable : un titre thaï ou coréen encodé prend 9 caractères
+ * par lettre, et Wikimedia refuse les adresses trop longues (erreur 414).
+ */
+function batches(titles: string[], max: number, maxChars = 6000): string[][] {
+  const out: string[][] = []
+  let current: string[] = []
+  let length = 0
+  for (const t of titles) {
+    const size = encodeURIComponent(t).length + 3
+    if (current.length && (current.length >= max || length + size > maxChars)) {
+      out.push(current)
+      current = []
+      length = 0
+    }
+    current.push(t)
+    length += size
+  }
+  if (current.length) out.push(current)
+  return out
 }
