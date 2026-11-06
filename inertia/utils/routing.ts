@@ -36,6 +36,8 @@ export interface RouteOptions {
   signal?: AbortSignal
   terrain?: Terrain
   priority?: Priority
+  /** Sans aller-retour : même un lieu proche n'est pas atteint en revenant sur ses pas (boucles, pas BRouter) */
+  noRetrace?: boolean
 }
 
 /** Répartition d'un itinéraire, en mètres */

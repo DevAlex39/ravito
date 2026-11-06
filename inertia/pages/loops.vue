@@ -22,6 +22,7 @@
         </PickList>
         <PickList v-model="terrain" class="pill pick" label="Type de chemins" :title="terrainInfo.hint" :options="TERRAIN_OPTIONS" @change="propose" />
         <PickList v-model="priority" class="pill pick" label="Priorité" :title="priorityInfo.hint" :options="PRIORITY_OPTIONS" @change="propose" />
+        <PickList v-model="retrace" class="pill pick" label="Allers-retours" :title="retraceInfo.hint" :options="RETRACE_OPTIONS" @change="propose" />
         <button class="btn ghost" type="button" @click="formOpen = true">
           <Icon name="sliders" :size="18" />Types de lieux<span v-if="groups.length" class="badge">{{ groups.length }}</span>
         </button>
@@ -100,6 +101,24 @@
                 @click="priority = p.value"
               >
                 {{ p.label }}
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <span>Allers-retours</span>
+            <div class="count" role="radiogroup" aria-label="Allers-retours">
+              <button
+                v-for="r in RETRACES"
+                :key="r.value"
+                type="button"
+                role="radio"
+                class="wide"
+                :title="r.hint"
+                :aria-checked="retrace === r.value"
+                :class="{ on: retrace === r.value }"
+                @click="retrace = r.value"
+              >
+                {{ r.label }}
               </button>
             </div>
           </div>
@@ -438,8 +457,17 @@ const PRIORITIES: { value: Priority, label: string, hint: string }[] = [
 const priority = ref<Priority>('distance')
 const priorityInfo = computed(() => PRIORITIES.find(p => p.value === priority.value)!)
 const PRIORITY_OPTIONS: PickOption<Priority>[] = PRIORITIES.map(p => ({ value: p.value, label: p.label, hint: p.hint }))
+type Retrace = 'standard' | 'sans'
+const RETRACES: { value: Retrace, label: string, hint: string }[] = [
+  { value: 'standard', label: 'Standard', hint: 'Un court aller-retour (300 m au plus, par petite route ou chemin) est permis pour atteindre un lieu proche' },
+  { value: 'sans', label: 'Sans aller-retour', hint: 'Jamais deux fois le même chemin : la boucle passera peut-être par moins de lieux' },
+]
+/** Allers-retours courts vers un lieu : permis par défaut */
+const retrace = ref<Retrace>('standard')
+const retraceInfo = computed(() => RETRACES.find(r => r.value === retrace.value)!)
+const RETRACE_OPTIONS: PickOption<Retrace>[] = RETRACES.map(r => ({ value: r.value, label: r.label, hint: r.hint }))
 /** Réglages d'itinéraire communs à tous les calculs */
-const routeOpts = computed<RouteOptions>(() => ({ terrain: terrain.value, priority: priority.value }))
+const routeOpts = computed<RouteOptions>(() => ({ terrain: terrain.value, priority: priority.value, noRetrace: retrace.value === 'sans' }))
 
 /**
  * « 65 % sentiers · 32 % petites routes · 3 % départementales » : le total fait toujours 100
@@ -731,7 +759,7 @@ async function propose() {
   const more = wantMore && loops.value.length > 0
   wantMore = false
   // Même recherche que tout à l'heure : on réaffiche les boucles déjà calculées
-  const cacheKey = JSON.stringify([start.value.lat.toFixed(5), start.value.lon.toFixed(5), target, theme.value, [...kinds.value].sort(), terrain.value, priority.value, LOOP_COUNT])
+  const cacheKey = JSON.stringify([start.value.lat.toFixed(5), start.value.lon.toFixed(5), target, theme.value, [...kinds.value].sort(), terrain.value, priority.value, retrace.value, LOOP_COUNT])
   const cached = more ? null : readLoops(cacheKey)
   if (cached) {
     shownLoops = [...cached.loops]
@@ -804,7 +832,7 @@ async function lessClimb(i: number) {
   try {
     // Les lieux viennent du cache du serveur : la réponse est immédiate après une première recherche
     const pois = await fetchPois(start.value, target).catch(() => [] as Poi[])
-    const better = await lowerClimb(loop, start.value, target, pois, { terrain: terrain.value })
+    const better = await lowerClimb(loop, start.value, target, pois, { terrain: terrain.value, noRetrace: retrace.value === 'sans' })
     if (!better || loops.value[i] !== loop) {
       if (!better) showInfo(`Pas d'itinéraire nettement moins vallonné pour la boucle ${i + 1} : elle passe déjà au plus plat du secteur.`)
       return
@@ -852,6 +880,7 @@ function loopQuery(): string {
   if (name) p.set('nom', name)
   if (theme.value !== 'tout') p.set('style', theme.value)
   if (priority.value !== 'distance') p.set('priorite', priority.value)
+  if (retrace.value === 'sans') p.set('allers-retours', 'non')
   if (groups.value.length) p.set('types', groups.value.join(','))
   // Points de passage : la même boucle est recalculée à l'identique à l'ouverture du lien
   p.set('via', (loop.via ?? loop.waypoints).map(w => `${w.lat.toFixed(5)},${w.lon.toFixed(5)}`).join('_'))
@@ -1015,6 +1044,7 @@ onMounted(async () => {
   const paths = params.get('chemins')
   if (paths === 'route' || paths === 'mixte' || paths === 'sentiers') terrain.value = paths
   if (params.get('priorite') === 'denivele') priority.value = 'denivele'
+  if (params.get('allers-retours') === 'non') retrace.value = 'sans'
   const types = (params.get('types') ?? '').split(',').filter(id => KIND_GROUPS.some(g => g.id === id))
   if (types.length) groups.value = types
   const via = params.get('via')

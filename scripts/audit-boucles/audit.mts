@@ -7,7 +7,7 @@
  * - écart à la distance demandée, nombre de lieux.
  *
  * Lancement (depuis la racine du projet) :
- *   node --import ./scripts/audit-boucles/register.mjs scripts/audit-boucles/audit.mts [--rapide] [--ville Dole] [--hasard 12] [--graine 123]
+ *   node --import ./scripts/audit-boucles/register.mjs scripts/audit-boucles/audit.mts [--rapide] [--ville Dole] [--hasard 12] [--graine 123] [--sans-aller-retour]
  * Deux séries de départs :
  * - les villes de PLACES, toujours les mêmes : leurs chiffres se comparent d'un audit à l'autre ;
  * - des départs tirés au hasard en France (campagne, périphéries, montagne…), différents à chaque audit,
@@ -49,6 +49,8 @@ const args = process.argv.slice(2)
 const quick = args.includes('--rapide')
 const only = args.includes('--ville') ? args[args.indexOf('--ville') + 1]?.toLowerCase() : null
 const priority: Priority = args.includes('--denivele') ? 'denivele' : 'distance'
+/** Option « Sans aller-retour » de la page Boucles */
+const noRetrace = args.includes('--sans-aller-retour')
 const argValue = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined)
 /** Départs au hasard : 12 par défaut, 4 en --rapide, aucun pour une seule ville */
 const randomCount = Number(argValue('--hasard') ?? (only ? 0 : quick ? 4 : 12))
@@ -184,7 +186,7 @@ for (const { p: [place, lat, lon], rank: n } of [...places, ...randoms]) {
   const start = { lat, lon }
   try {
     const pois = await fetchPois(start, km * 1000)
-    const loops = await generateLoops(start, km * 1000, pois, 3, { terrain, priority })
+    const loops = await generateLoops(start, km * 1000, pois, 3, { terrain, priority, noRetrace })
     for (const [i, loop] of loops.entries()) reports.push({ zone, ...(await inspect(loop, place, start, km, terrain, i + 1)) })
     const mine = reports.filter(r => r.place === place)
     console.log(`${place.padEnd(20)} ${String(km).padStart(2)} km ${terrain.padEnd(8)} ${mine.map(r => (r.problems.length ? '✗' : '✓')).join('')} ${mine.flatMap(r => r.problems).join(' ; ')}`)

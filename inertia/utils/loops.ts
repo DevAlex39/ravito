@@ -82,6 +82,8 @@ const busyShare = (l: Loop) => (l.distance ? l.surface.busy / l.distance : 0)
  * En campagne, c'est surtout la sortie du départ : on part et on revient par la même route sur 1 à 3 km.
  */
 const RETRACE_SHARE_MAX = 0.15
+/** Même seuil quand l'utilisateur ne veut pas d'aller-retour : il ne reste que des repassages inévitables */
+const RETRACE_SHARE_STRICT = 0.03
 /** Autour du départ (m) : repartir et revenir par la même rue est inévitable, ce n'est pas compté */
 const RETRACE_FREE = 200
 const retraced = new WeakMap<Loop, number>()
@@ -394,8 +396,9 @@ function busyLength(coords: Coord[], busy: boolean[], from: number, to: number):
  * Coupe les allers-retours : quand le tracé va toucher un point de passage puis revient sur ses pas,
  * on retire la partie faite deux fois. Le point de forme disparaît ; un lieu au bout d'un long
  * cul-de-sac est abandonné (mieux vaut une boucle un peu plus courte qu'un aller-retour inutile).
+ * Avec `strict` (option « Sans aller-retour »), même un lieu au bout d'un court aller-retour est abandonné.
  */
-function cutSpurs(coords: Coord[], waypoints: LatLon[], stops: Poi[], busy: boolean[] = []) {
+function cutSpurs(coords: Coord[], waypoints: LatLon[], stops: Poi[], busy: boolean[] = [], strict = false) {
   let kept = waypoints.slice(1, -1)
   for (let guard = 0; guard < 30; guard++) {
     let cut = false
@@ -426,7 +429,7 @@ function cutSpurs(coords: Coord[], waypoints: LatLon[], stops: Poi[], busy: bool
         }
       }
       // Un lieu au bout d'un court aller-retour est gardé, sauf si l'aller-retour emprunte une route à fort trafic
-      if (near && stops.includes(near as Poi) && spur <= MAX_SPUR_POI && busyLength(coords, busy, from, i) < BUSY_SPUR_MAX) continue
+      if (!strict && near && stops.includes(near as Poi) && spur <= MAX_SPUR_POI && busyLength(coords, busy, from, i) < BUSY_SPUR_MAX) continue
       // Garde-fou : les deux bouts raccordés doivent se toucher, sinon la coupe tracerait une ligne droite hors chemin
       if (join > JOIN_MAX) continue
       coords = [...coords.slice(0, from + 1), ...coords.slice(to)]
@@ -458,7 +461,7 @@ async function routeOnce(waypoints: LatLon[], stops: Poi[], opts: RouteOptions):
     await new Promise(r => setTimeout(r, 1500))
     route = await routeVia(waypoints, opts)
   }
-  const { busy: busyFlags, ...cut } = cutSpurs(route.coords, waypoints, stops, route.busy)
+  const { busy: busyFlags, ...cut } = cutSpurs(route.coords, waypoints, stops, route.busy, opts.noRetrace)
   const { coords } = cut
   let distance = 0
   for (let i = 0; i < coords.length - 1; i++) distance += step(coords, i)
@@ -565,6 +568,7 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
   // Boucles trop éloignées de la distance demandée : gardées seulement à défaut de mieux
   const weak: { direction: number, loop: Loop }[] = []
   let lastError: unknown
+  const retraceMax = opts.noRetrace ? RETRACE_SHARE_STRICT : RETRACE_SHARE_MAX
   // Une direction peut échouer (point de forme dans un lac, zone sans chemin) : on essaie alors la suivante
   // Plus d'essais pour « D'autres boucles » : beaucoup sont écartées, trop proches des boucles déjà vues
   for (let round = 0; round < (avoid ? 5 : 3) && loops.length < wanted && remaining.length; round++) {
@@ -584,12 +588,12 @@ export async function generateLoops(start: LatLon, target: number, allPois: Poi[
       if (r.status === 'rejected') lastError = r.reason
       // Trop semblable à une boucle déjà montrée : on n'en veut pas
       else if (tooClose(r.value)) return
-      else if (Math.abs(r.value.distance - target) / target > TOLERANCE * 1.5 || busyShare(r.value) > BUSY_SHARE_MAX || retraceShare(r.value) > RETRACE_SHARE_MAX) weak.push({ direction: picked[i]!.direction, loop: r.value })
+      else if (Math.abs(r.value.distance - target) / target > TOLERANCE * 1.5 || busyShare(r.value) > BUSY_SHARE_MAX || retraceShare(r.value) > retraceMax) weak.push({ direction: picked[i]!.direction, loop: r.value })
       else loops.push({ direction: picked[i]!.direction, loop: r.value })
     })
   }
   // À défaut de mieux : les moins éloignées de la distance demandée, un grand axe pesant lourd, puis les allers-retours
-  const penalty = (l: Loop) => Math.abs(l.distance - target) / target + 2 * busyShare(l) + retraceShare(l)
+  const penalty = (l: Loop) => Math.abs(l.distance - target) / target + 2 * busyShare(l) + (opts.noRetrace ? 5 : 1) * retraceShare(l)
   weak.sort((a, b) => penalty(a.loop) - penalty(b.loop))
   for (const w of weak) {
     if (loops.length >= wanted) break
