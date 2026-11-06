@@ -16,7 +16,31 @@ export type LonLat = [number, number]
 
 /** Adresse des données du labo (fonds de carte .pmtiles, polices, icônes), voir scripts/labo/servir-carte.sh */
 const CARTE_URL = (import.meta.env.VITE_CARTE_URL ?? '').replace(/\/$/, '')
-const FONDS = { europe: 'europe/fond-de-carte/europe.pmtiles', japon: 'asie/japon/fond-de-carte/japon.pmtiles' }
+type Box = [number, number, number, number]
+/**
+ * Fonds de carte du labo et leur emprise [ouest, sud, est, nord] : la carte ne charge que ceux de la zone affichée
+ * (chaque fond ajoute ~80 calques, tous ensemble alourdiraient chaque carte). Le premier sert de fond par défaut.
+ */
+const FONDS: Record<string, { file: string, box: Box }> = {
+  'europe': { file: 'europe/fond-de-carte/europe.pmtiles', box: [-32, 27, 70, 82] },
+  'japon': { file: 'asie/japon/fond-de-carte/japon.pmtiles', box: [122, 20, 154, 46] },
+  'coree-du-sud': { file: 'asie/coree-du-sud/fond-de-carte/coree-du-sud.pmtiles', box: [124, 33, 132, 39] },
+  'taiwan': { file: 'asie/taiwan/fond-de-carte/taiwan.pmtiles', box: [118, 21, 123, 27] },
+  'thailande': { file: 'asie/thailande/fond-de-carte/thailande.pmtiles', box: [97, 5, 106, 21] },
+  'vietnam': { file: 'asie/vietnam/fond-de-carte/vietnam.pmtiles', box: [102, 8, 110, 24] },
+  'australie': { file: 'oceanie/australie/fond-de-carte/australie.pmtiles', box: [112, -44, 154, -9] },
+  'nouvelle-zelande': { file: 'oceanie/nouvelle-zelande/fond-de-carte/nouvelle-zelande.pmtiles', box: [165, -48, 180, -34] },
+  'canada': { file: 'amerique-du-nord/canada/fond-de-carte/canada.pmtiles', box: [-141, 41, -52, 84] },
+  'etats-unis': { file: 'amerique-du-nord/etats-unis/fond-de-carte/etats-unis.pmtiles', box: [-180, 18, -66, 72] },
+}
+
+const overlaps = (a: Box, b: Box) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3]
+
+/** Fonds qui touchent la zone affichée (au moins un, pour le fond de couleur) */
+function zonesFor(view: Box): string[] {
+  const found = Object.keys(FONDS).filter(k => overlaps(FONDS[k].box, view))
+  return found.length ? found : [Object.keys(FONDS)[0]]
+}
 const ASSETS = `${CARTE_URL}/monde/carte-assets`
 
 const OSM = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -109,15 +133,15 @@ function rasterStyle(fond: Fond, dark: boolean): Maplibre.StyleSpecification {
 }
 
 /**
- * Notre fond vectoriel : Europe et Japon. Sentiers et pistes en pointillés bruns (pas les trottoirs ni les pistes
+ * Notre fond vectoriel, pour les pays de la zone affichée. Sentiers et pistes en pointillés bruns (pas les trottoirs ni les pistes
  * cyclables des villes) : bien visibles sans se confondre avec le tracé orange.
  */
-function vectorStyle(dark: boolean): Maplibre.StyleSpecification {
+function vectorStyle(dark: boolean, zones: string[]): Maplibre.StyleSpecification {
   const bm = basemaps!
   const sources: Maplibre.StyleSpecification['sources'] = {}
   let layers: Maplibre.LayerSpecification[] = []
-  Object.entries(FONDS).forEach(([pays, file], i) => {
-    sources[pays] = { type: 'vector', url: `pmtiles://${CARTE_URL}/${file}`, attribution: `${OSM} · <a href="https://protomaps.com">Protomaps</a>` }
+  zones.forEach((pays, i) => {
+    sources[pays] = { type: 'vector', url: `pmtiles://${CARTE_URL}/${FONDS[pays].file}`, attribution: `${OSM} · <a href="https://protomaps.com">Protomaps</a>` }
     const own = (bm.layers(pays, flavor(dark), { lang: 'fr' }) as Maplibre.LayerSpecification[])
       .filter(l => l.type !== 'background' || i === 0)
       .map(l => ({ ...l, id: `${pays}-${l.id}` }) as Maplibre.LayerSpecification)
@@ -142,8 +166,8 @@ function vectorStyle(dark: boolean): Maplibre.StyleSpecification {
   }
 }
 
-function baseStyle(fond: Fond, dark: boolean) {
-  return fond === 'plan' && CARTE_URL ? vectorStyle(dark) : rasterStyle(fond, dark)
+function baseStyle(fond: Fond, dark: boolean, zones: string[]) {
+  return fond === 'plan' && CARTE_URL ? vectorStyle(dark, zones) : rasterStyle(fond, dark)
 }
 
 /** Ce que les pages ont ajouté (préfixe a-) passe d'un fond à l'autre */
@@ -209,10 +233,13 @@ export async function createMap(container: HTMLElement, opts: MapOptions = {}): 
   const ml = await load()
   let fond: Fond = 'plan'
   let dark = isDark()
+  const center = opts.center ?? [2.5, 46.6]
+  // Avant l'affichage, seul le centre est connu ; l'emprise réelle est prise dès le chargement
+  let zones = zonesFor([center[0], center[1], center[0], center[1]])
   const map = new ml.Map({
     container,
-    style: baseStyle(fond, dark),
-    center: opts.center ?? [2.5, 46.6],
+    style: baseStyle(fond, dark, zones),
+    center,
     zoom: z(opts.zoom ?? 6),
     maxZoom: 19,
     scrollZoom: opts.scrollZoom ?? true,
@@ -227,8 +254,18 @@ export async function createMap(container: HTMLElement, opts: MapOptions = {}): 
   map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-left')
   const switchFond = (next: Fond) => {
     fond = next
-    map.setStyle(baseStyle(fond, dark), { transformStyle: keepOverlays })
+    map.setStyle(baseStyle(fond, dark, zones), { transformStyle: keepOverlays })
   }
+  // Carte déplacée vers un autre pays : on ajoute ou retire les fonds concernés
+  const onMove = () => {
+    const b = map.getBounds()
+    const next = zonesFor([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])
+    if (next.join() === zones.join()) return
+    zones = next
+    if (fond === 'plan') switchFond(fond)
+  }
+  map.on('load', onMove)
+  map.on('moveend', onMove)
   map.addControl(new FondControl(switchFond, () => fond), 'top-right')
   map.addControl(new ml.ScaleControl({ maxWidth: 90 }), 'bottom-left')
 
