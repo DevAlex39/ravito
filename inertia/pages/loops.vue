@@ -376,7 +376,7 @@ import PlaceInput from '~/components/place_input.vue'
 import { buildProfile } from '~/utils/profile'
 import { autoBoundaries, computeSegments } from '~/utils/segments'
 import { formatDuration, formatKm, formatPace } from '~/utils/format'
-import { haversine, toGpx } from '~/utils/gpx'
+import { haversine, toGpx, type GpxWaypoint } from '~/utils/gpx'
 import { KIND_GROUPS, kindOf } from '~/utils/places'
 import Icon from '~/components/icon.vue'
 import PickList from '~/components/pick_list.vue'
@@ -1066,9 +1066,25 @@ onMounted(async () => {
 })
 
 // --- Sortie ---
+/**
+ * Lieux numérotés comme sur la page (la montre prévient à l'approche de chacun), puis points d'eau et toilettes
+ * s'ils sont affichés sur la carte (« Eau & WC ») : ce qu'on voit est ce qu'on emporte.
+ */
+function gpxWaypoints(): GpxWaypoint[] {
+  const stops = (current.value?.stops ?? []).map((s, k) => ({
+    lat: s.lat, lon: s.lon, name: `${k + 1} ${s.name}`, desc: kindOf(s).label,
+  }))
+  const extras = showAmenities.value
+    ? currentAmenities.value.map(a => a.kind === 'water'
+      ? { lat: a.lat, lon: a.lon, name: a.name ? `Eau ${a.name}` : 'Eau potable', desc: 'Point d\'eau potable', sym: 'Drinking Water' }
+      : { lat: a.lat, lon: a.lon, name: 'WC', desc: a.name ? `Toilettes ${a.name}` : 'Toilettes', sym: 'Restroom' })
+    : []
+  return [...stops, ...extras]
+}
+
 function gpxText() {
   const t = track.value
-  return t ? toGpx(t.name, t.points) : null
+  return t ? toGpx(t.name, t.points, gpxWaypoints()) : null
 }
 
 function download() {

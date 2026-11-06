@@ -79,15 +79,34 @@ export function parseGpx(text: string): Track {
 
 const escapeXml = (s: string) => s.replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '\'': '&apos;', '"': '&quot;' }[c]!))
 
-/** Construit un fichier GPX 1.1 (une trace) à partir de points */
-export function toGpx(name: string, points: { lat: number, lon: number, ele: number }[]): string {
+/**
+ * Point remarquable joint à la trace (lieu, point d'eau, ravito). Garmin Connect en fait des « points de parcours » :
+ * la montre prévient à l'approche et affiche le nom (une quinzaine de caractères visibles, d'où le numéro en tête).
+ */
+export interface GpxWaypoint {
+  lat: number
+  lon: number
+  name: string
+  /** Texte complet (type de lieu…) pour les applications qui l'affichent */
+  desc?: string
+  /** Symbole Garmin standard (« Drinking Water », « Restroom »…) */
+  sym?: string
+}
+
+/** Construit un fichier GPX 1.1 (une trace, et ses points remarquables) à partir de points */
+export function toGpx(name: string, points: { lat: number, lon: number, ele: number }[], waypoints: GpxWaypoint[] = []): string {
   const pts = points
     .map(p => `<trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"><ele>${p.ele.toFixed(1)}</ele></trkpt>`)
     .join('\n')
+  // Les <wpt> se placent avant la trace (ordre imposé par le format GPX 1.1)
+  const wpts = waypoints
+    .map(w => `<wpt lat="${w.lat.toFixed(6)}" lon="${w.lon.toFixed(6)}"><name>${escapeXml(w.name)}</name>`
+      + `${w.desc ? `<desc>${escapeXml(w.desc)}</desc>` : ''}${w.sym ? `<sym>${escapeXml(w.sym)}</sym>` : ''}</wpt>\n`)
+    .join('')
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="${escapeXml(APP_NAME)}" xmlns="http://www.topografix.com/GPX/1/1">
 <metadata><name>${escapeXml(name)}</name></metadata>
-<trk><name>${escapeXml(name)}</name><trkseg>
+${wpts}<trk><name>${escapeXml(name)}</name><trkseg>
 ${pts}
 </trkseg></trk>
 </gpx>

@@ -1,5 +1,6 @@
 import { computed, effectScope, ref, watch } from 'vue'
-import { haversine, toGpx, type Track, type TrackPoint } from '~/utils/gpx'
+import { haversine, toGpx, type GpxWaypoint, type Track, type TrackPoint } from '~/utils/gpx'
+import { kindOf } from '~/utils/places'
 import { routeLeg, type Coord, type LatLon } from '~/utils/routing'
 import { buildProfile } from '~/utils/profile'
 
@@ -334,8 +335,15 @@ const noElevation = computed(() => legs.value.length > 0 && legs.value.every(l =
 
 const profile = computed(() => (track.value ? buildProfile(track.value) : null))
 
+/** Lieux du tracé, numérotés dans l'ordre du parcours : la montre prévient à l'approche de chacun */
+function gpxWaypoints(): GpxWaypoint[] {
+  return waypoints.value
+    .filter((p): p is TracePoint & { poi: TracePoi } => !!p.poi)
+    .map((p, k) => ({ lat: p.lat, lon: p.lon, name: `${k + 1} ${p.poi.name}`, desc: kindOf(p.poi).label }))
+}
+
 function gpxText(): string | null {
-  return track.value ? toGpx(track.value.name, track.value.points) : null
+  return track.value ? toGpx(track.value.name, track.value.points, gpxWaypoints()) : null
 }
 
 // --- Brouillon conservé dans le navigateur ---
