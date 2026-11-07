@@ -93,13 +93,42 @@ export interface GpxWaypoint {
   sym?: string
 }
 
-/** Construit un fichier GPX 1.1 (une trace, et ses points remarquables) à partir de points */
+/**
+ * Point du tracé le plus proche du lieu (projeté sur le segment le plus proche). Garmin et les autres montres ne
+ * préviennent qu'à l'approche d'un point situé sur le parcours : un lieu à 15 m du chemin (au bout d'un sentier,
+ * au milieu d'une place) peut passer inaperçu.
+ */
+function snapToTrack(w: GpxWaypoint, points: { lat: number, lon: number }[]): GpxWaypoint {
+  const k = Math.cos(w.lat * Math.PI / 180)
+  let best = { lat: w.lat, lon: w.lon }
+  let bestD = Infinity
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i]!
+    const b = points[i + 1]!
+    // Repère plat local (mètres à un facteur près), suffisant à cette échelle
+    const ax = (a.lon - w.lon) * k, ay = a.lat - w.lat
+    const bx = (b.lon - w.lon) * k, by = b.lat - w.lat
+    const dx = bx - ax, dy = by - ay
+    const len = dx * dx + dy * dy
+    const t = len ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len)) : 0
+    const px = ax + t * dx, py = ay + t * dy
+    const d = px * px + py * py
+    if (d < bestD) {
+      bestD = d
+      best = { lat: a.lat + t * (b.lat - a.lat), lon: a.lon + t * (b.lon - a.lon) }
+    }
+  }
+  return { ...w, ...best }
+}
+
+/** Construit un fichier GPX 1.1 (une trace, et ses points remarquables posés sur la trace) à partir de points */
 export function toGpx(name: string, points: { lat: number, lon: number, ele: number }[], waypoints: GpxWaypoint[] = []): string {
   const pts = points
     .map(p => `<trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"><ele>${p.ele.toFixed(1)}</ele></trkpt>`)
     .join('\n')
   // Les <wpt> se placent avant la trace (ordre imposé par le format GPX 1.1)
   const wpts = waypoints
+    .map(w => snapToTrack(w, points))
     .map(w => `<wpt lat="${w.lat.toFixed(6)}" lon="${w.lon.toFixed(6)}"><name>${escapeXml(w.name)}</name>`
       + `${w.desc ? `<desc>${escapeXml(w.desc)}</desc>` : ''}${w.sym ? `<sym>${escapeXml(w.sym)}</sym>` : ''}</wpt>\n`)
     .join('')
