@@ -165,6 +165,13 @@
 
       <div class="layout" :class="{ split: loops.length }">
         <aside v-if="loops.length" class="side">
+          <!-- En tête de liste (sous la carte sur mobile) : visible sans descendre sous les boucles -->
+          <div class="side-head">
+            <span class="soft">{{ loops.length }} boucle{{ loops.length > 1 ? 's' : '' }} proposée{{ loops.length > 1 ? 's' : '' }}</span>
+            <button type="button" class="btn ghost small more-loops" :disabled="busy" title="Nouvelles boucles avec les mêmes réglages, différentes de celles déjà vues" @click="proposeMore">
+              <Icon name="refresh" :size="16" />D'autres boucles
+            </button>
+          </div>
           <template v-for="(loop, i) in loops" :key="i">
             <article v-if="i === selected" class="loop card active">
               <header class="loop-head">
@@ -264,9 +271,6 @@
               <span v-if="surfaceText(loop)" class="soft">{{ surfaceText(loop) }}</span>
             </button>
           </template>
-          <button type="button" class="btn ghost more-loops" :disabled="busy" title="Nouvelles boucles avec les mêmes réglages, différentes de celles déjà vues" @click="proposeMore">
-            <Icon name="refresh" :size="18" />D'autres boucles
-          </button>
         </aside>
 
         <div class="main">
@@ -1296,7 +1300,8 @@ button.loop:hover { border-color: var(--border-strong); }
   white-space: nowrap;
 }
 .profile { padding: 12px 14px; border-radius: 18px; }
-.more-loops { align-self: stretch; justify-content: center; border-radius: 14px; }
+.side-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.more-loops { color: var(--accent-strong); border-color: var(--accent-strong); }
 .disclaimer { font-size: 0.8rem; color: var(--text-soft); line-height: 1.45; }
 .disclaimer a { color: inherit; }
 .plan-link { justify-content: center; width: 100%; }
