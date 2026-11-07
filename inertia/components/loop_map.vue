@@ -82,6 +82,10 @@ onMounted(async () => {
   drawStops()
   drawAmenities()
   resize.observe(el.value!)
+  // Boucles (déjà en mémoire) ou départ arrivés pendant la création de la carte : le cadrage demandé
+  // à ce moment-là s'est perdu, on le refait
+  if (props.loops.length) fitLoops()
+  else if (props.start) flyTo(props.start.lat, props.start.lon)
 })
 
 onBeforeUnmount(() => {

@@ -514,7 +514,7 @@ const selectedStop = ref<Poi | null>(null)
 /** Lieu survolé, dans la liste ou sur la carte : les deux le font ressortir */
 const hoverStop = ref<number | null>(null)
 /** Au-delà, les lieux de la boucle se déplient sur demande */
-const STOPS_SHOWN = 6
+const STOPS_SHOWN = 3
 const allStops = ref(false)
 const visibleStops = computed(() => {
   const stops = current.value?.stops ?? []
