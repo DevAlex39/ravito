@@ -32,17 +32,38 @@ const TOUS_FONDS: Record<string, { file: string, box: Box }> = {
   'nouvelle-zelande': { file: 'oceanie/nouvelle-zelande/fond-de-carte/nouvelle-zelande.pmtiles', box: [165, -48, 180, -34] },
   'canada': { file: 'amerique-du-nord/canada/fond-de-carte/canada.pmtiles', box: [-141, 41, -52, 84] },
   'etats-unis': { file: 'amerique-du-nord/etats-unis/fond-de-carte/etats-unis.pmtiles', box: [-180, 18, -66, 72] },
-  // Déjà compris dans « europe » : sert seul sur un serveur qui n'a que la France (VITE_CARTE_FONDS=france)
+  // Outre-mer
+  'reunion': { file: 'outre-mer/reunion/fond-de-carte/reunion.pmtiles', box: [54.9, -21.7, 56.1, -20.6] },
+  'mayotte': { file: 'outre-mer/mayotte/fond-de-carte/mayotte.pmtiles', box: [44.6, -13.5, 45.7, -12.1] },
+  'guadeloupe': { file: 'outre-mer/guadeloupe/fond-de-carte/guadeloupe.pmtiles', box: [-62.2, 15.5, -60.6, 16.8] },
+  'martinique': { file: 'outre-mer/martinique/fond-de-carte/martinique.pmtiles', box: [-61.6, 14.1, -60.4, 15.2] },
+  'guyane': { file: 'outre-mer/guyane/fond-de-carte/guyane.pmtiles', box: [-54.6, 2.1, -50.9, 6.4] },
+  'nouvelle-caledonie': { file: 'outre-mer/nouvelle-caledonie/fond-de-carte/nouvelle-caledonie.pmtiles', box: [157.9, -25, 174.1, -16.9] },
+  'polynesie-francaise': { file: 'outre-mer/polynesie-francaise/fond-de-carte/polynesie-francaise.pmtiles', box: [-158.6, -31.5, -132.5, -4.9] },
+  'wallis-et-futuna': { file: 'outre-mer/wallis-et-futuna/fond-de-carte/wallis-et-futuna.pmtiles', box: [-180, -16.3, -174.2, -9.1] },
+  // Pays d'Europe un par un (déjà compris dans « europe ») : pour un serveur qui n'a que quelques pays (VITE_CARTE_FONDS)
   'france': { file: 'europe/france/fond-de-carte/france.pmtiles', box: [-5.5, 41, 10, 51.5] },
+  'italie': { file: 'europe/italie/fond-de-carte/italie.pmtiles', box: [6.6, 35.1, 19.1, 47.1] },
+  'espagne': { file: 'europe/espagne/fond-de-carte/espagne.pmtiles', box: [-9.8, 35.3, 5.1, 44.1] },
+  'belgique': { file: 'europe/belgique/fond-de-carte/belgique.pmtiles', box: [2.3, 49.5, 6.4, 51.6] },
+  'suisse': { file: 'europe/suisse/fond-de-carte/suisse.pmtiles', box: [6, 45.8, 10.5, 47.8] },
+  'luxembourg': { file: 'europe/luxembourg/fond-de-carte/luxembourg.pmtiles', box: [5.7, 49.4, 6.5, 50.2] },
+  'monaco': { file: 'europe/monaco/fond-de-carte/monaco.pmtiles', box: [7.4, 43.5, 7.6, 43.8] },
+  'andorre': { file: 'europe/andorre/fond-de-carte/andorre.pmtiles', box: [1.4, 42.4, 1.8, 42.7] },
+  'liechtenstein': { file: 'europe/liechtenstein/fond-de-carte/liechtenstein.pmtiles', box: [9.5, 47, 9.6, 47.3] },
 }
+
+/** Fond d'un seul pays d'Europe, que le fond « europe » du labo contient déjà */
+const dansEurope = (k: string) => k !== 'europe' && TOUS_FONDS[k].file.startsWith('europe/')
 
 /**
  * Fonds réellement présents là où VITE_CARTE_URL les sert : liste séparée par des virgules dans VITE_CARTE_FONDS
- * (serveur : « france ») ; sans elle, tous les fonds du labo sauf « france », déjà couvert par « europe ».
+ * (serveur : « france,italie,…,reunion,… ») ; sans elle, ceux du labo (le fond « europe » au lieu des pays un par un).
  */
 const CHOISIS = (import.meta.env.VITE_CARTE_FONDS ?? '').split(',').map((s: string) => s.trim()).filter((k: string) => k in TOUS_FONDS)
-const FONDS = Object.fromEntries(Object.entries(TOUS_FONDS)
-  .filter(([k]) => CHOISIS.length ? CHOISIS.includes(k) : k !== 'france'))
+// Dans l'ordre de la liste : le premier sert de fond par défaut
+const FONDS = Object.fromEntries((CHOISIS.length ? CHOISIS : Object.keys(TOUS_FONDS).filter(k => !dansEurope(k)))
+  .map((k: string) => [k, TOUS_FONDS[k]]))
 
 const overlaps = (a: Box, b: Box) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3]
 
