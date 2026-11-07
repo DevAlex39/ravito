@@ -42,9 +42,16 @@ rm -f "$fiches"
 while read -r -u 3 dossier code continent base wikidata; do
   rel=$continent/$dossier
   echo "== $dossier : fichiers"
-  wsl -d Ubuntu --exec tar -C /home/alexis/alpast-data -cf - \
-      "$rel/fond-de-carte/$dossier.pmtiles" "$rel/fiches/photos" "$rel/lieux/$dossier-lieux.geojsonseq" "$rel/source/$base.poly" \
-    | ssh "$VPS" 'tar -xf - -C ~/alpas-data/donnees'
+  # Déjà envoyés (pour l'autre site, les données sont communes) : même taille de fond de carte et de lieux
+  ici=$(wsl -d Ubuntu --exec bash -c "cd ~/alpast-data/$rel && stat -c %s fond-de-carte/$dossier.pmtiles lieux/$dossier-lieux.geojsonseq 2>/dev/null" | tr '\n' ' ' || true)
+  la_bas=$(ssh "$VPS" "cd ~/alpas-data/donnees/$rel 2>/dev/null && stat -c %s fond-de-carte/$dossier.pmtiles lieux/$dossier-lieux.geojsonseq 2>/dev/null" | tr '\n' ' ' || true)
+  if [ -n "$ici" ] && [ "$ici" = "$la_bas" ]; then
+    echo "   déjà sur le serveur"
+  else
+    wsl -d Ubuntu --exec tar -C /home/alexis/alpast-data -cf - \
+        "$rel/fond-de-carte/$dossier.pmtiles" "$rel/fiches/photos" "$rel/lieux/$dossier-lieux.geojsonseq" "$rel/source/$base.poly" \
+      | ssh "$VPS" 'tar -xf - -C ~/alpas-data/donnees'
+  fi
 
   echo "== $dossier : tuiles d'itinéraires"
   tuiles=$(wsl -d Ubuntu --exec bash -c ". '$labo/commun.sh'; tuiles_brouter \"\$DATA/$rel/source/$base.poly\"")

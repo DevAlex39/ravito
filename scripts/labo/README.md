@@ -42,6 +42,12 @@ wsl -d Ubuntu --exec bash "/mnt/d/Perso/Site web/Ravito/scripts/labo/preparer-pa
 | `pays.ps1 -Seulement a,b` (PowerShell) | Pays demandés de bout en bout : préparation, lieux OSM + Wikidata, fond de carte (hors Europe), fiches ; reprise par marqueurs, journal dans `~/alpast-data/journal.txt` |
 | `europe.ps1` (PowerShell) | Prépare et importe tous les pays d'Europe de `config/pays.json`, journal dans `~/alpast-data/europe/journal.txt` |
 | `servir-carte.sh` | Données, polices et icônes + démo du fond de carte sur http://localhost:8090/demo/ |
+| `envoyer-pays.sh <test\|prod> <pays>…` (Git Bash) | Envoie au VPS les pays préparés (fond de carte, miniatures, lieux, contour, tuiles BRouter manquantes ; rien si déjà là), les importe dans la base du site et charge leurs fiches ; ajouter ensuite les fonds dans `VITE_CARTE_FONDS` et reconstruire |
+
+Photon du serveur : zone `voisins` (France, Italie, Espagne, Belgique, Suisse, Luxembourg, Monaco, Andorre,
+Liechtenstein, Saint-Marin, Vatican ; 14 Go), construite dans le labo depuis l'export brut Europe de GraphHopper
+importé avec `-country-codes fr,it,es,be,ch,lu,mc,ad,li,sm,va`, puis copiée dans `~/alpas-data/donnees/europe/adresses-voisins`.
+Sur le VPS, PM2 `photon` lance directement java (`-Xmx3g … serve -data-dir …/adresses-voisins -listen-ip 127.0.0.1 -listen-port 2322`).
 
 Import d'un pays dans la base locale (depuis Windows, à la racine du projet) :
 

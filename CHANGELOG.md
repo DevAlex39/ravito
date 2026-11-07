@@ -8,6 +8,19 @@ Chaque mise en ligne porte un numéro **vMAJEUR.MINEUR.CORRECTIF** (affiché en 
 Mettre en ligne : `ssh alexis@213.32.69.211 /var/www/alpas/scripts/deployer.sh`
 Revenir à la version d'avant : `ssh alexis@213.32.69.211 /var/www/alpas/scripts/revenir-version-precedente.sh`
 
+## v1.2.0 — 2026-11-07
+
+- **Nouveaux pays** : Italie, Espagne, Belgique, Suisse, Luxembourg, Monaco, Andorre et Liechtenstein, avec leurs
+  cartes, lieux, fiches et itinéraires.
+- **Outre-mer** : Réunion, Mayotte, Guadeloupe, Martinique, Guyane, Nouvelle-Calédonie, Polynésie française,
+  Wallis-et-Futuna.
+- **Recherche d'adresses** : les villes étrangères (Barcelone, Genève, Florence…) passent devant les rues et
+  lieux-dits français du même nom.
+- **Boucles** : boutons GPX, lien, modifier et « Préparer ma course » dans la boucle choisie ; « D'autres boucles »
+  en haut de la liste.
+- **Créer une trace** : nom du parcours, GPX et plan de course juste sous la carte.
+- **GPX pour la montre** : les lieux sont posés sur le tracé, pour que la montre prévienne bien à leur approche.
+
 ## v1.1.0 — 2026-11-07
 
 - **Nouvelle carte** : fond de carte Alpast servi par notre serveur (plus de tuiles OpenStreetMap), plus fluide,
