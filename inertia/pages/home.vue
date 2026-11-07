@@ -105,7 +105,7 @@
       </div>
 
       <p class="account-note">
-        <strong>Sans compte</strong>, rien ne quitte ton navigateur. <strong>Avec un compte</strong>, tes plans te suivent partout.
+        <strong>Sans compte</strong>, rien ne quitte ton navigateur. <strong>Avec un compte</strong>, tes plans et tes boucles favorites te suivent partout.
       </p>
     </section>
 
