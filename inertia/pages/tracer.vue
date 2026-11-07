@@ -95,6 +95,12 @@
             <span class="stat"><strong>−{{ profile ? Math.round(profile.loss) : 0 }}</strong> m</span>
           </div>
         </div>
+        <!-- Juste sous la carte : visibles sans descendre sous le profil -->
+        <div class="finish-actions">
+          <button class="btn" type="button" :disabled="!track || pending" @click="download"><Icon name="download" :size="17" />Télécharger le GPX</button>
+          <button class="btn ghost" type="button" :disabled="!track || pending" @click="useForPlan">Préparer ma course<Icon name="arrow" :size="17" /></button>
+          <span v-if="!track" class="finish-hint">Pose au moins deux points sur la carte pour continuer.</span>
+        </div>
 
         <div v-if="tracePois.length" class="pois">
           <span class="pois-title">Lieux du parcours</span>
@@ -144,11 +150,6 @@
             <input v-model="name" type="text" placeholder="Mon parcours">
           </span>
         </label>
-        <div class="finish-actions">
-          <button class="btn ghost" type="button" :disabled="!track || pending" @click="download"><Icon name="download" :size="17" />Télécharger le GPX</button>
-          <button class="btn" type="button" :disabled="!track || pending" @click="useForPlan">Préparer ma course<Icon name="arrow" :size="17" /></button>
-        </div>
-        <p v-if="!track" class="finish-hint">Pose au moins deux points sur la carte pour continuer.</p>
       </section>
     </div>
   </DefaultLayout>
@@ -541,10 +542,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .finish { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
 .finish .grow { flex: 1 1 260px; min-width: 0; }
 .finish .box input { flex: 1; min-width: 0; border: none; background: transparent; padding: 10px 0; font-size: 0.97rem; outline: none; }
-.finish-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.finish-actions .btn { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 18px; border-radius: 12px; font-size: 0.95rem; }
+.finish-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.finish-actions .btn { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-radius: 12px; font-size: 0.93rem; }
 .finish-actions .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.finish-hint { flex-basis: 100%; margin: -4px 0 0; font-size: 0.84rem; color: var(--text-dim); }
+.finish-hint { font-size: 0.84rem; color: var(--text-dim); }
 
 /* Écran étroit : la liste passe sous la carte, repliée derrière un bouton */
 @media (max-width: 900px) {
