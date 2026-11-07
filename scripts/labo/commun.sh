@@ -41,7 +41,8 @@ contour() {
 # Tuiles BRouter (carrés de 5°, nommés par leur coin sud-ouest : E5_N45, W10_N35) qui recouvrent le contour
 tuiles_brouter() {
   awk 'NR > 1 && NF == 2 && $1 !~ /^!/ { x = $1 + 0; y = $2 + 0
-         if (!n++ || x < x0) x0 = x; if (x > x1) x1 = x; if (n == 1 || y < y0) y0 = y; if (y > y1) y1 = y }
+         if (!n++) { x0 = x1 = x; y0 = y1 = y }
+         if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y }
        function f(v) { return v >= 0 ? int(v / 5) * 5 : -int((-v + 4.999999) / 5) * 5 }
        END { for (x = f(x0); x <= f(x1); x += 5) for (y = f(y0); y <= f(y1); y += 5)
                printf "%s%d_%s%d\n", x < 0 ? "W" : "E", x < 0 ? -x : x, y < 0 ? "S" : "N", y < 0 ? -y : y }' "$1"

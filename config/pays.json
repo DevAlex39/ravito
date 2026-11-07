@@ -60,6 +60,15 @@
     { "dossier": "nouvelle-zelande", "code": "nz", "continent": "oceanie", "geofabrik": "australia-oceania/new-zealand", "wikidata": "Q664", "langues": ["fr", "en"] },
 
     { "dossier": "canada", "code": "ca", "continent": "amerique-du-nord", "geofabrik": "north-america/canada", "wikidata": "Q16", "langues": ["fr", "en"] },
-    { "dossier": "etats-unis", "code": "us", "continent": "amerique-du-nord", "geofabrik": "north-america/us", "wikidata": "Q30", "langues": ["fr", "en"] }
+    { "dossier": "etats-unis", "code": "us", "continent": "amerique-du-nord", "geofabrik": "north-america/us", "wikidata": "Q30", "langues": ["fr", "en"] },
+
+    { "dossier": "reunion", "code": "re", "continent": "outre-mer", "geofabrik": "europe/france/reunion", "wikidata": null, "langues": ["fr", "en"] },
+    { "dossier": "mayotte", "code": "yt", "continent": "outre-mer", "geofabrik": "europe/france/mayotte", "wikidata": null, "langues": ["fr", "en"] },
+    { "dossier": "guadeloupe", "code": "gp", "continent": "outre-mer", "geofabrik": "europe/france/guadeloupe", "wikidata": null, "langues": ["fr", "en"] },
+    { "dossier": "martinique", "code": "mq", "continent": "outre-mer", "geofabrik": "europe/france/martinique", "wikidata": null, "langues": ["fr", "en"] },
+    { "dossier": "guyane", "code": "gf", "continent": "outre-mer", "geofabrik": "europe/france/guyane", "wikidata": null, "langues": ["fr", "en"] },
+    { "dossier": "nouvelle-caledonie", "code": "nc", "continent": "outre-mer", "geofabrik": "australia-oceania/new-caledonia", "wikidata": null, "langues": ["fr", "en"] },
+    { "dossier": "polynesie-francaise", "code": "pf", "continent": "outre-mer", "geofabrik": "australia-oceania/polynesie-francaise", "wikidata": null, "langues": ["fr", "en"] },
+    { "dossier": "wallis-et-futuna", "code": "wf", "continent": "outre-mer", "geofabrik": "australia-oceania/wallis-et-futuna", "wikidata": null, "langues": ["fr", "en"] }
   ]
 }

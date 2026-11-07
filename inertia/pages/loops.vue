@@ -165,6 +165,13 @@
 
       <div class="layout" :class="{ split: loops.length }">
         <aside v-if="loops.length" class="side">
+          <!-- En tête de liste (sous la carte sur mobile) : visible sans descendre sous les boucles -->
+          <div class="side-head">
+            <span class="soft">{{ loops.length }} boucle{{ loops.length > 1 ? 's' : '' }} proposée{{ loops.length > 1 ? 's' : '' }}</span>
+            <button type="button" class="btn ghost small more-loops" :disabled="busy" title="Nouvelles boucles avec les mêmes réglages, différentes de celles déjà vues" @click="proposeMore">
+              <Icon name="refresh" :size="16" />D'autres boucles
+            </button>
+          </div>
           <template v-for="(loop, i) in loops" :key="i">
             <article v-if="i === selected" class="loop card active">
               <header class="loop-head">
@@ -199,9 +206,13 @@
                 </PickList>
               </div>
               <p v-if="surfaceText(loop)" class="soft">{{ surfaceText(loop) }}</p>
+              <!-- Actions de la boucle choisie, sous ses chiffres : visibles sans descendre sous la carte -->
               <div class="climb-row">
+                <button class="btn small" type="button" @click="download"><Icon name="download" :size="16" />GPX</button>
+                <button class="btn ghost small" type="button" @click="copyLink"><Icon name="link" :size="16" />{{ copied ? 'Copié ✓' : 'Lien' }}</button>
+                <button class="btn ghost small" type="button" @click="adjust"><Icon name="pencil" :size="16" />Modifier</button>
                 <button v-if="originals[i]" type="button" class="btn ghost small" :disabled="climbBusy" @click="restoreLoop(i)">
-                  <Icon name="undo" :size="16" />Revenir à l'itinéraire d'origine
+                  <Icon name="undo" :size="16" />Itinéraire d'origine
                 </button>
                 <button
                   v-else
@@ -246,6 +257,7 @@
                   <PoiDetail v-if="selectedStop" :poi="selectedStop" @close="selectedStop = null" />
                 </div>
               </template>
+              <button class="btn ghost plan-link" type="button" @click="useForPlan">Préparer ma course avec cette boucle <Icon name="arrow" :size="18" /></button>
             </article>
             <button v-else type="button" class="loop card" @click="selected = i">
               <span class="loop-head">
@@ -259,9 +271,6 @@
               <span v-if="surfaceText(loop)" class="soft">{{ surfaceText(loop) }}</span>
             </button>
           </template>
-          <button type="button" class="btn ghost more-loops" :disabled="busy" title="Nouvelles boucles avec les mêmes réglages, différentes de celles déjà vues" @click="proposeMore">
-            <Icon name="refresh" :size="18" />D'autres boucles
-          </button>
         </aside>
 
         <div class="main">
@@ -315,12 +324,6 @@
             <section v-if="profile" class="card profile">
               <ElevationProfile v-model:hover="hoverD" :profile="profile" :segments="segments" :markers="stopMarkers" :height="150" />
             </section>
-            <div class="finish-actions">
-              <button class="btn" type="button" @click="download"><Icon name="download" :size="18" />Télécharger le GPX</button>
-              <button class="btn ghost" type="button" @click="copyLink"><Icon name="link" :size="18" />{{ copied ? 'Lien copié ✓' : 'Copier le lien' }}</button>
-              <button class="btn ghost" type="button" @click="adjust"><Icon name="pencil" :size="18" />Modifier cette boucle</button>
-              <button class="btn ghost" type="button" @click="useForPlan">Préparer ma course avec cette boucle <Icon name="arrow" :size="18" /></button>
-            </div>
             <p class="disclaimer">
               Boucles calculées automatiquement à partir d'OpenStreetMap : vérifie l'état des chemins, les accès et la météo sur place.
               <Link href="/mentions-legales">En savoir plus</Link>
@@ -1210,7 +1213,6 @@ function useForPlan() {
   .layout.split .loop-tabs { order: 2; display: flex; gap: 6px; overflow-x: auto; padding: 4px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); scrollbar-width: none; }
   .layout.split .side { order: 3; flex: none; }
   .layout.split .profile { order: 4; }
-  .layout.split .finish-actions { order: 5; }
   .layout.split .disclaimer { order: 5; }
   .layout.split .shared { order: 6; }
   /* La barre remplace les fiches repliées des autres boucles */
@@ -1298,11 +1300,11 @@ button.loop:hover { border-color: var(--border-strong); }
   white-space: nowrap;
 }
 .profile { padding: 12px 14px; border-radius: 18px; }
-.more-loops { align-self: stretch; justify-content: center; border-radius: 14px; }
+.side-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.more-loops { color: var(--accent-strong); border-color: var(--accent-strong); }
 .disclaimer { font-size: 0.8rem; color: var(--text-soft); line-height: 1.45; }
 .disclaimer a { color: inherit; }
-.finish-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.finish-actions .btn { padding: 11px 18px; border-radius: 12px; font-size: 0.93rem; }
+.plan-link { justify-content: center; width: 100%; }
 
 .shared { display: flex; flex-direction: column; gap: 8px; border-radius: 18px; }
 .shared h2 { display: flex; align-items: center; gap: 8px; font-size: 1.35rem; margin: 0; }
