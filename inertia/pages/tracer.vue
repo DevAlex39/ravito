@@ -97,6 +97,10 @@
         </div>
         <!-- Juste sous la carte : visibles sans descendre sous le profil -->
         <div class="finish-actions">
+          <label class="box name-box" title="Nom du parcours (repris dans le fichier GPX)">
+            <Icon name="pencil" class="box-icon" />
+            <input v-model="name" type="text" placeholder="Nom du parcours" aria-label="Nom du parcours">
+          </label>
           <button class="btn" type="button" :disabled="!track || pending" @click="download"><Icon name="download" :size="17" />Télécharger le GPX</button>
           <button class="btn ghost" type="button" :disabled="!track || pending" @click="useForPlan">Préparer ma course<Icon name="arrow" :size="17" /></button>
           <span v-if="!track" class="finish-hint">Pose au moins deux points sur la carte pour continuer.</span>
@@ -140,16 +144,6 @@
 
       <section v-if="profile" class="card profile-card">
         <ElevationProfile v-model:hover="hoverD" :profile="profile" :segments="segments" :height="160" />
-      </section>
-
-      <section class="card finish">
-        <label class="field grow">
-          <span>Nom du parcours</span>
-          <span class="box">
-            <Icon name="pencil" class="box-icon" />
-            <input v-model="name" type="text" placeholder="Mon parcours">
-          </span>
-        </label>
       </section>
     </div>
   </DefaultLayout>
@@ -539,9 +533,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .notice { margin: 0; font-size: 0.85rem; color: var(--text-soft); }
 .notice.bad { color: var(--bad); }
 
-.finish { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
-.finish .grow { flex: 1 1 260px; min-width: 0; }
-.finish .box input { flex: 1; min-width: 0; border: none; background: transparent; padding: 10px 0; font-size: 0.97rem; outline: none; }
+.name-box { flex: 1 1 260px; min-width: 0; height: 42px; }
+.name-box input { flex: 1; min-width: 0; border: none; background: transparent; padding: 10px 0; font: inherit; font-size: 0.95rem; color: var(--text); outline: none; }
 .finish-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .finish-actions .btn { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-radius: 12px; font-size: 0.93rem; }
 .finish-actions .btn:disabled { opacity: 0.45; cursor: not-allowed; }
