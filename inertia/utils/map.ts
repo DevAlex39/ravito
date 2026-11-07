@@ -21,8 +21,8 @@ type Box = [number, number, number, number]
  * Fonds de carte du labo et leur emprise [ouest, sud, est, nord] : la carte ne charge que ceux de la zone affichée
  * (chaque fond ajoute ~80 calques, tous ensemble alourdiraient chaque carte). Le premier sert de fond par défaut.
  */
-const FONDS: Record<string, { file: string, box: Box }> = {
-  'europe': { file: 'europe/fond-de-carte/europe.pmtiles', box: [-32, 27, 70, 82] },
+const TOUS_FONDS: Record<string, { file: string, box: Box }> = {
+  'europe':{ file: 'europe/fond-de-carte/europe.pmtiles', box: [-32, 27, 70, 82] },
   'japon': { file: 'asie/japon/fond-de-carte/japon.pmtiles', box: [122, 20, 154, 46] },
   'coree-du-sud': { file: 'asie/coree-du-sud/fond-de-carte/coree-du-sud.pmtiles', box: [124, 33, 132, 39] },
   'taiwan': { file: 'asie/taiwan/fond-de-carte/taiwan.pmtiles', box: [118, 21, 123, 27] },
@@ -32,7 +32,17 @@ const FONDS: Record<string, { file: string, box: Box }> = {
   'nouvelle-zelande': { file: 'oceanie/nouvelle-zelande/fond-de-carte/nouvelle-zelande.pmtiles', box: [165, -48, 180, -34] },
   'canada': { file: 'amerique-du-nord/canada/fond-de-carte/canada.pmtiles', box: [-141, 41, -52, 84] },
   'etats-unis': { file: 'amerique-du-nord/etats-unis/fond-de-carte/etats-unis.pmtiles', box: [-180, 18, -66, 72] },
+  // Déjà compris dans « europe » : sert seul sur un serveur qui n'a que la France (VITE_CARTE_FONDS=france)
+  'france': { file: 'europe/france/fond-de-carte/france.pmtiles', box: [-5.5, 41, 10, 51.5] },
 }
+
+/**
+ * Fonds réellement présents là où VITE_CARTE_URL les sert : liste séparée par des virgules dans VITE_CARTE_FONDS
+ * (serveur : « france ») ; sans elle, tous les fonds du labo sauf « france », déjà couvert par « europe ».
+ */
+const CHOISIS = (import.meta.env.VITE_CARTE_FONDS ?? '').split(',').map((s: string) => s.trim()).filter((k: string) => k in TOUS_FONDS)
+const FONDS = Object.fromEntries(Object.entries(TOUS_FONDS)
+  .filter(([k]) => CHOISIS.length ? CHOISIS.includes(k) : k !== 'france'))
 
 const overlaps = (a: Box, b: Box) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3]
 

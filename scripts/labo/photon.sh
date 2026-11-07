@@ -48,7 +48,8 @@ case $1 in
   demarrer)
     zone "$2"
     cd "$DOSSIER_ADRESSES"
-    exec java -Xmx4g -jar "$jar" serve -data-dir "$DOSSIER_ADRESSES" -listen-ip 0.0.0.0 -listen-port "${3:-2322}" -cors-any
+    # Labo : ouvert à Windows (WSL ne relaie pas 127.0.0.1) ; serveur : PHOTON_ECOUTE=127.0.0.1 PHOTON_MEMOIRE=2g
+    exec java -Xmx"${PHOTON_MEMOIRE:-4g}" -jar "$jar" serve -data-dir "$DOSSIER_ADRESSES" -listen-ip "${PHOTON_ECOUTE:-0.0.0.0}" -listen-port "${3:-2322}" -cors-any
     ;;
   *)
     echo "Usage : photon.sh telecharger|demarrer <zone> [port]" >&2

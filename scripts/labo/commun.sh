@@ -3,7 +3,8 @@
 #   ~/alpast-data/<continent>/<pays>/{source,lieux,fond-de-carte,fiches,adresses}
 #   ~/alpast-data/monde/itineraires/  BRouter et sa réserve de tuiles (des carrés de 5° qui chevauchent les frontières)
 # Les pays sont décrits dans config/pays.json (lu aussi par les imports du site).
-DATA=~/alpast-data
+# Sur le serveur : ALPAST_DATA=~/alpas-data/donnees
+DATA=${ALPAST_DATA:-$HOME/alpast-data}
 ITINERAIRES=$DATA/monde/itineraires
 DEPOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 
