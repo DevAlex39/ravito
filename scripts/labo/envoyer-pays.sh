@@ -33,11 +33,13 @@ infos=$(cd "$depot" && node -e "
 
 echo "== Fiches exportées du labo"
 fiches=$(mktemp -u -t fiches-XXXX).jsonl.gz
-(cd "$depot" && node ace fiches:exporter "$fiches" "$@" | tail -1)
+# Node (Windows) veut un chemin Windows, scp le chemin Git Bash
+(cd "$depot" && node ace fiches:exporter "$(cygpath -w "$fiches")" "$@" | tail -1)
 scp -q "$fiches" "$VPS:alpas-data/fiches-envoi.jsonl.gz"
 rm -f "$fiches"
 
-while read -r dossier code continent base wikidata; do
+# La liste passe par le descripteur 3 : ssh et wsl lisent l'entrée standard et la videraient
+while read -r -u 3 dossier code continent base wikidata; do
   rel=$continent/$dossier
   echo "== $dossier : fichiers"
   wsl -d Ubuntu --exec tar -C /home/alexis/alpast-data -cf - \
@@ -58,7 +60,7 @@ while read -r dossier code continent base wikidata; do
   ssh "$VPS" "source ~/.nvm/nvm.sh >/dev/null && nvm use 24 >/dev/null && cd $app/build && \
     nice node ace import:lieux ~/alpas-data/donnees/$rel/lieux/$dossier-lieux.geojsonseq ~/alpas-data/donnees/$rel/source/$base.poly --pays=$code 2>&1 | tail -3 && \
     if [ $wikidata = oui ]; then nice node ace import:wikidata --pays=$dossier 2>&1 | tail -2; fi"
-done <<< "$infos"
+done 3<<< "$infos"
 
 echo "== Fiches ($site)"
 ssh "$VPS" "source ~/.nvm/nvm.sh >/dev/null && nvm use 24 >/dev/null && cd $app/build && node ace fiches:charger ~/alpas-data/fiches-envoi.jsonl.gz 2>&1 | tail -1"
