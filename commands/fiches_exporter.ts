@@ -23,6 +23,7 @@ export default class FichesExporter extends BaseCommand {
   declare pays: string[]
 
   async run() {
+    const LINE_SEPARATORS = new RegExp(`[${String.fromCharCode(0x85, 0x2028, 0x2029)}]`, 'g')
     const countries = this.pays.map(p => ({ p, c: countryNamed(p) }))
     const unknown = countries.filter(x => !x.c).map(x => x.p)
     if (unknown.length) {
@@ -32,8 +33,10 @@ export default class FichesExporter extends BaseCommand {
     }
     const gz = createGzip()
     const out = gz.pipe(createWriteStream(this.fichier))
+    // Séparateurs de ligne Unicode laissés tels quels par JSON.stringify : la relecture ligne par ligne y couperait
     const write = async (line: string) => {
-      if (!gz.write(line + '\n')) await once(gz, 'drain')
+      const safe = line.replace(LINE_SEPARATORS, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)
+      if (!gz.write(safe + '\n')) await once(gz, 'drain')
     }
     for (const { p, c } of countries) {
       const { code, continent, dossier } = c!

@@ -26,6 +26,7 @@ export default class FichesCharger extends BaseCommand {
     const knex = db.connection().getWriteClient()
     const pending: Record<string, Record<string, unknown>[]> = { place_cards: [], place_photos: [] }
     const counts: Record<string, number> = { place_cards: 0, place_photos: 0 }
+    let bad = 0
     const flush = async (table: string) => {
       const rows = pending[table]!
       if (!rows.length) return
@@ -37,7 +38,15 @@ export default class FichesCharger extends BaseCommand {
     const lines = createInterface({ input: createReadStream(this.fichier).pipe(createGunzip()), crlfDelay: Infinity })
     for await (const line of lines) {
       if (!line) continue
-      const { table, row } = JSON.parse(line) as { table: string, row: Record<string, unknown> }
+      let parsed: { table: string, row: Record<string, unknown> }
+      try {
+        parsed = JSON.parse(line)
+      }
+      catch {
+        bad++
+        continue
+      }
+      const { table, row } = parsed
       const spec = TABLES[table]
       if (!spec) continue
       // Seules les colonnes connues ; dates relues depuis le texte JSON
@@ -47,6 +56,7 @@ export default class FichesCharger extends BaseCommand {
       if (pending[table]!.length >= 500) await flush(table)
     }
     for (const table of Object.keys(pending)) await flush(table)
+    if (bad) this.logger.warning(`${bad} lignes illisibles ignorées`)
     this.logger.success(`Fiches chargées : ${counts.place_cards} textes, ${counts.place_photos} photos`)
   }
 }
