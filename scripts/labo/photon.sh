@@ -14,6 +14,9 @@ zone() {
     japon) DOSSIER_ADRESSES=$DATA/asie/japon/adresses; FICHIER=asia/japan/photon-db-japan-1.0-latest.tar.bz2 ;;
     france) DOSSIER_ADRESSES=$DATA/europe/france/adresses; FICHIER=europe/france-monacco/photon-db-france-monacco-1.0-latest.tar.bz2 ;;
     europe) DOSSIER_ADRESSES=$DATA/europe/adresses; FICHIER=europe/photon-db-europe-1.0-latest.tar.bz2 ;;
+    # France et voisins (it, es, be, ch, lu, mc, ad, li, sm, va), importée de l'export brut Europe filtré par pays :
+    # demarrer seulement (base construite dans le labo, voir README) ; c'est celle du serveur
+    voisins) DOSSIER_ADRESSES=$DATA/europe/adresses-voisins; FICHIER= ;;
     # Le monde entier (~63 Go à télécharger, ~150 à 200 Go décompressé) : un seul Photon pour tous les pays
     monde) DOSSIER_ADRESSES=$DATA/monde/adresses; FICHIER=photon-db-planet-1.0-latest.tar.bz2 ;;
     *) echo "Zone inconnue : $1" >&2; exit 1 ;;

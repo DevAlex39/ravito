@@ -122,27 +122,43 @@ export async function suggestPlaces(query: string, signal?: AbortSignal): Promis
   const towns = [...sure, ...communes, ...unsure].filter(fresh).slice(0, 3)
   const french = [...towns, ...all.map(fromBan).filter(fresh)]
   // Photon : seulement les lieux hors de France (la BAN fait mieux en France)
-  const foreign = abroad.filter(p => p.country !== 'fr').map(plain).filter(fresh)
+  const abroadOnly = abroad.filter(p => p.country !== 'fr')
+  // Ville étrangère au nom exact (« barcelone ») sans commune française du même nom : en tête,
+  // devant Barcelonne (Drôme) et la rue de Barcelone du Var
+  const exact = (p: PlaceSuggestion) => simplify(p.name) === simplify(q)
+  const exactAbroad = towns.some(exact) ? [] : abroadOnly.filter(p => p.isTown && exact(p)).map(plain).filter(fresh)
+  const foreign = abroadOnly.map(plain).filter(fresh)
   // Rien de convaincant en France (« kyoto », « Brandenburger Tor ») : l'étranger passe devant
   const frenchIsSure = sure.length > 0 || communes.length > 0 || all.some(f => f.properties.score >= 0.6)
-  return (frenchIsSure ? [...french, ...foreign] : [...foreign, ...french]).slice(0, 6)
+  return [...exactAbroad, ...(frenchIsSure ? [...french, ...foreign] : [...foreign, ...french])].slice(0, 6)
 }
 
 /**
- * Lieu tapé puis validé sans choisir de suggestion : la meilleure adresse française si elle est
- * convaincante, sinon notre Photon (lieux à l'étranger, noms de sites…), sinon Nominatim.
+ * Lieu tapé puis validé sans choisir de suggestion (ou départ donné dans l'adresse de la page) :
+ * une commune française, sinon une ville à l'étranger de notre Photon, sinon la meilleure adresse
+ * française si elle est convaincante, sinon Photon (noms de sites…), sinon Nominatim.
+ * La BAN donne toujours un résultat très sûr pour un nom de ville étrangère : « Barcelone » est une rue
+ * du Var, « Genève » un lieu-dit de l'Aveyron. Seule une commune française passe donc avant l'étranger.
  */
 export async function searchPlace(query: string): Promise<PlaceSuggestion | null> {
   const q = query.trim()
-  try {
-    const res = await fetch(`${BAN_URL}?q=${encodeURIComponent(q)}&limit=1`)
-    const [first] = res.ok ? ((await res.json()) as { features?: BanFeature[] }).features ?? [] : []
-    if (first && first.properties.score >= 0.6) return townCenter(fromBan(first))
+  const ban = async (): Promise<BanFeature | undefined> => {
+    try {
+      const res = await fetch(`${BAN_URL}?q=${encodeURIComponent(q)}&limit=1`)
+      return res.ok ? ((await res.json()) as { features?: BanFeature[] }).features?.[0] : undefined
+    }
+    catch {
+      // Géoplateforme indisponible : Photon ou Nominatim prend le relais
+      return undefined
+    }
   }
-  catch {
-    // Géoplateforme indisponible : Photon ou Nominatim prend le relais
-  }
-  const [hit] = await photon(q)
+  const [first, hits] = await Promise.all([ban(), photon(q)])
+  const sure = first && first.properties.score >= 0.6 ? first : undefined
+  if (sure?.properties.type === 'municipality') return townCenter(fromBan(sure))
+  const town = hits.find(p => p.isTown)
+  if (town && town.country !== 'fr') return plain(town)
+  if (sure) return townCenter(fromBan(sure))
+  const [hit] = hits
   if (hit) return plain(hit)
   const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=fr&q=${encodeURIComponent(q)}`)
   if (!res.ok) return null
